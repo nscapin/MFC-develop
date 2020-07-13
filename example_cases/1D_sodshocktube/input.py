@@ -9,7 +9,7 @@ dx      = 1./(1.*(Nx+1))
 #Nt      = 1000
 
 Tend    = 0.0001
-Nt      = 1
+Nt      = 3
 mydt    = Tend/(1.*Nt)
 
 # Command to navigate between directories

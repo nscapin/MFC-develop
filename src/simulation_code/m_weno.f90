@@ -793,11 +793,9 @@ MODULE m_weno
 
             REAL(KIND(0d0)) :: neural_net, same_R, same_L, first
 
-            INTEGER :: ii
-
             ! END: ome other WENO-NN related variables ===
 
-            INTEGER :: i,j,k,l,q !< Generic loop iterators
+            INTEGER :: i,j,k,l,q,ii !< Generic loop iterators
 
 
             ! Reshaping and/or projecting onto characteristic fields inputted
@@ -1069,61 +1067,61 @@ MODULE m_weno
                                     C1(4,0) = -1/6*omega_L(2)
 
                                     ! Now we can do the neural network. Are the matrices oriented the right way?
-                                    A1 = reshape((/-0.94130915, -0.32270527, -0.06769955, &
+                                    A1 = RESHAPE((/-0.94130915, -0.32270527, -0.06769955, &
                                            -0.37087336, -0.05059665,  0.55401474, &
                                             0.40815187, -0.5602299 , -0.01871526, &
                                             0.56200236, -0.5348897 , -0.04091108, &
                                            -0.6982639 , -0.49512517,  0.52821904/), (/ 5,3/))
-                                    b1 = reshape((/-0.04064859,  0.        ,  0.        /) , (/3,1/))
+                                    b1 = RESHAPE((/-0.04064859,  0.        ,  0.        /) , (/3,1/))
 
-                                    C2 = matmul(transpose(A1), C1) + b1
+                                    C2 = MATMUL(TRANSPOSE(A1), C1) + b1
                                     DO ii = 0 ,4, 1
                                         IF (C2(II,0) < 0) THEN! Relu activation
                                             C2(II,0) = 0
                                         END IF
                                     END DO
 
-                                    A2 = reshape((/ 0.07149544, 0.9637294 , 0.41981453, &
+                                    A2 = RESHAPE((/ 0.07149544, 0.9637294 , 0.41981453, &
                                             0.75602794,-0.0222342 ,-0.95690656, &
                                             0.07406807,-0.41880417,-0.4687035/), (/ 3,3/))
-                                    b2 = reshape((/-0.0836111 ,-0.00330033,-0.01930024/),(/3,1/))
+                                    b2 = RESHAPE((/-0.0836111 ,-0.00330033,-0.01930024/),(/3,1/))
 
-                                    C3 = matmul(transpose(A2), C2) + b2
+                                    C3 = MATMUL(TRANSPOSE(A2), C2) + b2
                                     DO ii = 0 ,4, 1
                                         IF (C3(II,0) < 0) THEN! Relu activation
                                             C3(II,0) = 0
                                         END IF
                                     END DO
 
-                                    A3 = reshape((/ 0.8568574 , -0.5809458 ,  0.04762125, &
+                                    A3 = RESHAPE((/ 0.8568574 , -0.5809458 ,  0.04762125, &
                                            -0.26066098, -0.23142155, -0.6449008 , &
                                             0.7623346 ,  0.81388015, -0.03217626/), (/3,3/))
-                                    b3 = reshape((/-0.0133561 , -0.05374921,  0.        /), (/3,1/))
+                                    b3 = RESHAPE((/-0.0133561 , -0.05374921,  0.        /), (/3,1/))
 
-                                    C4 = matmul(transpose(A3), C3) + b3
+                                    C4 = MATMUL(TRANSPOSE(A3), C3) + b3
                                     DO ii = 0 ,4, 1
                                         IF (C4(II,0) < 0) THEN! Relu activation
                                             C4(II,0) = 0
                                         END IF
                                     END DO
 
-                                    A4 = reshape((/-0.2891752 , -0.53783405, -0.17556567, -0.7775279 ,  0.69957024, &
+                                    A4 = RESHAPE((/-0.2891752 , -0.53783405, -0.17556567, -0.7775279 ,  0.69957024, &
                                            -0.12895434,  0.13607207,  0.12294354,  0.29842544, -0.00198237, &
                                             0.5356503 ,  0.09317833,  0.5135357 , -0.32794708,  0.13765627/), (/3,5/))
-                                    b4 = reshape((/ 0.00881096,  0.01138764,  0.00464343,  0.0070305 , -0.01644066/), (/5,1/))
+                                    b4 = RESHAPE((/ 0.00881096,  0.01138764,  0.00464343,  0.0070305 , -0.01644066/), (/5,1/))
 
-                                    dc = matmul(transpose(A4), C4) + b4
+                                    dc = MATMUL(TRANSPOSE(A4), C4) + b4
                                     ct = c1 - dc
 
                                     ! Project the coefficients onto the space of consistent schemes
-                                    Ac = reshape((/-0.2, -0.2, -0.2, -0.2, -0.2, &
+                                    Ac = RESHAPE((/-0.2, -0.2, -0.2, -0.2, -0.2, &
                                            -0.2, -0.2, -0.2, -0.2, -0.2, &
                                            -0.2, -0.2, -0.2, -0.2, -0.2, &
                                            -0.2, -0.2, -0.2, -0.2, -0.2, &
                                            -0.2, -0.2, -0.2, -0.2, -0.2/), (/5,5/))
-                                    bc = reshape((/0.2, 0.2, 0.2, 0.2, 0.2/), (/5,1/))
+                                    bc = RESHAPE((/0.2, 0.2, 0.2, 0.2, 0.2/), (/5,1/))
 
-                                    dc2 = matmul(transpose(Ac), ct) + bc
+                                    dc2 = MATMUL(TRANSPOSE(Ac), ct) + bc
                                     CL = ct + dc2! The final left coefficients
                                 END IF
 
@@ -1174,33 +1172,37 @@ MODULE m_weno
                                     C1(4,0) = 1/6*omega_R(2)
 
                                     ! Now we can do the neural network. Are the matrices oriented the right way?
-                                    C2 = matmul(transpose(A1), C1) + b1
-                                    DO ii = 0 ,4, 1
-                                        IF (C2(ii,0) < 0) THEN! Relu activation
+                                    C2 = MATMUL(TRANSPOSE(A1), C1) + b1
+                                    DO ii = 0,4
+                                        IF (C2(ii,0) < 0) THEN
+                                            ! Relu activation
                                             C2(ii,0) = 0
                                         END IF
                                     END DO
 
-                                    C3 = matmul(transpose(A2), C2) + b2
-                                    DO ii = 0 ,4, 1
-                                        IF (C3(ii,0) < 0) THEN! Relu activation
+                                    C3 = MATMUL(TRANSPOSE(A2), C2) + b2
+                                    DO ii = 0,4
+                                        IF (C3(ii,0) < 0) THEN
+                                            ! Relu activation
                                             C3(ii,0) = 0
                                         END IF
                                     END DO
 
-                                    C4 = matmul(transpose(A3), C3) + b3
-                                    DO ii = 0 ,4, 1
-                                        IF (C4(ii,0) < 0) THEN! Relu activation
+                                    C4 = MATMUL(TRANSPOSE(A3), C3) + b3
+                                    DO ii = 0,4
+                                        IF (C4(ii,0) < 0) THEN
+                                            ! Relu activation
                                             C4(ii,0) = 0
                                         END IF
                                     END DO
 
-                                    dc = matmul(transpose(A4), C4) + b4
+                                    dc = MATMUL(TRANSPOSE(A4), C4) + b4
                                     ct = C1 - dc
 
                                     ! Project the coefficients onto the space of consistent schemes
-                                    dc2 = matmul(transpose(Ac), ct) + bc
-                                    CR = ct + dc2! The final right coefficients
+                                    dc2 = MATMUL(TRANSPOSE(Ac), ct) + bc
+                                    ! The final right coefficients
+                                    CR = ct + dc2 
                                     IF (first == 1 .AND. same_R == 0) THEN
                                         PRINT *, 'beta', beta
                                         PRINT *, 'omega_R', omega_R
