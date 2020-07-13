@@ -1,27 +1,27 @@
 !!       __  _______________
 !!      /  |/  / ____/ ____/
-!!     / /|_/ / /_  / /     
-!!    / /  / / __/ / /___   
-!!   /_/  /_/_/    \____/   
-!!                       
+!!     / /|_/ / /_  / /
+!!    / /  / / __/ / /___
+!!   /_/  /_/_/    \____/
+!!
 !!  This file is part of MFC.
 !!
-!!  MFC is the legal property of its developers, whose names 
-!!  are listed in the copyright file included with this source 
+!!  MFC is the legal property of its developers, whose names
+!!  are listed in the copyright file included with this source
 !!  distribution.
 !!
 !!  MFC is free software: you can redistribute it and/or modify
-!!  it under the terms of the GNU General Public License as published 
-!!  by the Free Software Foundation, either version 3 of the license 
+!!  it under the terms of the GNU General Public License as published
+!!  by the Free Software Foundation, either version 3 of the license
 !!  or any later version.
 !!
 !!  MFC is distributed in the hope that it will be useful,
 !!  but WITHOUT ANY WARRANTY; without even the implied warranty of
 !!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 !!  GNU General Public License for more details.
-!!  
+!!
 !!  You should have received a copy of the GNU General Public License
-!!  along with MFC (LICENSE).  
+!!  along with MFC (LICENSE).
 !!  If not, see <http://www.gnu.org/licenses/>.
 
 !>
@@ -41,21 +41,21 @@
 !!              that the basic WENO approach is implemented according to the work
 !!              of Jiang and Shu (1996).
 MODULE m_weno
-    
-    
+
+
     ! Dependencies =============================================================
     USE m_derived_types        !< Definitions of the derived types
-    
+
     USE m_global_parameters    !< Definitions of the global parameters
-    
+
     USE m_variables_conversion !< State variables type conversion procedures
     ! ==========================================================================
-    
-    
+
+
     IMPLICIT NONE
-    
+
     PRIVATE; PUBLIC :: s_initialize_weno_module, s_weno, s_finalize_weno_module
-    
+
     !> @name The cell-average variables that will be WENO-reconstructed. Formerly, they
     !! are stored in v_vf. However, they are transferred to v_rs_wsL and v_rs_wsR
     !! as to be reshaped (RS) and/or characteristically decomposed. The reshaping
@@ -66,18 +66,18 @@ MODULE m_weno
     !> @{
     TYPE(vector_field), ALLOCATABLE, DIMENSION(:) :: v_rs_wsL, v_rs_wsR
     !> @}
-  
+
     !> @name Left and right WENO-reconstructed values of the cell-average variables.
     !! Note that the reshaped property of the variables from which these were
     !! obtained, v_rs_wsL and v_rs_wsR, is initially kept. Once the reshaping
     !! is undone, the reconstructed values are moved into vL_vf and vR_vf.
     !> @{
-    TYPE(scalar_field), ALLOCATABLE, DIMENSION(:) :: vL_rs_vf, vR_rs_vf 
+    TYPE(scalar_field), ALLOCATABLE, DIMENSION(:) :: vL_rs_vf, vR_rs_vf
     !> @}
-     
-    
+
+
     ! WENO Coefficients ========================================================
-   
+
 
     !> @name Polynomial coefficients at the left and right cell-boundaries (CB) and at
     !! the left and right quadrature points (QP), in the x-, y- and z-directions.
@@ -91,14 +91,14 @@ MODULE m_weno
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:,:) :: poly_coef_qpL_x
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:,:) :: poly_coef_qpL_y
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:,:) :: poly_coef_qpL_z
-    
+
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:,:) :: poly_coef_cbR_x
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:,:) :: poly_coef_cbR_y
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:,:) :: poly_coef_cbR_z
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:,:) :: poly_coef_qpR_x
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:,:) :: poly_coef_qpR_y
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:,:) :: poly_coef_qpR_z
-    
+    !
     REAL(KIND(0d0)), POINTER, DIMENSION(:,:,:) :: poly_coef_L => NULL()
     REAL(KIND(0d0)), POINTER, DIMENSION(:,:,:) :: poly_coef_R => NULL()
     !> @}
@@ -114,14 +114,14 @@ MODULE m_weno
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:) :: d_qpL_x
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:) :: d_qpL_y
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:) :: d_qpL_z
-    
+
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:) :: d_cbR_x
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:) :: d_cbR_y
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:) :: d_cbR_z
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:) :: d_qpR_x
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:) :: d_qpR_y
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:) :: d_qpR_z
-    
+
     REAL(KIND(0d0)), POINTER, DIMENSION(:,:) :: d_L => NULL()
     REAL(KIND(0d0)), POINTER, DIMENSION(:,:) :: d_R => NULL()
     !> @}
@@ -134,161 +134,159 @@ MODULE m_weno
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:,:) :: beta_coef_x
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:,:) :: beta_coef_y
     REAL(KIND(0d0)), TARGET , ALLOCATABLE, DIMENSION(:,:,:) :: beta_coef_z
-    
+
     REAL(KIND(0d0)), POINTER, DIMENSION(:,:,:) :: beta_coef => NULL()
     !> @}
 
     ! END: WENO Coefficients ===================================================
-    
-    
 
     INTEGER :: v_size !< Number of WENO-reconstructed cell-average variables
-    
+
     !> @name Indical bounds in the s1-, s2- and s3-directions
     !> @{
     TYPE(bounds_info) :: is1,is2,is3
     !> @}
-    
+
     CONTAINS
-        
-        
-        
-        
+
+
+
+
         !>  The computation of parameters, the allocation of memory,
         !!      the association of pointers and/or the execution of any
-        !!      other procedures that are necessary to setup the module.        
+        !!      other procedures that are necessary to setup the module.
         SUBROUTINE s_initialize_weno_module() ! --------------------------------
 
             TYPE(bounds_info) :: ix,iy,iz !< Indical bounds in the x-, y- and z-directions
-            
-            
+
+
             IF(weno_order == 1) RETURN
-            
-            
+
+
             ! Allocating WENO-stencil for the variables to be WENO-reconstructed
             ALLOCATE(v_rs_wsL(-weno_polyn:weno_polyn))
             ALLOCATE(v_rs_wsR(-weno_polyn:weno_polyn))
-            
-            
+
+
             ! Allocating/Computing WENO Coefficients in x-direction ============
             ix%beg = -buff_size + weno_polyn; ix%end = m - ix%beg
-            
+
             ALLOCATE(poly_coef_cbL_x(    0   :  weno_polyn , &
                                          0   : weno_polyn-1, &
                                       ix%beg :    ix%end    ))
             ALLOCATE(poly_coef_cbR_x(    0   :  weno_polyn , &
                                          0   : weno_polyn-1, &
                                       ix%beg :    ix%end    ))
-            
+
             ALLOCATE(d_cbL_x(0:weno_polyn,ix%beg:ix%end))
             ALLOCATE(d_cbR_x(0:weno_polyn,ix%beg:ix%end))
-            
+
             ALLOCATE(beta_coef_x(    0   :    weno_polyn   , &
                                      0   : 2*(weno_polyn-1), &
                                   ix%beg :      ix%end      ))
-            
+
             CALL s_compute_weno_coefficients(1,1,ix)
-            
+
             IF(commute_err .OR. split_err) THEN
-                
+
                 ALLOCATE(poly_coef_qpL_x(    0   :  weno_polyn , &
                                              0   : weno_polyn-1, &
                                           ix%beg :    ix%end    ))
                 ALLOCATE(poly_coef_qpR_x(    0   :  weno_polyn , &
                                              0   : weno_polyn-1, &
                                           ix%beg :    ix%end    ))
-                
+
                 ALLOCATE(d_qpL_x(0:weno_polyn,ix%beg:ix%end))
                 ALLOCATE(d_qpR_x(0:weno_polyn,ix%beg:ix%end))
-                
+
                 CALL s_compute_weno_coefficients(1,2,ix)
-                
+
             END IF
             ! ==================================================================
-            
-            
+
+
             ! Allocating/Computing WENO Coefficients in y-direction ============
             IF(n == 0) RETURN
-            
+
             iy%beg = -buff_size + weno_polyn; iy%end = n - iy%beg
-            
+
             ALLOCATE(poly_coef_cbL_y(    0   :  weno_polyn , &
                                          0   : weno_polyn-1, &
                                       iy%beg :    iy%end    ))
             ALLOCATE(poly_coef_cbR_y(    0   :  weno_polyn , &
                                          0   : weno_polyn-1, &
                                       iy%beg :    iy%end    ))
-            
+
             ALLOCATE(d_cbL_y(0:weno_polyn,iy%beg:iy%end))
             ALLOCATE(d_cbR_y(0:weno_polyn,iy%beg:iy%end))
-            
+
             ALLOCATE(beta_coef_y(    0   :    weno_polyn   , &
                                      0   : 2*(weno_polyn-1), &
                                   iy%beg :      iy%end      ))
-            
+
             CALL s_compute_weno_coefficients(2,1,iy)
-            
+
             IF(commute_err .OR. split_err) THEN
-                
+
                 ALLOCATE(poly_coef_qpL_y(    0   :  weno_polyn , &
                                              0   : weno_polyn-1, &
                                           iy%beg :    iy%end    ))
                 ALLOCATE(poly_coef_qpR_y(    0   :  weno_polyn , &
                                              0   : weno_polyn-1, &
                                           iy%beg :    iy%end    ))
-                
+
                 ALLOCATE(d_qpL_y(0:weno_polyn,iy%beg:iy%end))
                 ALLOCATE(d_qpR_y(0:weno_polyn,iy%beg:iy%end))
-                
+
                 CALL s_compute_weno_coefficients(2,2,iy)
-                
+
             END IF
             ! ==================================================================
-            
-            
+
+
             ! Allocating/Computing WENO Coefficients in z-direction ============
             IF(p == 0) RETURN
-            
+
             iz%beg = -buff_size + weno_polyn; iz%end = p - iz%beg
-            
+
             ALLOCATE(poly_coef_cbL_z(    0   :  weno_polyn , &
                                          0   : weno_polyn-1, &
                                       iz%beg :    iz%end    ))
             ALLOCATE(poly_coef_cbR_z(    0   :  weno_polyn , &
                                          0   : weno_polyn-1, &
                                       iz%beg :    iz%end    ))
-            
+
             ALLOCATE(d_cbL_z(0:weno_polyn,iz%beg:iz%end))
             ALLOCATE(d_cbR_z(0:weno_polyn,iz%beg:iz%end))
-            
+
             ALLOCATE(beta_coef_z(    0   :    weno_polyn   , &
                                      0   : 2*(weno_polyn-1), &
                                   iz%beg :      iz%end      ))
-            
+
             CALL s_compute_weno_coefficients(3,1,iz)
-            
+
             IF(commute_err .OR. split_err) THEN
-                
+
                 ALLOCATE(poly_coef_qpL_z(    0   :  weno_polyn , &
                                              0   : weno_polyn-1, &
                                           iz%beg :    iz%end    ))
                 ALLOCATE(poly_coef_qpR_z(    0   :  weno_polyn , &
                                              0   : weno_polyn-1, &
                                           iz%beg :    iz%end    ))
-                
+
                 ALLOCATE(d_qpL_z(0:weno_polyn,iz%beg:iz%end))
                 ALLOCATE(d_qpR_z(0:weno_polyn,iz%beg:iz%end))
-                
+
                 CALL s_compute_weno_coefficients(3,2,iz)
-                
+
             END IF
             ! ==================================================================
-            
-            
+
+
         END SUBROUTINE s_initialize_weno_module ! ------------------------------
-        
-        
-        
+
+
+
         !>  The purpose of this subroutine is to compute the grid
         !!      dependent coefficients of the WENO polynomials, ideal
         !!      weights and smoothness indicators, provided the order,
@@ -298,27 +296,27 @@ MODULE m_weno
         !! @param weno_loc Location of the WENO reconstruction
         !! @param is Index bounds in the s-direction
         SUBROUTINE s_compute_weno_coefficients(weno_dir, weno_loc, is) ! -------
-            
-            
+
+
             INTEGER, INTENT(IN) :: weno_dir, weno_loc
             TYPE(bounds_info), INTENT(IN) :: is
             INTEGER :: s
-            
+
 
             REAL(KIND(0d0)), POINTER, DIMENSION(:) :: s_cb => NULL() !<
             !! Cell-boundary locations in the s-direction
-            
+
 
             TYPE(bounds_info) :: bc_s !< Boundary conditions (BC) in the s-direction
-            
+
 
             INTEGER :: i !< Generic loop iterator
-            
-            
+
+
             ! Associating WENO coefficients pointers
             CALL s_associate_weno_coefficients_pointers(weno_dir, weno_loc)
-            
-            
+
+
             ! Determining the number of cells, the cell-boundary locations and
             ! the boundary conditions in the coordinate direction selected for
             ! the WENO reconstruction
@@ -329,65 +327,65 @@ MODULE m_weno
             ELSE
                 s = p; s_cb => z_cb; bc_s = bc_z
             END IF
-            
-            
+
+
             ! Computing WENO3 Coefficients =====================================
             IF(weno_order == 3) THEN
-                
+
                 IF(weno_loc == 1) THEN              ! Cell-boundaries
-                    
+
                     DO i = is%beg-1, is%end-1
-                        
+
                         poly_coef_R(0,0,i+1) = (s_cb( i )-s_cb(i+1)) / &
                                                (s_cb( i )-s_cb(i+2))
                         poly_coef_R(1,0,i+1) = (s_cb( i )-s_cb(i+1)) / &
                                                (s_cb(i-1)-s_cb(i+1))
-                        
+
                         poly_coef_L(0,0,i+1) = -poly_coef_R(0,0,i+1)
                         poly_coef_L(1,0,i+1) = -poly_coef_R(1,0,i+1)
-                        
+
                         d_R(0,i+1) = (s_cb(i-1)-s_cb(i+1)) / &
                                      (s_cb(i-1)-s_cb(i+2))
                         d_L(0,i+1) = (s_cb(i-1)-s_cb( i )) / &
                                      (s_cb(i-1)-s_cb(i+2))
-                        
+
                         d_R(1,i+1) = 1d0 - d_R(0,i+1)
                         d_L(1,i+1) = 1d0 - d_L(0,i+1)
-                        
+
                         beta_coef(0,0,i+1) = 4d0*(s_cb( i )-s_cb(i+1))**2d0 / &
                                                  (s_cb( i )-s_cb(i+2))**2d0
                         beta_coef(1,0,i+1) = 4d0*(s_cb( i )-s_cb(i+1))**2d0 / &
                                                  (s_cb(i-1)-s_cb(i+1))**2d0
-                        
+
                     END DO
-                    
+
                 ELSE                                ! Quadrature points
-                    
+
                     ! Only used for higher-order reconstruction
                     DO i = is%beg-1, is%end-1
-                        
+
                         poly_coef_R(0,0,i+1) = (s_cb( i )-s_cb(i+1)) / &
                                                (s_cb( i )-s_cb(i+2)) / &
                                                 SQRT(3d0)
                         poly_coef_R(1,0,i+1) = (s_cb( i )-s_cb(i+1)) / &
                                                (s_cb(i-1)-s_cb(i+1)) / &
                                                 SQRT(3d0)
-                        
+
                         poly_coef_L(0,0,i+1) = -poly_coef_R(0,0,i+1)
                         poly_coef_L(1,0,i+1) = -poly_coef_R(1,0,i+1)
-                        
+
                         d_R(0,i+1) = &
                             ((s_cb( i )-s_cb(i-1))+(s_cb(i+1)-s_cb(i-1))) / &
                             ((s_cb(i+2)-s_cb(i-1))+(s_cb(i+2)-s_cb(i-1)))
-                        
+
                         d_R(1,i+1) = 1d0 - d_R(0,i+1)
-                        
+
                         d_L(0,i+1) = d_R(0,i+1); d_L(1,i+1) = d_R(1,i+1)
-                        
+
                     END DO
-                    
+
                 END IF
-                
+
                 ! Modifying the ideal weights coefficients in the neighborhood
                 ! of beginning and end Riemann state extrapolation BC to avoid
                 ! any contributions from outside of the physical domain during
@@ -397,22 +395,22 @@ MODULE m_weno
                         d_R(1,0) = 0d0; d_R(0,0) = 1d0
                         d_L(1,0) = 0d0; d_L(0,0) = 1d0
                     END IF
-                    
+
                     IF(bc_s%end == -4) THEN
                         d_R(0,s) = 0d0; d_R(1,s) = 1d0
                         d_L(0,s) = 0d0; d_L(1,s) = 1d0
                     END IF
                 END IF
             ! END: Computing WENO3 Coefficients ================================
-            
-            
+
+
             ! Computing WENO5 Coefficients =====================================
             ELSE
-                
+
                 IF(weno_loc == 1) THEN              ! Cell-boundaries
-                    
+
                     DO i = is%beg-1, is%end-1
-                        
+
                         poly_coef_R(0,0,i+1) = &
                             ((s_cb( i )-s_cb(i+1))*(s_cb(i+1)-s_cb(i+2))) / &
                             ((s_cb( i )-s_cb(i+3))*(s_cb(i+3)-s_cb(i+1)))
@@ -437,7 +435,7 @@ MODULE m_weno
                         poly_coef_L(2,1,i+1) = &
                             ((s_cb(i-1)-s_cb( i ))*(s_cb( i )-s_cb(i+1))) / &
                             ((s_cb(i-2)-s_cb( i ))*(s_cb(i-2)-s_cb(i+1)))
-                        
+
                         poly_coef_R(0,1,i+1) = &
                             ((s_cb( i )-s_cb(i+2))+(s_cb(i+1)-s_cb(i+3))) / &
                             ((s_cb( i )-s_cb(i+2))*(s_cb( i )-s_cb(i+3))) * &
@@ -454,7 +452,7 @@ MODULE m_weno
                             ((s_cb(i-2)-s_cb( i ))+(s_cb(i-1)-s_cb(i+1))) / &
                             ((s_cb(i-2)-s_cb(i+1))*(s_cb(i+1)-s_cb(i-1))) * &
                             ((s_cb( i )-s_cb(i+1)))
-                        
+
                         d_R(0,i+1) = &
                             ((s_cb(i-2)-s_cb(i+1))*(s_cb(i+1)-s_cb(i-1))) / &
                             ((s_cb(i-2)-s_cb(i+3))*(s_cb(i+3)-s_cb(i-1)))
@@ -467,10 +465,10 @@ MODULE m_weno
                         d_L(2,i+1) = &
                             ((s_cb( i )-s_cb(i+2))*(s_cb( i )-s_cb(i+3))) / &
                             ((s_cb(i-2)-s_cb(i+2))*(s_cb(i-2)-s_cb(i+3)))
-                        
+
                         d_R(1,i+1) = 1d0 - d_R(0,i+1) - d_R(2,i+1)
                         d_L(1,i+1) = 1d0 - d_L(0,i+1) - d_L(2,i+1)
-                        
+
                         beta_coef(0,0,i+1) = &
                             4d0*(s_cb(i)-s_cb(i+1))**2d0*(10d0*(s_cb(i+1)    - &
                             s_cb(i))**2d0+(s_cb(i+1)-s_cb(i))*(s_cb(i+2)     - &
@@ -526,14 +524,14 @@ MODULE m_weno
                             s_cb(i))**2d0+(s_cb(i)-s_cb(i-1))**2d0+(s_cb(i)  - &
                             s_cb(i-1))*(s_cb(i+1)-s_cb(i)))/((s_cb(i-2)      - &
                             s_cb(i))**2d0*(s_cb(i-2)-s_cb(i+1))**2d0)
-                        
+
                     END DO
-                    
+
                 ELSE                                ! Quadrature points
                     ! Only used for higher-order reconstruction
-                    
+
                     DO i = is%beg-1, is%end-1
-                        
+
                         poly_coef_R(0,0,i+1) = &
                             ((s_cb( i )-s_cb(i+2))+(s_cb(i+1)-s_cb(i+2))) / &
                             ((s_cb( i )-s_cb(i+3))*(s_cb(i+3)-s_cb(i+1))) * &
@@ -550,7 +548,7 @@ MODULE m_weno
                             ((s_cb( i )-s_cb(i-1))+(s_cb(i+1)-s_cb(i-1))) / &
                             ((s_cb(i-2)-s_cb( i ))*(s_cb(i-2)-s_cb(i+1))) * &
                             ((s_cb( i )-s_cb(i+1)))/(2d0*SQRT(3d0))
-                        
+
                         poly_coef_R(0,1,i+1) = &
                             ((s_cb( i )-s_cb(i+2))+(s_cb( i )-s_cb(i+3))  + &
                              (s_cb( i )-s_cb(i+2))+(s_cb(i+1)-s_cb(i+3))) / &
@@ -561,14 +559,14 @@ MODULE m_weno
                              (s_cb(i-1)-s_cb( i ))+(s_cb(i-1)-s_cb(i+1))) / &
                             ((s_cb(i-2)-s_cb(i+1))*(s_cb(i-1)-s_cb(i+1))) * &
                             ((s_cb( i )-s_cb(i+1)))/(2d0*SQRT(3d0))
-                        
+
                         poly_coef_L(0,0,i+1) = -poly_coef_R(0,0,i+1)
                         poly_coef_L(0,1,i+1) = -poly_coef_R(0,1,i+1)
                         poly_coef_L(1,0,i+1) = -poly_coef_R(1,0,i+1)
                         poly_coef_L(1,1,i+1) = -poly_coef_R(1,1,i+1)
                         poly_coef_L(2,0,i+1) = -poly_coef_R(2,0,i+1)
                         poly_coef_L(2,1,i+1) = -poly_coef_R(2,1,i+1)
-                        
+
                         d_R(0,i+1) = &
                             ((s_cb(i+1)-s_cb(i))*(18d0*(s_cb(i-2)-s_cb(i))   * &
                             (s_cb(i)-s_cb(i-1))-6d0*((s_cb(i)-s_cb(i-2))     + &
@@ -615,14 +613,14 @@ MODULE m_weno
                             (18d0*((s_cb(i)-s_cb(i-1))+(s_cb(i+1)            - &
                             s_cb(i-1)))*(s_cb(i-2)-s_cb(i+2))*(s_cb(i-2)     - &
                             s_cb(i+3)))
-                        
+
                         d_R(1,i+1) = 1d0 - d_R(0,i+1) - d_R(2,i+1)
                         d_L(1,i+1) = 1d0 - d_L(0,i+1) - d_L(2,i+1)
-                        
+
                     END DO
-                    
+
                 END IF
-                
+
                 ! Modifying the ideal weights coefficients in the neighborhood
                 ! of beginning and end Riemann state extrapolation BC to avoid
                 ! any contributions from outside of the physical domain during
@@ -634,7 +632,7 @@ MODULE m_weno
                         d_R( 2 , 1 ) = 0d0; d_R(:, 1 ) = d_R(:, 1 )/SUM(d_R(:, 1 ))
                         d_L( 2 , 1 ) = 0d0; d_L(:, 1 ) = d_L(:, 1 )/SUM(d_L(:, 1 ))
                     END IF
-                    
+
                     IF(bc_s%end == -4) THEN
                         d_R( 0 ,s-1) = 0d0; d_R(:,s-1) = d_R(:,s-1)/SUM(d_R(:,s-1))
                         d_L( 0 ,s-1) = 0d0; d_L(:,s-1) = d_L(:,s-1)/SUM(d_L(:,s-1))
@@ -642,35 +640,35 @@ MODULE m_weno
                         d_L(0:1, s ) = 0d0; d_L(2, s ) = 1d0
                     END IF
                 END IF
-                
+
             END IF
             ! END: Computing WENO5 Coefficients ================================
-            
-            
+
+
             ! Nullifying WENO coefficients and cell-boundary locations pointers
             NULLIFY(poly_coef_L, poly_coef_R, d_L, d_R, beta_coef, s_cb)
-            
-            
+
+
         END SUBROUTINE s_compute_weno_coefficients ! ---------------------------
-        
-        
-        
-        
+
+
+
+
         !>  The purpose of the procedure is to associate the WENO
         !!      coefficients' pointers with their appropriate targets,
         !!      based on the coordinate direction and the location of
-        !!      the WENO reconstruction.      
+        !!      the WENO reconstruction.
         !! @param weno_dir Coordinate direction of the WENO reconstruction
         !! @param weno_loc Location of the WENO reconstruction
         SUBROUTINE s_associate_weno_coefficients_pointers(weno_dir, weno_loc)
 
-            
+
             INTEGER, INTENT(IN) :: weno_dir, weno_loc
-            
-            
+
+
             ! Associating WENO Coefficients in x-direction =====================
             IF(weno_dir == 1) THEN
-                
+
                 IF(weno_loc == 1) THEN                  ! Cell-boundaries
                     poly_coef_L => poly_coef_cbL_x
                     poly_coef_R => poly_coef_cbR_x
@@ -682,15 +680,15 @@ MODULE m_weno
                     d_L => d_qpL_x
                     d_R => d_qpR_x
                 END IF
-                
+
                 beta_coef => beta_coef_x
-                
+
             ! ==================================================================
-            
-            
+
+
             ! Associating WENO Coefficients in y-direction =====================
             ELSEIF(weno_dir == 2) THEN
-                
+
                 IF(weno_loc == 1) THEN                  ! Cell-boundaries
                     poly_coef_L => poly_coef_cbL_y
                     poly_coef_R => poly_coef_cbR_y
@@ -702,15 +700,15 @@ MODULE m_weno
                     d_L => d_qpL_y
                     d_R => d_qpR_y
                 END IF
-                
+
                 beta_coef => beta_coef_y
-                
+
             ! ==================================================================
-            
-            
+
+
             ! Associating WENO Coefficients in z-direction =====================
             ELSE
-                
+
                 IF(weno_loc == 1) THEN                  ! Cell-boundaries
                     poly_coef_L => poly_coef_cbL_z
                     poly_coef_R => poly_coef_cbR_z
@@ -722,17 +720,17 @@ MODULE m_weno
                     d_L => d_qpL_z
                     d_R => d_qpR_z
                 END IF
-                
+
                 beta_coef => beta_coef_z
-                
+
             END IF
             ! ==================================================================
-            
-            
+
+
         END SUBROUTINE s_associate_weno_coefficients_pointers ! ----------------
-        
-        
-        
+
+
+
         !>  WENO reconstruction that is improved with monotonicity
         !!      preserving bounds (MPWENO) and a mapping function that
         !!      boosts the accuracy of the non-linear weights (WENOM).
@@ -756,33 +754,52 @@ MODULE m_weno
                            norm_dir, weno_dir, weno_loc, &
                            ix,iy,iz                      )
 
-            
+
             TYPE(scalar_field), DIMENSION(:), INTENT(IN) :: v_vf
             TYPE(scalar_field), DIMENSION(:), INTENT(INOUT) :: vL_vf, vR_vf
             INTEGER, INTENT(IN) :: cd_vars
             INTEGER, INTENT(IN) :: norm_dir
             INTEGER, INTENT(IN) :: weno_dir, weno_loc
             TYPE(bounds_info), INTENT(IN) :: ix,iy,iz
-            
+
 
             REAL(KIND(0d0)), DIMENSION(-weno_polyn:weno_polyn-1) :: dvd !<
             !! Newton divided differences
-            
+
             REAL(KIND(0d0)), DIMENSION(0:weno_polyn) ::  poly_L,  poly_R  !< Left/right polynominals
             REAL(KIND(0d0)), DIMENSION(0:weno_polyn) :: alpha_L, alpha_R  !< Left/right nonlinear weights
             REAL(KIND(0d0)), DIMENSION(0:weno_polyn) :: omega_L, omega_R  !< Left/right nonlinear weights
-            
+
 
             REAL(KIND(0d0)), DIMENSION(0:weno_polyn) :: beta !< Smoothness indicators
 
 
             REAL(KIND(0d0)), DIMENSION(-weno_polyn:weno_polyn) :: scaling_stencil, scaled_vars
-            REAL(KIND(0d0)) :: min_u, max_u 
-            
+            REAL(KIND(0d0)) :: min_u_R, max_u_R, min_u_L, max_u_L
+
+            ! Neural network weights ========================================================
+            REAL(KIND(0d0)), DIMENSION(5,3) :: A1
+            REAL(KIND(0d0)), DIMENSION(3,3) :: A2, A3
+            REAL(KIND(0d0)), DIMENSION(3,5) :: A4
+            REAL(KIND(0d0)), DIMENSION(5,5) :: AC
+
+            REAL(KIND(0d0)), DIMENSION(3,1) :: b1, b2, b3
+            REAL(KIND(0d0)), DIMENSION(5,1) :: b4, bc
+            ! END: Neural network weights ===================================================
+
+            ! Some other WENO-NN related variables ===
+            REAL(KIND(0d0)), DIMENSION(5,1) :: C1, dc, ct, dc2, CR, CL
+            REAL(KIND(0d0)), DIMENSION(3,1) :: C2, C3, C4
+
+            REAL(KIND(0d0)) :: neural_net, same_R, same_L, first
+
+            INTEGER :: ii
+
+            ! END: ome other WENO-NN related variables ===
 
             INTEGER :: i,j,k,l,q !< Generic loop iterators
-            
-            
+
+
             ! Reshaping and/or projecting onto characteristic fields inputted
             ! data and in addition associating the WENO coefficients pointers
             IF(weno_order /= 1) THEN
@@ -790,11 +807,10 @@ MODULE m_weno
                                         norm_dir, weno_dir, ix,iy,iz )
                 CALL s_associate_weno_coefficients_pointers(weno_dir, weno_loc)
             END IF
-            
-            
+
             ! WENO1 ============================================================
             IF(weno_order == 1) THEN
-                
+
                 DO i = 1, UBOUND(v_vf,1)
                     DO l = iz%beg, iz%end
                         DO k = iy%beg, iy%end
@@ -805,13 +821,13 @@ MODULE m_weno
                         END DO
                     END DO
                 END DO
-                
+
             ! ==================================================================
-            
-            
+
+
             ! WENO3 ============================================================
             ELSEIF(weno_order == 3) THEN
-                
+
                 DO i = 1, v_size
                     DO l = is3%beg, is3%end
                         DO k = is2%beg, is2%end
@@ -831,17 +847,9 @@ MODULE m_weno
 
                                 ! END IF
 
-                                DO q = -weno_polyn, weno_polyn
-                                    scaling_stencil(q) = v_rs_wsL(q)%vf(i)%sf(j,k,l)
-                                END DO
-                                min_u = minval(scaling_stencil(:))
-                                max_u = maxval(scaling_stencil(:))
-                                IF ( abs(min_u - max_u) > 1.d-16 ) THEN
-                                    v_rs_wsL(q)%vf(i)%sf(j,k,l) = (v_rs_wsL(q)%vf(i)%sf(j,k,l) - min_u)/(max_u-min_u)
-                                END IF
                                     ! scaled_vars(q) = v_rs_wsL(q)%vf(i)%sf(j,k,l)
                                     ! scaled_vars(q) = (v_rs_wsL(q)%vf(i)%sf(j,k,l) - min_u)/(max_u-min_u)
-                                
+
                                 ! reconstruct from left side
 
                                 ! for i = -weno_polyn, weno_polyn
@@ -858,22 +866,22 @@ MODULE m_weno
                                         - v_rs_wsL( 0)%vf(i)%sf(j,k,l)
                                 dvd(-1) = v_rs_wsL( 0)%vf(i)%sf(j,k,l) &
                                         - v_rs_wsL(-1)%vf(i)%sf(j,k,l)
-                                
+
                                 ! poly_coef_R(0,0,i+1) = (s_cb( i )-s_cb(i+1)) / &
                                 !                        (s_cb( i )-s_cb(i+2)) = 1/2
                                 ! poly_coef_R(1,0,i+1) = (s_cb( i )-s_cb(i+1)) / &
                                 !                        (s_cb(i-1)-s_cb(i+1)) = 1/2
-                                
+
                                 ! poly_coef_L(0,0,i+1) = -poly_coef_R(0,0,i+1) = -1/2
                                 ! poly_coef_L(1,0,i+1) = -poly_coef_R(1,0,i+1) = -1/2
- 
+
                                 ! so: poly_L[0] = v[j]-(1/2)(v[j+1]-v[j])
                                 ! so: poly_L[1] = v[j]-(1/2)(v[j]-v[j-1])
                                 poly_L(0) = v_rs_wsL(0)%vf(i)%sf(j,k,l) &
                                           + poly_coef_L(0,0,j)*dvd( 0)
                                 poly_L(1) = v_rs_wsL(0)%vf(i)%sf(j,k,l) &
                                           + poly_coef_L(1,0,j)*dvd(-1)
-                                
+
                                 ! beta_coef(0,0,i+1) = 4d0*(s_cb( i )-s_cb(i+1))**2d0 / &
                                 !                          (s_cb( i )-s_cb(i+2))**2d0
                                 ! beta_coef(1,0,i+1) = 4d0*(s_cb( i )-s_cb(i+1))**2d0 / &
@@ -888,7 +896,7 @@ MODULE m_weno
                                         + weno_eps
                                 beta(1) = beta_coef(1,0,j)*dvd(-1)*dvd(-1) &
                                         + weno_eps
-                                
+
                                 ! d_L(0,i+1) = (s_cb(i-1)-s_cb( i )) / &
                                 !              (s_cb(i-1)-s_cb(i+2))
                                 !            = (-dx)/(-3dx) = 1/3
@@ -898,7 +906,7 @@ MODULE m_weno
                                 ! so: alpha_L[0] = (1/3)/( (v[j+1]-v[j])^2 + weno_eps )^2
                                 ! so: alpha_L[1] = (2/3)/( (v[j]-v[j-1])^2 + weno_eps )^2
                                 alpha_L = d_L(:,j)/(beta*beta)
-                                
+
                                 ! so: omega_L[0] = (1/3)/( (v[j+1]-v[j])^2 + weno_eps )^2
                                 !                  --------------------------------------
                                 ! (2/3)/( (v[j]-v[j-1])^2 + weno_eps )^2 + (1/3)/( (v[j+1]-v[j])^2 + weno_eps )^2
@@ -922,12 +930,12 @@ MODULE m_weno
                                           + poly_coef_R(0,0,j)*dvd( 0)
                                 poly_R(1) = v_rs_wsR(0)%vf(i)%sf(j,k,l) &
                                           + poly_coef_R(1,0,j)*dvd(-1)
-                                
+
                                 beta(0) = beta_coef(0,0,j)*dvd( 0)*dvd( 0) &
                                         + weno_eps
                                 beta(1) = beta_coef(1,0,j)*dvd(-1)*dvd(-1) &
                                         + weno_eps
-                                
+
 
                                 ! d_R(0,i+1) = (s_cb(i-1)-s_cb(i+1)) / &
                                 !              (s_cb(i-1)-s_cb(i+2))
@@ -936,9 +944,12 @@ MODULE m_weno
                                 !            = 1-2/3 = 1/3
 
                                 alpha_R = d_R(:,j)/(beta*beta)
-                                
+
                                 omega_R = alpha_R/SUM(alpha_R)
-                                
+
+                                ! So now that omega is known, I think we can compute the WENO coefficients
+
+
                                 IF(mapped_weno) THEN
                                     CALL s_map_nonlinear_weights( d_L(:,j), &
                                                                    alpha_L, &
@@ -947,26 +958,71 @@ MODULE m_weno
                                                                    alpha_R, &
                                                                    omega_R  )
                                 END IF
-                                
+
                                 vL_rs_vf(i)%sf(j,k,l) = SUM(omega_L*poly_L)
                                 vR_rs_vf(i)%sf(j,k,l) = SUM(omega_R*poly_R)
-                                
+
                             END DO
                         END DO
                     END DO
                 END DO
-                
+
             ! END: WENO3 =======================================================
-            
-            
+
+
             ! WENO5 ============================================================
             ELSE
-                
+                neural_net = 1 !This is not permanent
+                first = 1
                 DO i = 1, v_size
                     DO l = is3%beg, is3%end
                         DO k = is2%beg, is2%end
                             DO j = is1%beg, is1%end
-                                
+
+                                !PRINT *, 'print 981'
+                                !! Scaling stuff here
+                                ! min_u = np.amin(u,1)
+                                ! max_u = np.amax(u,1)
+                                ! const_n = min_u==max_u
+                                ! u_tmp = np.zeros_like(u[:,2])
+                                ! u_tmp[:] = u[:,2]
+                                ! for i in range(0,5):
+                                !     u[:,i] = (u[:,i]-min_u)/(max_u-min_u)
+                                IF (neural_net == 1) THEN
+                                    ! First do left side
+                                    DO q = -weno_polyn, weno_polyn
+                                        scaling_stencil(q) = v_rs_wsL(q)%vf(i)%sf(j,k,l)
+                                    END DO
+                                    min_u_L = minval(scaling_stencil(:))
+                                    max_u_L = maxval(scaling_stencil(:))
+                                    IF (min_u_L == max_u_L) THEN
+                                        same_L = 1
+                                    ELSE
+                                        same_L = 0
+                                        !PRINT *, 'print 1000'
+                                        DO q = -weno_polyn, weno_polyn
+                                            v_rs_wsL(q)%vf(i)%sf(j,k,l) = (v_rs_wsL(q)%vf(i)%sf(j,k,l) - min_u_L)/(max_u_L-min_u_L)
+                                        END DO
+                                    END IF
+
+                                    ! Now do right side
+                                    DO q = -weno_polyn, weno_polyn
+                                        scaling_stencil(q) = v_rs_wsR(q)%vf(i)%sf(j,k,l)
+                                    END DO
+
+                                    min_u_R = minval(scaling_stencil(:))
+                                    max_u_R = maxval(scaling_stencil(:))
+                                    IF (min_u_R == max_u_R) THEN
+                                        same_R = 1
+                                    ELSE
+                                        same_R = 0
+                                        DO q = -weno_polyn, weno_polyn
+                                            v_rs_wsR(q)%vf(i)%sf(j,k,l) = (v_rs_wsR(q)%vf(i)%sf(j,k,l) - min_u_R)/(max_u_R-min_u_R)
+                                        END DO
+                                    END IF
+                                END IF
+
+
                                 dvd( 1) = v_rs_wsL( 2)%vf(i)%sf(j,k,l) &
                                         - v_rs_wsL( 1)%vf(i)%sf(j,k,l)
                                 dvd( 0) = v_rs_wsL( 1)%vf(i)%sf(j,k,l) &
@@ -975,7 +1031,7 @@ MODULE m_weno
                                         - v_rs_wsL(-1)%vf(i)%sf(j,k,l)
                                 dvd(-2) = v_rs_wsL(-1)%vf(i)%sf(j,k,l) &
                                         - v_rs_wsL(-2)%vf(i)%sf(j,k,l)
-                                
+
                                 poly_L(0) = v_rs_wsL(0)%vf(i)%sf(j,k,l) &
                                           + poly_coef_L(0,0,j)*dvd( 1)  &
                                           + poly_coef_L(0,1,j)*dvd( 0)
@@ -985,7 +1041,7 @@ MODULE m_weno
                                 poly_L(2) = v_rs_wsL(0)%vf(i)%sf(j,k,l) &
                                           + poly_coef_L(2,0,j)*dvd(-1)  &
                                           + poly_coef_L(2,1,j)*dvd(-2)
-                                
+
                                 beta(0) = beta_coef(0,0,j)*dvd( 1)*dvd( 1) &
                                         + beta_coef(0,1,j)*dvd( 1)*dvd( 0) &
                                         + beta_coef(0,2,j)*dvd( 0)*dvd( 0) &
@@ -998,11 +1054,81 @@ MODULE m_weno
                                         + beta_coef(2,1,j)*dvd(-1)*dvd(-2) &
                                         + beta_coef(2,2,j)*dvd(-2)*dvd(-2) &
                                         + weno_eps
-                                
+
                                 alpha_L = d_L(:,j)/(beta*beta)
-                                
+
                                 omega_L = alpha_L/SUM(alpha_L)
-                                
+
+                                ! So now we have the scaled nonlinear weights, we can compute the WENO5 coefficients with them
+                                ! Make sure to throw in a IF (neural_network) THEN type thing
+                                IF(neural_net == 1) THEN
+                                    C1(0,0) = 1/3*omega_L(0)
+                                    C1(1,0) = -7/6*omega_L(0) - 1/6*omega_L(1)
+                                    C1(2,0) = 11/6*omega_L(0) + 5/6*omega_L(1) + 1/3*omega_L(2)
+                                    C1(3,0) = 1/3*omega_L(1) + 5/6*omega_L(2)
+                                    C1(4,0) = -1/6*omega_L(2)
+
+                                    ! Now we can do the neural network. Are the matrices oriented the right way?
+                                    A1 = reshape((/-0.94130915, -0.32270527, -0.06769955, &
+                                           -0.37087336, -0.05059665,  0.55401474, &
+                                            0.40815187, -0.5602299 , -0.01871526, &
+                                            0.56200236, -0.5348897 , -0.04091108, &
+                                           -0.6982639 , -0.49512517,  0.52821904/), (/ 5,3/))
+                                    b1 = reshape((/-0.04064859,  0.        ,  0.        /) , (/3,1/))
+
+                                    C2 = matmul(transpose(A1), C1) + b1
+                                    DO ii = 0 ,4, 1
+                                        IF (C2(II,0) < 0) THEN! Relu activation
+                                            C2(II,0) = 0
+                                        END IF
+                                    END DO
+
+                                    A2 = reshape((/ 0.07149544, 0.9637294 , 0.41981453, &
+                                            0.75602794,-0.0222342 ,-0.95690656, &
+                                            0.07406807,-0.41880417,-0.4687035/), (/ 3,3/))
+                                    b2 = reshape((/-0.0836111 ,-0.00330033,-0.01930024/),(/3,1/))
+
+                                    C3 = matmul(transpose(A2), C2) + b2
+                                    DO ii = 0 ,4, 1
+                                        IF (C3(II,0) < 0) THEN! Relu activation
+                                            C3(II,0) = 0
+                                        END IF
+                                    END DO
+
+                                    A3 = reshape((/ 0.8568574 , -0.5809458 ,  0.04762125, &
+                                           -0.26066098, -0.23142155, -0.6449008 , &
+                                            0.7623346 ,  0.81388015, -0.03217626/), (/3,3/))
+                                    b3 = reshape((/-0.0133561 , -0.05374921,  0.        /), (/3,1/))
+
+                                    C4 = matmul(transpose(A3), C3) + b3
+                                    DO ii = 0 ,4, 1
+                                        IF (C4(II,0) < 0) THEN! Relu activation
+                                            C4(II,0) = 0
+                                        END IF
+                                    END DO
+
+                                    A4 = reshape((/-0.2891752 , -0.53783405, -0.17556567, -0.7775279 ,  0.69957024, &
+                                           -0.12895434,  0.13607207,  0.12294354,  0.29842544, -0.00198237, &
+                                            0.5356503 ,  0.09317833,  0.5135357 , -0.32794708,  0.13765627/), (/3,5/))
+                                    b4 = reshape((/ 0.00881096,  0.01138764,  0.00464343,  0.0070305 , -0.01644066/), (/5,1/))
+
+                                    dc = matmul(transpose(A4), C4) + b4
+                                    ct = c1 - dc
+
+                                    ! Project the coefficients onto the space of consistent schemes
+                                    Ac = reshape((/-0.2, -0.2, -0.2, -0.2, -0.2, &
+                                           -0.2, -0.2, -0.2, -0.2, -0.2, &
+                                           -0.2, -0.2, -0.2, -0.2, -0.2, &
+                                           -0.2, -0.2, -0.2, -0.2, -0.2, &
+                                           -0.2, -0.2, -0.2, -0.2, -0.2/), (/5,5/))
+                                    bc = reshape((/0.2, 0.2, 0.2, 0.2, 0.2/), (/5,1/))
+
+                                    dc2 = matmul(transpose(Ac), ct) + bc
+                                    CL = ct + dc2! The final left coefficients
+                                END IF
+
+                                ! Now the right side
+
                                 dvd( 1) = v_rs_wsR( 2)%vf(i)%sf(j,k,l) &
                                         - v_rs_wsR( 1)%vf(i)%sf(j,k,l)
                                 dvd( 0) = v_rs_wsR( 1)%vf(i)%sf(j,k,l) &
@@ -1011,7 +1137,7 @@ MODULE m_weno
                                         - v_rs_wsR(-1)%vf(i)%sf(j,k,l)
                                 dvd(-2) = v_rs_wsR(-1)%vf(i)%sf(j,k,l) &
                                         - v_rs_wsR(-2)%vf(i)%sf(j,k,l)
-                                
+
                                 poly_R(0) = v_rs_wsR(0)%vf(i)%sf(j,k,l) &
                                           + poly_coef_R(0,0,j)*dvd( 1)  &
                                           + poly_coef_R(0,1,j)*dvd( 0)
@@ -1021,7 +1147,7 @@ MODULE m_weno
                                 poly_R(2) = v_rs_wsR(0)%vf(i)%sf(j,k,l) &
                                           + poly_coef_R(2,0,j)*dvd(-1)  &
                                           + poly_coef_R(2,1,j)*dvd(-2)
-                                
+
                                 beta(0) = beta_coef(0,0,j)*dvd( 1)*dvd( 1) &
                                         + beta_coef(0,1,j)*dvd( 1)*dvd( 0) &
                                         + beta_coef(0,2,j)*dvd( 0)*dvd( 0) &
@@ -1034,11 +1160,68 @@ MODULE m_weno
                                         + beta_coef(2,1,j)*dvd(-1)*dvd(-2) &
                                         + beta_coef(2,2,j)*dvd(-2)*dvd(-2) &
                                         + weno_eps
-                                
+
                                 alpha_R = d_R(:,j)/(beta*beta)
-                                
+
                                 omega_R = alpha_R/SUM(alpha_R)
-                                
+
+                                IF(neural_net == 1) THEN
+
+                                    C1(0,0) = 1/3*omega_R(0)
+                                    C1(1,0) =-7/6*omega_R(0) - 1/6*omega_R(1)
+                                    C1(2,0) =11/6*omega_R(0) + 5/6*omega_R(1) + 1/3*omega_R(2)
+                                    C1(3,0) = 1/3*omega_R(1) + 5/6*omega_R(2)
+                                    C1(4,0) = 1/6*omega_R(2)
+
+                                    ! Now we can do the neural network. Are the matrices oriented the right way?
+                                    C2 = matmul(transpose(A1), C1) + b1
+                                    DO ii = 0 ,4, 1
+                                        IF (C2(ii,0) < 0) THEN! Relu activation
+                                            C2(ii,0) = 0
+                                        END IF
+                                    END DO
+
+                                    C3 = matmul(transpose(A2), C2) + b2
+                                    DO ii = 0 ,4, 1
+                                        IF (C3(ii,0) < 0) THEN! Relu activation
+                                            C3(ii,0) = 0
+                                        END IF
+                                    END DO
+
+                                    C4 = matmul(transpose(A3), C3) + b3
+                                    DO ii = 0 ,4, 1
+                                        IF (C4(ii,0) < 0) THEN! Relu activation
+                                            C4(ii,0) = 0
+                                        END IF
+                                    END DO
+
+                                    dc = matmul(transpose(A4), C4) + b4
+                                    ct = C1 - dc
+
+                                    ! Project the coefficients onto the space of consistent schemes
+                                    dc2 = matmul(transpose(Ac), ct) + bc
+                                    CR = ct + dc2! The final right coefficients
+                                    IF (first == 1 .AND. same_R == 0) THEN
+                                        PRINT *, 'beta', beta
+                                        PRINT *, 'omega_R', omega_R
+                                        PRINT *, 'v_rs_wsR(-2)%vf(i)%sf(j,k,l)', v_rs_wsR(-2)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsR(-1)%vf(i)%sf(j,k,l)', v_rs_wsR(-1)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsR(0)%vf(i)%sf(j,k,l)', v_rs_wsR(0)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsR(1)%vf(i)%sf(j,k,l)', v_rs_wsR(1)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsR(2)%vf(i)%sf(j,k,l)', v_rs_wsR(2)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'C1', C1
+                                        PRINT *, 'C2', C2
+                                        PRINT *, 'C3', C3
+                                        PRINT *, 'C4', C4
+                                        PRINT *, 'dc', dc
+                                        PRINT *, 'ct', ct
+                                        PRINT *, 'dc2', dc2
+                                        PRINT *, 'CR', CR
+                                        first = 0
+                                    END IF
+                                END IF
+
+
                                 IF(mapped_weno) THEN
                                     CALL s_map_nonlinear_weights( d_L(:,j), &
                                                                    alpha_L, &
@@ -1047,40 +1230,73 @@ MODULE m_weno
                                                                    alpha_R, &
                                                                    omega_R  )
                                 END IF
-                                
-                                vL_rs_vf(i)%sf(j,k,l) = SUM(omega_L*poly_L)
-                                vR_rs_vf(i)%sf(j,k,l) = SUM(omega_R*poly_R)
-                                
+
+                                ! I guess this is the final part where it gets assigned
+                                ! It is dotting the linear fluxes with the nonlinear weights I think
+
+
+                                IF(neural_net == 1) THEN
+                                    ! Need to do dot product of coefficients C and input cell averages
+                                    IF(same_L == 1) THEN
+                                        vL_rs_vf(i)%sf(j,k,l) = v_rs_wsL(0)%vf(i)%sf(j,k,l)
+                                    ELSE
+                                        !PRINT *, 'v_rs_wsL(0)%vf(i)%sf(j,k,l)', v_rs_wsL(0)%vf(i)%sf(j,k,l)
+                                        !PRINT *, 'vL_rs_vf(i)%sf(j,k,l)', vL_rs_vf(i)%sf(j,k,l)
+                                        vL_rs_vf(i)%sf(j,k,l) = (CL(0,0)*v_rs_wsL(-2)%vf(i)%sf(j,k,l)) &
+                                                               +(CL(1,0)*v_rs_wsL(-1)%vf(i)%sf(j,k,l)) &
+                                                               +(CL(2,0)*v_rs_wsL(0)%vf(i)%sf(j,k,l)) &
+                                                               +(CL(3,0)*v_rs_wsL(1)%vf(i)%sf(j,k,l)) &
+                                                               +(CL(4,0)*v_rs_wsL(2)%vf(i)%sf(j,k,l))
+                                        vL_rs_vf(i)%sf(j,k,l) = vL_rs_vf(0)%sf(j,k,l)*(max_u_L - min_u_L) + min_u_L
+                                    END IF
+
+                                    IF(same_R == 1) THEN
+                                        vR_rs_vf(i)%sf(j,k,l) = v_rs_wsL(0)%vf(i)%sf(j,k,l)
+                                    ELSE
+                                        !PRINT *, vR_rs_vf
+                                        !PRINT *, 'v_rs_wsR(0)%vf(i)%sf(j,k,l)', v_rs_wsR(0)%vf(i)%sf(j,k,l)
+                                        !PRINT *, 'vR_rs_vf(i)%sf(j,k,l)', vR_rs_vf(i)%sf(j,k,l)
+                                        vR_rs_vf(i)%sf(j,k,l) = (CR(0,0)*v_rs_wsR(-2)%vf(i)%sf(j,k,l)) &
+                                                               +(CR(1,0)*v_rs_wsR(-1)%vf(i)%sf(j,k,l)) &
+                                                               +(CR(2,0)*v_rs_wsR(0)%vf(i)%sf(j,k,l)) &
+                                                               +(CR(3,0)*v_rs_wsR(1)%vf(i)%sf(j,k,l)) &
+                                                               +(CR(4,0)*v_rs_wsR(2)%vf(i)%sf(j,k,l))
+                                        vR_rs_vf(i)%sf(j,k,l) = vR_rs_vf(0)%sf(j,k,l)*(max_u_R - min_u_R) + min_u_R
+                                        !PRINT *, 'vR_rs_vf(i)%sf(j,k,l)', vR_rs_vf(i)%sf(j,k,l)
+                                    END IF
+                                ELSE
+                                    vL_rs_vf(i)%sf(j,k,l) = SUM(omega_L*poly_L)
+                                    vR_rs_vf(i)%sf(j,k,l) = SUM(omega_R*poly_R)
+                                END IF
+                                !PRINT *, 'print 1238'
                                 IF(mp_weno .AND. weno_loc == 1) THEN
                                     CALL s_preserve_monotonicity(i,j,k,l)
                                 END IF
-                                
                             END DO
                         END DO
                     END DO
                 END DO
-                
             END IF
             ! END: WENO5 =======================================================
-            
-            
+
+
             ! Reshaping and/or projecting onto physical fields the outputted
             ! data, as well as disassociating the WENO coefficients pointers
             IF(weno_order /= 1) THEN
                 CALL s_finalize_weno(vL_vf, vR_vf, cd_vars, weno_dir, ix,iy,iz)
                 NULLIFY(poly_coef_L, poly_coef_R, d_L, d_R, beta_coef)
             END IF
-            
-            
+
+
         END SUBROUTINE s_weno ! ------------------------------------------------
-        
-        
-        
-        
+
+
+
+
         !> The computation of parameters, the allocation of memory,
         !!      the association of pointers and/or the execution of any
         !!      other procedures that are required for the setup of the
-        !!      WENO reconstruction.      
+        !!      WENO reconstruction.
         !! @param v_vf Cell-averaged variables
         !! @param vL_vf Left WENO reconstructed cell-boundary values
         !! @param vR_vf Right WENO reconstructed cell-boundary values
@@ -1093,25 +1309,25 @@ MODULE m_weno
         SUBROUTINE s_initialize_weno( v_vf, vL_vf, vR_vf, cd_vars, & ! ---------
                                       norm_dir, weno_dir, ix,iy,iz )
 
-            
+
             TYPE(scalar_field), DIMENSION(:), INTENT(IN) :: v_vf
             TYPE(scalar_field), DIMENSION(:), INTENT(INOUT) :: vL_vf, vR_vf
             INTEGER, INTENT(IN) :: cd_vars
             INTEGER, INTENT(IN) :: norm_dir
             INTEGER, INTENT(IN) :: weno_dir
             TYPE(bounds_info), INTENT(IN) :: ix,iy,iz
-            
+
 
             INTEGER :: i,j,k,l !< Generic loop iterators
-            
-            
+
+
             ! Determining the number of cell-average variables which will be
             ! WENO-reconstructed and mapping their indical bounds in the x-,
             ! y- and z-directions to those in the s1-, s2- and s3-directions
             ! as to reshape the inputted data in the coordinate direction of
             ! the WENO reconstruction
             v_size = UBOUND(v_vf,1)
-            
+
             IF(weno_dir == 1) THEN
                 is1 = ix; is2 = iy; is3 = iz
             ELSEIF(weno_dir == 2) THEN
@@ -1119,21 +1335,21 @@ MODULE m_weno
             ELSE
                 is1 = iz; is2 = iy; is3 = ix
             END IF
-            
-            
+
+
             ! Allocating the cell-average variables, which are reshaped, and/or
             ! characteristically decomposed, in the coordinate direction of the
             ! WENO reconstruction
             DO i = -weno_polyn, weno_polyn
-                
+
                 ALLOCATE(v_rs_wsL(i)%vf(1:v_size), v_rs_wsR(i)%vf(1:v_size))
-                
+
                 DO j = 1, v_size
-                    
+
                     ALLOCATE(v_rs_wsL(i)%vf(j)%sf( is1%beg:is1%end, &
                                                    is2%beg:is2%end, &
                                                    is3%beg:is3%end ))
-                    
+
                     IF(char_decomp .AND. cd_vars /= dflt_int) THEN
                         ALLOCATE(v_rs_wsR(i)%vf(j)%sf( is1%beg:is1%end, &
                                                        is2%beg:is2%end, &
@@ -1141,17 +1357,17 @@ MODULE m_weno
                     ELSE
                         v_rs_wsR(i)%vf(j)%sf => v_rs_wsL(i)%vf(j)%sf
                     END IF
-                    
+
                 END DO
-                
+
             END DO
-            
-            
+
+
             ! Allocating the left and right WENO reconstructions of the cell-
             ! average variables that are reshaped, and/or characteristically
             ! decomposed, in the coordinate direction of WENO reconstruction
             ALLOCATE(vL_rs_vf(1:v_size), vR_rs_vf(1:v_size))
-            
+
             IF(weno_dir == 1) THEN
                 DO i = 1, v_size
                     vL_rs_vf(i)%sf => vL_vf(i)%sf
@@ -1167,11 +1383,11 @@ MODULE m_weno
                                              is3%beg:is3%end ))
                 END DO
             END IF
-            
-            
+
+
             ! Reshaping/Projecting onto Characteristic Fields in x-direction ===
             IF(weno_dir == 1) THEN
-                
+
                 DO i = -weno_polyn, weno_polyn
                     DO j = 1, v_size
                         DO k = ix%beg, ix%end
@@ -1180,15 +1396,15 @@ MODULE m_weno
                         END DO
                     END DO
                 END DO
-                
+
                 IF(char_decomp .AND. cd_vars /= dflt_int) THEN
-                    
+
                     DO i = -weno_polyn, weno_polyn
                         DO j = 1, v_size
                             v_rs_wsR(i)%vf(j)%sf = v_rs_wsL(i)%vf(j)%sf
                         END DO
                     END DO
-                    
+
                     IF(cd_vars == 1) THEN
                       CALL s_convert_conservative_to_characteristic_variables( &
                                                v_rs_wsL, norm_dir, ix,iy,iz,-1 )
@@ -1200,15 +1416,15 @@ MODULE m_weno
                       CALL s_convert_primitive_to_characteristic_variables(    &
                                                v_rs_wsR, norm_dir, ix,iy,iz, 0 )
                     END IF
-                    
+
                 END IF
-                
+
             ! ==================================================================
-            
-            
+
+
             ! Reshaping/Projecting onto Characteristic Fields in y-direction ===
             ELSEIF(weno_dir == 2) THEN
-                
+
                 DO i = -weno_polyn, weno_polyn
                     DO j = 1, v_size
                         DO k = ix%beg, ix%end
@@ -1219,15 +1435,15 @@ MODULE m_weno
                         END DO
                     END DO
                 END DO
-                
+
                 IF(char_decomp .AND. cd_vars /= dflt_int) THEN
-                    
+
                     DO i = -weno_polyn, weno_polyn
                         DO j = 1, v_size
                             v_rs_wsR(i)%vf(j)%sf = v_rs_wsL(i)%vf(j)%sf
                         END DO
                     END DO
-                    
+
                     IF(cd_vars == 1) THEN
                       CALL s_convert_conservative_to_characteristic_variables( &
                                                v_rs_wsL, norm_dir, iy,ix,iz,-1 )
@@ -1239,15 +1455,15 @@ MODULE m_weno
                       CALL s_convert_primitive_to_characteristic_variables(    &
                                                v_rs_wsR, norm_dir, iy,ix,iz, 0 )
                     END IF
-                    
+
                 END IF
-                
+
             ! ==================================================================
-            
-            
+
+
             ! Reshaping/Projecting onto Characteristic Fields in z-direction ===
             ELSE
-                
+
                 DO i = -weno_polyn, weno_polyn
                     DO j = 1, v_size
                         DO k = ix%beg,ix%end
@@ -1258,15 +1474,15 @@ MODULE m_weno
                         END DO
                     END DO
                 END DO
-                
+
                 IF(char_decomp .AND. cd_vars /= dflt_int) THEN
-                    
+
                     DO i = -weno_polyn, weno_polyn
                         DO j = 1, v_size
                             v_rs_wsR(i)%vf(j)%sf = v_rs_wsL(i)%vf(j)%sf
                         END DO
                     END DO
-                    
+
                     IF(cd_vars == 1) THEN
                       CALL s_convert_conservative_to_characteristic_variables( &
                                                v_rs_wsL, norm_dir, iz,iy,ix,-1 )
@@ -1278,18 +1494,18 @@ MODULE m_weno
                       CALL s_convert_primitive_to_characteristic_variables(    &
                                                v_rs_wsR, norm_dir, iz,iy,ix, 0 )
                     END IF
-                    
+
                 END IF
-                
+
             END IF
             ! ==================================================================
-            
-            
+
+
         END SUBROUTINE s_initialize_weno ! -------------------------------------
-        
-        
-        
-        
+
+
+
+
         !>  The goal of this procedure is to map the nonlinear WENO
         !!      weights to the more accurate nonlinear WENOM weights in
         !!      order to reinstate the optimal order of accuracy of the
@@ -1299,27 +1515,27 @@ MODULE m_weno
         !!  @param alpha_K ideal weights
         !!  @param omega_K nonlinear weights
         SUBROUTINE s_map_nonlinear_weights(d_K, alpha_K, omega_K) ! ------------
-            
-            
+
+
             ! Ideal and nonlinear weights
             REAL(KIND(0d0)), DIMENSION(0:weno_polyn), INTENT(IN)    ::     d_K
             REAL(KIND(0d0)), DIMENSION(0:weno_polyn), INTENT(INOUT) :: alpha_K
             REAL(KIND(0d0)), DIMENSION(0:weno_polyn), INTENT(INOUT) :: omega_K
-            
-            
+
+
             ! Mapping the WENO nonlinear weights to the WENOM nonlinear weights
             IF(MINVAL(d_K) == 0d0 .OR. MAXVAL(d_K) == 1d0) RETURN
-            
+
             alpha_K = (d_K*(1d0 + d_K - 3d0*omega_K) + omega_K**2d0) &
                     * (omega_K/(d_K**2d0 + omega_K*(1d0 - 2d0*d_K)))
-            
+
             omega_K = alpha_K/SUM(alpha_K)
-            
-            
+
+
         END SUBROUTINE s_map_nonlinear_weights ! -------------------------------
-        
-        
-        
+
+
+
         !>  The goal of this subroutine is to ensure that the WENO
         !!      reconstruction is monotonic. The latter is achieved by
         !!      enforcing monotonicity preserving bounds of Suresh and
@@ -1333,16 +1549,16 @@ MODULE m_weno
         !!  @param l Third-coordinate cell index
         SUBROUTINE s_preserve_monotonicity(i,j,k,l) ! --------------------------
 
-            
+
             INTEGER, INTENT(IN) :: i,j,k,l
-            
+
 
             REAL(KIND(0d0)), DIMENSION(-1:1) :: d !< Curvature measures at the zone centers
-            
+
 
             REAL(KIND(0d0)) :: d_MD, d_LC !<
             !! Median (md) curvature and large curvature (LC) measures
-            
+
             ! The left and right upper bounds (UL), medians, large curvatures,
             ! minima, and maxima of the WENO-reconstructed values of the cell-
             ! average variables.
@@ -1351,20 +1567,20 @@ MODULE m_weno
             REAL(KIND(0d0)) :: vL_LC , vR_LC
             REAL(KIND(0d0)) :: vL_min, vR_min
             REAL(KIND(0d0)) :: vL_max, vR_max
-            
+
             REAL(KIND(0d0)), PARAMETER :: alpha = 2d0 !>
             !! Determines the maximum Courant–Friedrichs–Lewy (CFL) number that
             !! may be utilized with the scheme. In theory, for stability, a CFL
             !! number less than 1/(1+alpha) is necessary. The default value for
             !! alpha is 2.
-            
+
 
 
             REAL(KIND(0d0)), PARAMETER :: beta = 4d0/3d0 !<
             !! Determines the amount of freedom available from utilizing a large
             !! value for the local curvature. The default value for beta is 4/3.
-            
-            
+
+
             ! Left Monotonicity Preserving Bound ===============================
             d(-1) = v_rs_wsL( 0)%vf(i)%sf(j,k,l) &
                   + v_rs_wsL(-2)%vf(i)%sf(j,k,l) &
@@ -1378,53 +1594,53 @@ MODULE m_weno
                   + v_rs_wsL( 0)%vf(i)%sf(j,k,l) &
                   - v_rs_wsL( 1)%vf(i)%sf(j,k,l) &
                   * 2d0
-            
+
             d_MD = (SIGN(1d0,4d0*d(-1)-d(0)) + SIGN(1d0,4d0*d(0)-d(-1))) &
                  *  ABS((SIGN(1d0,4d0*d(-1)-d(0)) + SIGN(1d0,d(-1)))     &
                        *(SIGN(1d0,4d0*d(-1)-d(0)) + SIGN(1d0,d( 0))))    &
                  *  MIN(ABS(4d0*d(-1)-d( 0)),ABS(d(-1)),                 &
                         ABS(4d0*d( 0)-d(-1)),ABS(d( 0)))/8d0
-            
+
             d_LC = (SIGN(1d0,4d0*d( 0)-d(1)) + SIGN(1d0,4d0*d(1)-d( 0))) &
                  *  ABS((SIGN(1d0,4d0*d( 0)-d(1)) + SIGN(1d0,d( 0)))     &
                        *(SIGN(1d0,4d0*d( 0)-d(1)) + SIGN(1d0,d( 1))))    &
                  *  MIN(ABS(4d0*d( 0)-d( 1)),ABS(d( 0)),                 &
                         ABS(4d0*d( 1)-d( 0)),ABS(d( 1)))/8d0
-            
+
             vL_UL =   v_rs_wsL( 0)%vf(i)%sf(j,k,l) &
                   - ( v_rs_wsL( 1)%vf(i)%sf(j,k,l) &
                     - v_rs_wsL( 0)%vf(i)%sf(j,k,l) )*alpha
-            
+
             vL_MD = ( v_rs_wsL( 0)%vf(i)%sf(j,k,l) &
                     + v_rs_wsL(-1)%vf(i)%sf(j,k,l) &
                     - d_MD                         )*5d-1
-            
+
             vL_LC =   v_rs_wsL( 0)%vf(i)%sf(j,k,l) &
                   - ( v_rs_wsL( 1)%vf(i)%sf(j,k,l) &
                     - v_rs_wsL( 0)%vf(i)%sf(j,k,l) )*5d-1 + beta*d_LC
-            
+
             vL_min = MAX(MIN(v_rs_wsL( 0)%vf(i)%sf(j,k,l), &
                              v_rs_wsL(-1)%vf(i)%sf(j,k,l), &
                              vL_MD                      ), &
                          MIN(v_rs_wsL( 0)%vf(i)%sf(j,k,l), &
                              vL_UL                       , &
                              vL_LC                       ) )
-            
+
             vL_max = MIN(MAX(v_rs_wsL( 0)%vf(i)%sf(j,k,l), &
                              v_rs_wsL(-1)%vf(i)%sf(j,k,l), &
                              vL_MD                      ), &
                          MAX(v_rs_wsL( 0)%vf(i)%sf(j,k,l), &
                              vL_UL                       , &
                              vL_LC                       ) )
-            
+
             vL_rs_vf(i)%sf(j,k,l) = vL_rs_vf(i)%sf(j,k,l) &
                                   + (SIGN(5d-1,vL_min-vL_rs_vf(i)%sf(j,k,l))  &
                                     +SIGN(5d-1,vL_max-vL_rs_vf(i)%sf(j,k,l))) &
                                     * MIN( ABS(vL_min-vL_rs_vf(i)%sf(j,k,l)), &
                                            ABS(vL_max-vL_rs_vf(i)%sf(j,k,l)))
             ! END: Left Monotonicity Preserving Bound ==========================
-            
-            
+
+
             ! Right Monotonicity Preserving Bound ==============================
             d(-1) = v_rs_wsR( 0)%vf(i)%sf(j,k,l) &
                   + v_rs_wsR(-2)%vf(i)%sf(j,k,l) &
@@ -1435,58 +1651,58 @@ MODULE m_weno
             d( 1) = v_rs_wsR( 2)%vf(i)%sf(j,k,l) &
                   + v_rs_wsR( 0)%vf(i)%sf(j,k,l) &
                   - v_rs_wsR( 1)%vf(i)%sf(j,k,l)*2d0
-            
+
             d_MD = (SIGN(1d0,4d0*d( 0)-d(1)) + SIGN(1d0,4d0*d(1)-d( 0))) &
                  *  ABS((SIGN(1d0,4d0*d( 0)-d(1)) + SIGN(1d0,d( 0)))     &
                        *(SIGN(1d0,4d0*d( 0)-d(1)) + SIGN(1d0,d( 1))))    &
                  *  MIN(ABS(4d0*d( 0)-d( 1)),ABS(d( 0)),                 &
                         ABS(4d0*d( 1)-d( 0)),ABS(d( 1)))/8d0
-            
+
             d_LC = (SIGN(1d0,4d0*d(-1)-d(0)) + SIGN(1d0,4d0*d(0)-d(-1))) &
                  *  ABS((SIGN(1d0,4d0*d(-1)-d(0)) + SIGN(1d0,d(-1)))     &
                        *(SIGN(1d0,4d0*d(-1)-d(0)) + SIGN(1d0,d( 0))))    &
                  *  MIN(ABS(4d0*d(-1)-d( 0)),ABS(d(-1)),                 &
                         ABS(4d0*d( 0)-d(-1)),ABS(d( 0)))/8d0
-            
+
             vR_UL =   v_rs_wsR( 0)%vf(i)%sf(j,k,l) &
                   + ( v_rs_wsR( 0)%vf(i)%sf(j,k,l) &
                     - v_rs_wsR(-1)%vf(i)%sf(j,k,l) )*alpha
-            
+
             vR_MD = ( v_rs_wsR( 0)%vf(i)%sf(j,k,l) &
                     + v_rs_wsR( 1)%vf(i)%sf(j,k,l) &
                     - d_MD                         )*5d-1
-            
+
             vR_LC =   v_rs_wsR( 0)%vf(i)%sf(j,k,l) &
                   + ( v_rs_wsR( 0)%vf(i)%sf(j,k,l) &
                     - v_rs_wsR(-1)%vf(i)%sf(j,k,l) )*5d-1 + beta*d_LC
-            
+
             vR_min = MAX(MIN(v_rs_wsR(0)%vf(i)%sf(j,k,l), &
                              v_rs_wsR(1)%vf(i)%sf(j,k,l), &
                              vR_MD                     ), &
                          MIN(v_rs_wsR(0)%vf(i)%sf(j,k,l), &
                              vR_UL                      , &
                              vR_LC                      ) )
-            
+
             vR_max = MIN(MAX(v_rs_wsR(0)%vf(i)%sf(j,k,l), &
                              v_rs_wsR(1)%vf(i)%sf(j,k,l), &
                              vR_MD                     ), &
                          MAX(v_rs_wsR(0)%vf(i)%sf(j,k,l), &
                              vR_UL                      , &
                              vR_LC                      ) )
-            
+
             vR_rs_vf(i)%sf(j,k,l) = vR_rs_vf(i)%sf(j,k,l) &
                                   + (SIGN(5d-1,vR_min-vR_rs_vf(i)%sf(j,k,l))  &
                                     +SIGN(5d-1,vR_max-vR_rs_vf(i)%sf(j,k,l))) &
                                     * MIN( ABS(vR_min-vR_rs_vf(i)%sf(j,k,l)), &
                                            ABS(vR_max-vR_rs_vf(i)%sf(j,k,l)))
             ! END: Right Monotonicity Preserving Bound =========================
-            
-            
+
+
         END SUBROUTINE s_preserve_monotonicity ! -------------------------------
-        
-        
-        
-        
+
+
+
+
         !>  Deallocation and/or disassociation procedures that are
         !!      necessary in order to finalize the WENO reconstruction
         !! @param vL_vf Left WENO reconstructed cell-boundary values
@@ -1498,20 +1714,20 @@ MODULE m_weno
         !! @param iz Index bounds in third coordinate direction
         SUBROUTINE s_finalize_weno( vL_vf, vR_vf, cd_vars, & ! -----------------
                                     weno_dir, ix,iy,iz     )
-            
+
             TYPE(scalar_field), DIMENSION(:), INTENT(INOUT) :: vL_vf, vR_vf
             INTEGER, INTENT(IN) :: cd_vars
             INTEGER, INTENT(IN) :: weno_dir
             TYPE(bounds_info), INTENT(IN) :: ix,iy,iz
-            
+
 
             INTEGER :: i,j,k !< Generic loop iterators
-            
+
             ! Reshaping/Projecting onto Physical Fields in x-direction =========
             IF(weno_dir == 1) THEN
-                
+
                 IF(char_decomp .AND. cd_vars /= dflt_int) THEN
-                    
+
                     IF(cd_vars == 1) THEN
                       CALL s_convert_characteristic_to_conservative_variables( &
                                                          vL_rs_vf, ix,iy,iz,-1 )
@@ -1523,17 +1739,17 @@ MODULE m_weno
                       CALL s_convert_characteristic_to_primitive_variables(    &
                                                          vR_rs_vf, ix,iy,iz, 0 )
                     END IF
-                    
+
                 END IF
-                
+
             ! ==================================================================
-            
-            
+
+
             ! Reshaping/Projecting onto Physical Fields in y-direction =========
             ELSEIF(weno_dir == 2) THEN
-                
+
                 IF(char_decomp .AND. cd_vars /= dflt_int) THEN
-                    
+
                     IF(cd_vars == 1) THEN
                       CALL s_convert_characteristic_to_conservative_variables( &
                                                          vL_rs_vf, iy,ix,iz,-1 )
@@ -1545,9 +1761,9 @@ MODULE m_weno
                       CALL s_convert_characteristic_to_primitive_variables(    &
                                                          vR_rs_vf, iy,ix,iz, 0 )
                     END IF
-                    
+
                 END IF
-                
+
                 DO i = 1, v_size
                     DO j = ix%beg, ix%end
                         DO k = iy%beg, iy%end
@@ -1556,15 +1772,15 @@ MODULE m_weno
                         END DO
                     END DO
                 END DO
-                
+
             ! ==================================================================
-            
-            
+
+
             ! Reshaping/Projecting onto Physical Fields in z-direction =========
             ELSE
-                
+
                 IF(char_decomp .AND. cd_vars /= dflt_int) THEN
-                    
+
                     IF(cd_vars == 1) THEN
                       CALL s_convert_characteristic_to_conservative_variables( &
                                                          vL_rs_vf, iz,iy,ix,-1 )
@@ -1576,9 +1792,9 @@ MODULE m_weno
                       CALL s_convert_characteristic_to_primitive_variables(    &
                                                          vR_rs_vf, iz,iy,ix, 0 )
                     END IF
-                    
+
                 END IF
-                
+
                 DO i = 1, v_size
                     DO j = ix%beg, ix%end
                         DO k = iz%beg, iz%end
@@ -1587,33 +1803,33 @@ MODULE m_weno
                         END DO
                     END DO
                 END DO
-                
+
             END IF
             ! ==================================================================
-            
-            
+
+
             ! Deallocating the cell-average variables that were reshaped and/or
             ! characteristically decomposed in the coordinate direction of WENO
             ! reconstruction
             DO i = -weno_polyn, weno_polyn
-                
+
                 DO j = 1, v_size
-                    
+
                     DEALLOCATE(v_rs_wsL(i)%vf(j)%sf)
-                    
+
                     IF(char_decomp .AND. cd_vars /= dflt_int) THEN
                         DEALLOCATE(v_rs_wsR(i)%vf(j)%sf)
                     ELSE
                         v_rs_wsR(i)%vf(j)%sf => NULL()
                     END IF
-                    
+
                 END DO
-                
+
                 DEALLOCATE(v_rs_wsL(i)%vf, v_rs_wsR(i)%vf)
-                
+
             END DO
-            
-            
+
+
             ! Deallocating the left and right WENO reconstructions of the cell-
             ! average variables which were reshaped, and/or characteristically
             ! decomposed, in the coordinate direction of WENO reconstruction
@@ -1628,72 +1844,72 @@ MODULE m_weno
                     DEALLOCATE(vR_rs_vf(i)%sf)
                 END DO
             END IF
-            
+
             DEALLOCATE(vL_rs_vf, vR_rs_vf)
-            
-            
+
+
         END SUBROUTINE s_finalize_weno ! ---------------------------------------
-        
-        
+
+
         !>  Module deallocation and/or disassociation procedures
         SUBROUTINE s_finalize_weno_module() ! ----------------------------------
 
-            
-            
+
+
             IF(weno_order == 1) RETURN
-            
-            
+
+
             ! Deallocating the WENO-stencil of the WENO-reconstructed variables
             DEALLOCATE(v_rs_wsL, v_rs_wsR)
-            
-            
+
+
             ! Deallocating WENO coefficients in x-direction ====================
             DEALLOCATE(poly_coef_cbL_x, poly_coef_cbR_x)
             DEALLOCATE(d_cbL_x, d_cbR_x)
-            
+
             IF(commute_err .OR. split_err) THEN
                 DEALLOCATE(poly_coef_qpL_x, poly_coef_qpR_x)
                 DEALLOCATE(d_qpL_x, d_qpR_x)
             END IF
-            
+
             DEALLOCATE(beta_coef_x)
             ! ==================================================================
-            
-            
+
+
             ! Deallocating WENO coefficients in y-direction ====================
             IF(n == 0) RETURN
-            
+
             DEALLOCATE(poly_coef_cbL_y, poly_coef_cbR_y)
             DEALLOCATE(d_cbL_y, d_cbR_y)
-            
+
             IF(commute_err .OR. split_err) THEN
                 DEALLOCATE(poly_coef_qpL_y, poly_coef_qpR_y)
                 DEALLOCATE(d_qpL_y, d_qpR_y)
             END IF
-            
+
             DEALLOCATE(beta_coef_y)
             ! ==================================================================
-            
-            
+
+
             ! Deallocating WENO coefficients in z-direction ====================
             IF(p == 0) RETURN
-            
+
             DEALLOCATE(poly_coef_cbL_z, poly_coef_cbR_z)
             DEALLOCATE(d_cbL_z, d_cbR_z)
-            
+
             IF(commute_err .OR. split_err) THEN
                 DEALLOCATE(poly_coef_qpL_z, poly_coef_qpR_z)
                 DEALLOCATE(d_qpL_z, d_qpR_z)
             END IF
-            
+
             DEALLOCATE(beta_coef_z)
             ! ==================================================================
-            
-            
+
+
         END SUBROUTINE s_finalize_weno_module ! --------------------------------
-        
-        
-        
-        
-        
+
+
+
+
+
 END MODULE m_weno

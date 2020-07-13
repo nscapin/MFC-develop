@@ -5,11 +5,8 @@ import math
 Nx      = 399
 dx      = 1./(1.*(Nx+1))
 
-#Tend    = 0.1
-#Nt      = 1000
-
-Tend    = 0.0001
-Nt      = 1
+Tend    = 0.1
+Nt      = 1000
 mydt    = Tend/(1.*Nt)
 
 # Command to navigate between directories
@@ -60,7 +57,7 @@ case_dict =                                                                     
                     'p'                            : 0,                         \
                     'dt'                           : mydt,                      \
                     't_step_start'                 : 0,                         \
-                    't_step_stop'                  : int(Nt),                   \
+                    't_step_stop'                  : int(Nt),                        \
                     't_step_save'                  : int(math.ceil(Nt/10.)),    \
 		    # ==========================================================
                                                                                 \
@@ -75,9 +72,10 @@ case_dict =                                                                     
 		    'time_stepper'                 : 3,                        \
                     'weno_vars'                    : 2,                        \
                     'weno_order'                   : 5,                        \
-                    'weno_eps'                     : 1.E-16,                   \
+                    'weno_eps'                     : 1.E-6,                   \
                     'char_decomp'                  : 'T',                      \
                     'mapped_weno'                  : 'F',                      \
+                    'neural_network'               : 'T',                      \
                     'null_weights'                 : 'F',                      \
                     'mp_weno'                      : 'F',                      \
 		    'riemann_solver'               : 2,                        \
