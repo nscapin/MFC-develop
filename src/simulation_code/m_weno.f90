@@ -1060,54 +1060,59 @@ MODULE m_weno
                                 ! So now we have the scaled nonlinear weights, we can compute the WENO5 coefficients with them
                                 ! Make sure to throw in a IF (neural_network) THEN type thing
                                 IF(neural_net == 1) THEN
-                                    C1(0,0) = 1/3*omega_L(0)
-                                    C1(1,0) = -7/6*omega_L(0) - 1/6*omega_L(1)
-                                    C1(2,0) = 11/6*omega_L(0) + 5/6*omega_L(1) + 1/3*omega_L(2)
-                                    C1(3,0) = 1/3*omega_L(1) + 5/6*omega_L(2)
-                                    C1(4,0) = -1/6*omega_L(2)
+                                    C1(1,1) =  1.0/3.0*omega_L(0)
+                                    C1(2,1) = -7.0/6.0*omega_L(0) - 1.0/6.0*omega_L(1)
+                                    C1(3,1) = 11.0/6.0*omega_L(0) + 5.0/6.0*omega_L(1) + 1.0/3.0*omega_L(2)
+                                    C1(4,1) =  1.0/3.0*omega_L(1) + 5.0/6.0*omega_L(2)
+                                    C1(5,1) = -1.0/6.0*omega_L(2)
 
                                     ! Now we can do the neural network. Are the matrices oriented the right way?
-                                    A1 = RESHAPE((/-0.94130915, -0.32270527, -0.06769955, &
-                                           -0.37087336, -0.05059665,  0.55401474, &
-                                            0.40815187, -0.5602299 , -0.01871526, &
-                                            0.56200236, -0.5348897 , -0.04091108, &
-                                           -0.6982639 , -0.49512517,  0.52821904/), (/ 5,3/))
+                                    A1 = TRANSPOSE(RESHAPE((/-0.94130915, -0.32270527, -0.06769955, &
+                                                   -0.37087336, -0.05059665,  0.55401474, &
+                                                    0.40815187, -0.5602299 , -0.01871526, &
+                                                    0.56200236, -0.5348897 , -0.04091108, &
+                                                   -0.6982639 , -0.49512517,  0.52821904/), (/ 3,5/)))
+                                    IF (first == 1 .AND. same_R == 0) THEN
+                                        PRINT *, 'OG A1', TRANSPOSE(A1)
+                                    END IF
                                     b1 = RESHAPE((/-0.04064859,  0.        ,  0.        /) , (/3,1/))
 
                                     C2 = MATMUL(TRANSPOSE(A1), C1) + b1
-                                    DO ii = 0 ,4, 1
+                                    DO ii = 0 ,4
                                         IF (C2(II,0) < 0) THEN! Relu activation
                                             C2(II,0) = 0
                                         END IF
                                     END DO
 
-                                    A2 = RESHAPE((/ 0.07149544, 0.9637294 , 0.41981453, &
+                                    A2 = TRANSPOSE(RESHAPE((/ 0.07149544, 0.9637294 , 0.41981453, &
                                             0.75602794,-0.0222342 ,-0.95690656, &
-                                            0.07406807,-0.41880417,-0.4687035/), (/ 3,3/))
+                                            0.07406807,-0.41880417,-0.4687035/), (/ 3,3/)))
+
                                     b2 = RESHAPE((/-0.0836111 ,-0.00330033,-0.01930024/),(/3,1/))
 
                                     C3 = MATMUL(TRANSPOSE(A2), C2) + b2
-                                    DO ii = 0 ,4, 1
+                                    DO ii = 0 ,4
                                         IF (C3(II,0) < 0) THEN! Relu activation
                                             C3(II,0) = 0
                                         END IF
                                     END DO
 
-                                    A3 = RESHAPE((/ 0.8568574 , -0.5809458 ,  0.04762125, &
+                                    A3 = TRANSPOSE(RESHAPE((/ 0.8568574 , -0.5809458 ,  0.04762125, &
                                            -0.26066098, -0.23142155, -0.6449008 , &
-                                            0.7623346 ,  0.81388015, -0.03217626/), (/3,3/))
+                                            0.7623346 ,  0.81388015, -0.03217626/), (/3,3/)))
                                     b3 = RESHAPE((/-0.0133561 , -0.05374921,  0.        /), (/3,1/))
 
                                     C4 = MATMUL(TRANSPOSE(A3), C3) + b3
-                                    DO ii = 0 ,4, 1
+                                    DO ii = 0 ,4
                                         IF (C4(II,0) < 0) THEN! Relu activation
                                             C4(II,0) = 0
                                         END IF
                                     END DO
 
-                                    A4 = RESHAPE((/-0.2891752 , -0.53783405, -0.17556567, -0.7775279 ,  0.69957024, &
+                                    A4 = TRANSPOSE(RESHAPE((/-0.2891752 , -0.53783405, -0.17556567, -0.7775279 ,0.69957024, &
                                            -0.12895434,  0.13607207,  0.12294354,  0.29842544, -0.00198237, &
-                                            0.5356503 ,  0.09317833,  0.5135357 , -0.32794708,  0.13765627/), (/3,5/))
+                                            0.5356503 ,  0.09317833,  0.5135357 , -0.32794708,  0.13765627/), (/5,3/)))
+
                                     b4 = RESHAPE((/ 0.00881096,  0.01138764,  0.00464343,  0.0070305 , -0.01644066/), (/5,1/))
 
                                     dc = MATMUL(TRANSPOSE(A4), C4) + b4
@@ -1164,35 +1169,35 @@ MODULE m_weno
                                 omega_R = alpha_R/SUM(alpha_R)
 
                                 IF(neural_net == 1) THEN
-
-                                    C1(0,0) = 1/3*omega_R(0)
-                                    C1(1,0) =-7/6*omega_R(0) - 1/6*omega_R(1)
-                                    C1(2,0) =11/6*omega_R(0) + 5/6*omega_R(1) + 1/3*omega_R(2)
-                                    C1(3,0) = 1/3*omega_R(1) + 5/6*omega_R(2)
-                                    C1(4,0) = 1/6*omega_R(2)
+                                    C1(1,1) = 1.0/3.0*omega_R(2)
+                                    C1(2,1) =-7.0/6.0*omega_R(2) - 1.0/6.0*omega_R(1)
+                                    C1(3,1) =11.0/6.0*omega_R(2) + 5.0/6.0*omega_R(1) + 1.0/3.0*omega_R(0)
+                                    C1(4,1) = 1.0/3.0*omega_R(1) + 5.0/6.0*omega_R(0)
+                                    C1(5,1) =-1.0/6.0*omega_R(0)
 
                                     ! Now we can do the neural network. Are the matrices oriented the right way?
                                     C2 = MATMUL(TRANSPOSE(A1), C1) + b1
-                                    DO ii = 0,4
-                                        IF (C2(ii,0) < 0) THEN
+
+                                    DO ii = 1,5
+                                        IF (C2(ii,1) < 0) THEN
                                             ! Relu activation
-                                            C2(ii,0) = 0
+                                            C2(ii,1) = 0
                                         END IF
                                     END DO
 
                                     C3 = MATMUL(TRANSPOSE(A2), C2) + b2
-                                    DO ii = 0,4
-                                        IF (C3(ii,0) < 0) THEN
+                                    DO ii = 1,5
+                                        IF (C3(ii,1) < 0) THEN
                                             ! Relu activation
-                                            C3(ii,0) = 0
+                                            C3(ii,1) = 0
                                         END IF
                                     END DO
 
                                     C4 = MATMUL(TRANSPOSE(A3), C3) + b3
-                                    DO ii = 0,4
-                                        IF (C4(ii,0) < 0) THEN
+                                    DO ii = 1,5
+                                        IF (C4(ii,1) < 0) THEN
                                             ! Relu activation
-                                            C4(ii,0) = 0
+                                            C4(ii,1) = 0
                                         END IF
                                     END DO
 
@@ -1202,7 +1207,7 @@ MODULE m_weno
                                     ! Project the coefficients onto the space of consistent schemes
                                     dc2 = MATMUL(TRANSPOSE(Ac), ct) + bc
                                     ! The final right coefficients
-                                    CR = ct + dc2 
+                                    CR = ct + dc2
                                     IF (first == 1 .AND. same_R == 0) THEN
                                         PRINT *, 'beta', beta
                                         PRINT *, 'omega_R', omega_R
