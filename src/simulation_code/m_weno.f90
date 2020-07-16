@@ -970,7 +970,7 @@ MODULE m_weno
 
             ! WENO5 ============================================================
             ELSE
-                neural_net = 1 !This is not permanent
+                neural_net = 0 !This is not permanent
                 first = 1
                 DO i = 1, v_size
                     DO l = is3%beg, is3%end
@@ -1060,29 +1060,14 @@ MODULE m_weno
                                 ! So now we have the scaled nonlinear weights, we can compute the WENO5 coefficients with them
                                 ! Make sure to throw in a IF (neural_network) THEN type thing
                                 IF(neural_net == 1) THEN
-                                    C1(1,1) =  1.0/3.0*omega_L(0)
-                                    C1(2,1) = -7.0/6.0*omega_L(0) - 1.0/6.0*omega_L(1)
-                                    C1(3,1) = 11.0/6.0*omega_L(0) + 5.0/6.0*omega_L(1) + 1.0/3.0*omega_L(2)
-                                    C1(4,1) =  1.0/3.0*omega_L(1) + 5.0/6.0*omega_L(2)
-                                    C1(5,1) = -1.0/6.0*omega_L(2)
-
                                     ! Now we can do the neural network. Are the matrices oriented the right way?
                                     A1 = TRANSPOSE(RESHAPE((/-0.94130915, -0.32270527, -0.06769955, &
                                                    -0.37087336, -0.05059665,  0.55401474, &
                                                     0.40815187, -0.5602299 , -0.01871526, &
                                                     0.56200236, -0.5348897 , -0.04091108, &
                                                    -0.6982639 , -0.49512517,  0.52821904/), (/ 3,5/)))
-                                    IF (first == 1 .AND. same_R == 0) THEN
-                                        PRINT *, 'OG A1', TRANSPOSE(A1)
-                                    END IF
-                                    b1 = RESHAPE((/-0.04064859,  0.        ,  0.        /) , (/3,1/))
 
-                                    C2 = MATMUL(TRANSPOSE(A1), C1) + b1
-                                    DO ii = 0 ,4
-                                        IF (C2(II,0) < 0) THEN! Relu activation
-                                            C2(II,0) = 0
-                                        END IF
-                                    END DO
+                                    b1 = RESHAPE((/-0.04064859,  0.        ,  0.        /) , (/3,1/))
 
                                     A2 = TRANSPOSE(RESHAPE((/ 0.07149544, 0.9637294 , 0.41981453, &
                                             0.75602794,-0.0222342 ,-0.95690656, &
@@ -1090,30 +1075,44 @@ MODULE m_weno
 
                                     b2 = RESHAPE((/-0.0836111 ,-0.00330033,-0.01930024/),(/3,1/))
 
-                                    C3 = MATMUL(TRANSPOSE(A2), C2) + b2
-                                    DO ii = 0 ,4
-                                        IF (C3(II,0) < 0) THEN! Relu activation
-                                            C3(II,0) = 0
-                                        END IF
-                                    END DO
-
                                     A3 = TRANSPOSE(RESHAPE((/ 0.8568574 , -0.5809458 ,  0.04762125, &
                                            -0.26066098, -0.23142155, -0.6449008 , &
                                             0.7623346 ,  0.81388015, -0.03217626/), (/3,3/)))
                                     b3 = RESHAPE((/-0.0133561 , -0.05374921,  0.        /), (/3,1/))
-
-                                    C4 = MATMUL(TRANSPOSE(A3), C3) + b3
-                                    DO ii = 0 ,4
-                                        IF (C4(II,0) < 0) THEN! Relu activation
-                                            C4(II,0) = 0
-                                        END IF
-                                    END DO
 
                                     A4 = TRANSPOSE(RESHAPE((/-0.2891752 , -0.53783405, -0.17556567, -0.7775279 ,0.69957024, &
                                            -0.12895434,  0.13607207,  0.12294354,  0.29842544, -0.00198237, &
                                             0.5356503 ,  0.09317833,  0.5135357 , -0.32794708,  0.13765627/), (/5,3/)))
 
                                     b4 = RESHAPE((/ 0.00881096,  0.01138764,  0.00464343,  0.0070305 , -0.01644066/), (/5,1/))
+
+                                    C1(1,1) =  1.0/3.0*omega_L(2)
+                                    C1(2,1) = -7.0/6.0*omega_L(2) - 1.0/6.0*omega_L(1)
+                                    C1(3,1) = 11.0/6.0*omega_L(2) + 5.0/6.0*omega_L(1) + 1.0/3.0*omega_L(0)
+                                    C1(4,1) =  1.0/3.0*omega_L(1) + 5.0/6.0*omega_L(0)
+                                    C1(5,1) = -1.0/6.0*omega_L(0)
+
+                                    C2 = MATMUL(TRANSPOSE(A1), C1) + b1
+                                    DO ii = 1 ,5
+                                        IF (C2(II,1) < 0) THEN! Relu activation
+                                            C2(II,1) = 0
+                                        END IF
+                                    END DO
+
+                                    C3 = MATMUL(TRANSPOSE(A2), C2) + b2
+                                    DO ii = 1 ,5
+                                        IF (C3(II,1) < 0) THEN! Relu activation
+                                            C3(II,1) = 0
+                                        END IF
+                                    END DO
+
+
+                                    C4 = MATMUL(TRANSPOSE(A3), C3) + b3
+                                    DO ii = 1 ,5
+                                        IF (C4(II,1) < 0) THEN! Relu activation
+                                            C4(II,1) = 0
+                                        END IF
+                                    END DO
 
                                     dc = MATMUL(TRANSPOSE(A4), C4) + b4
                                     ct = c1 - dc
@@ -1128,6 +1127,26 @@ MODULE m_weno
 
                                     dc2 = MATMUL(TRANSPOSE(Ac), ct) + bc
                                     CL = ct + dc2! The final left coefficients
+
+                                    IF (first == 1 .AND. same_L == 0) THEN
+                                        PRINT *, 'v_rs_wsL(-2)%vf(i)%sf(j,k,l)', v_rs_wsL(-2)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsL(-1)%vf(i)%sf(j,k,l)', v_rs_wsL(-1)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsL( 0)%vf(i)%sf(j,k,l)', v_rs_wsL(0)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsL( 1)%vf(i)%sf(j,k,l)', v_rs_wsL(1)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsL( 2)%vf(i)%sf(j,k,l)', v_rs_wsL(2)%vf(i)%sf(j,k,l)
+
+                                        PRINT *, 'Smoothness Indicators', beta
+                                        PRINT *, 'Nonlinear Weights', omega_L
+                                        PRINT *, 'C1', C1
+                                        PRINT *, 'C2', C2
+                                        PRINT *, 'C3', C3
+                                        PRINT *, 'C4', C4
+
+                                        PRINT *, 'dc', C4
+                                        PRINT *, 'ct', C4
+                                        PRINT *, 'dc2', C4
+                                        PRINT *, 'CL', CL
+                                    END IF
                                 END IF
 
                                 ! Now the right side
@@ -1208,24 +1227,9 @@ MODULE m_weno
                                     dc2 = MATMUL(TRANSPOSE(Ac), ct) + bc
                                     ! The final right coefficients
                                     CR = ct + dc2
-                                    IF (first == 1 .AND. same_R == 0) THEN
-                                        PRINT *, 'beta', beta
-                                        PRINT *, 'omega_R', omega_R
-                                        PRINT *, 'v_rs_wsR(-2)%vf(i)%sf(j,k,l)', v_rs_wsR(-2)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsR(-1)%vf(i)%sf(j,k,l)', v_rs_wsR(-1)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsR(0)%vf(i)%sf(j,k,l)', v_rs_wsR(0)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsR(1)%vf(i)%sf(j,k,l)', v_rs_wsR(1)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsR(2)%vf(i)%sf(j,k,l)', v_rs_wsR(2)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'C1', C1
-                                        PRINT *, 'C2', C2
-                                        PRINT *, 'C3', C3
-                                        PRINT *, 'C4', C4
-                                        PRINT *, 'dc', dc
-                                        PRINT *, 'ct', ct
-                                        PRINT *, 'dc2', dc2
-                                        PRINT *, 'CR', CR
-                                        first = 0
-                                    END IF
+                                    ! IF (first == 1 .AND. same_R == 0) THEN
+                                        ! PRINT *, 'CR', CR
+                                    ! END IF
                                 END IF
 
 
@@ -1255,6 +1259,10 @@ MODULE m_weno
                                                                +(CL(3,0)*v_rs_wsL(1)%vf(i)%sf(j,k,l)) &
                                                                +(CL(4,0)*v_rs_wsL(2)%vf(i)%sf(j,k,l))
                                         vL_rs_vf(i)%sf(j,k,l) = vL_rs_vf(0)%sf(j,k,l)*(max_u_L - min_u_L) + min_u_L
+                                        IF (first == 1) THEN
+                                            PRINT *, 'Left flux', vL_rs_vf(i)%sf(j,k,l)
+                                            first = 0
+                                        END IF
                                     END IF
 
                                     IF(same_R == 1) THEN
@@ -1270,10 +1278,57 @@ MODULE m_weno
                                                                +(CR(4,0)*v_rs_wsR(2)%vf(i)%sf(j,k,l))
                                         vR_rs_vf(i)%sf(j,k,l) = vR_rs_vf(0)%sf(j,k,l)*(max_u_R - min_u_R) + min_u_R
                                         !PRINT *, 'vR_rs_vf(i)%sf(j,k,l)', vR_rs_vf(i)%sf(j,k,l)
+                                        ! PRINT *, 'v_rs_wsR(-2)%vf(i)%sf(j,k,l)', v_rs_wsR(-2)%vf(i)%sf(j,k,l)
+                                        ! PRINT *, 'v_rs_wsR(-1)%vf(i)%sf(j,k,l)', v_rs_wsR(-1)%vf(i)%sf(j,k,l)
+                                        ! PRINT *, 'v_rs_wsR( 0)%vf(i)%sf(j,k,l)', v_rs_wsR(0)%vf(i)%sf(j,k,l)
+                                        !P RINT *, 'v_rs_wsR( 1)%vf(i)%sf(j,k,l)', v_rs_wsR(1)%vf(i)%sf(j,k,l)
+                                        !PRINT *, 'v_rs_wsR( 2)%vf(i)%sf(j,k,l)', v_rs_wsR(2)%vf(i)%sf(j,k,l)
+                                        !PRINT *, 'Right flux', vR_rs_vf(i)%sf(j,k,l)
                                     END IF
                                 ELSE
                                     vL_rs_vf(i)%sf(j,k,l) = SUM(omega_L*poly_L)
                                     vR_rs_vf(i)%sf(j,k,l) = SUM(omega_R*poly_R)
+
+                                    DO q = -weno_polyn, weno_polyn
+                                        scaling_stencil(q) = v_rs_wsL(q)%vf(i)%sf(j,k,l)
+                                    END DO
+                                    min_u_L = minval(scaling_stencil(:))
+                                    max_u_L = maxval(scaling_stencil(:))
+                                    IF (min_u_L == max_u_L) THEN
+                                        same_L = 1
+                                    ELSE
+                                        same_L = 0
+                                        !PRINT *, 'print 1000'
+                                    END IF
+
+                                    ! Now do right side
+                                    DO q = -weno_polyn, weno_polyn
+                                        scaling_stencil(q) = v_rs_wsR(q)%vf(i)%sf(j,k,l)
+                                    END DO
+
+                                    min_u_R = minval(scaling_stencil(:))
+                                    max_u_R = maxval(scaling_stencil(:))
+                                    IF (min_u_R == max_u_R) THEN
+                                        same_R = 1
+                                    ELSE
+                                        same_R = 0
+                                    END IF
+
+                                    IF(same_R == 0 .OR. same_L == 0) THEN
+                                        PRINT *, 'j: ', j
+                                        PRINT *, 'v_rs_wsL(-2)%vf(i)%sf(j,k,l)', v_rs_wsL(-2)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsL(-1)%vf(i)%sf(j,k,l)', v_rs_wsL(-1)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsL( 0)%vf(i)%sf(j,k,l)', v_rs_wsL(0)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsL( 1)%vf(i)%sf(j,k,l)', v_rs_wsL(1)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsL( 2)%vf(i)%sf(j,k,l)', v_rs_wsL(2)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'Left Flux', vL_rs_vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsR(-2)%vf(i)%sf(j,k,l)', v_rs_wsR(-2)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsR(-1)%vf(i)%sf(j,k,l)', v_rs_wsR(-1)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsR( 0)%vf(i)%sf(j,k,l)', v_rs_wsR(0)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsR( 1)%vf(i)%sf(j,k,l)', v_rs_wsR(1)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'v_rs_wsR( 2)%vf(i)%sf(j,k,l)', v_rs_wsR(2)%vf(i)%sf(j,k,l)
+                                        PRINT *, 'Right Flux', vR_rs_vf(i)%sf(j,k,l)
+                                    END IF
                                 END IF
                                 !PRINT *, 'print 1238'
                                 IF(mp_weno .AND. weno_loc == 1) THEN
