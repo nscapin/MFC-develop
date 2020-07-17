@@ -977,9 +977,17 @@ MODULE m_weno
                         DO k = is2%beg, is2%end
                             DO j = is1%beg, is1%end
 
-                                !DO q = -weno_polyn, weno_polyn
-                                !    v_rs_wsR(q)%vf(i)%sf(j,k,l) = q
-                                !END DO
+                                !v_rs_wsR(-2)%vf(i)%sf(j,k,l) = 1
+                                !v_rs_wsR(-1)%vf(i)%sf(j,k,l) = 1
+                                !v_rs_wsR( 0)%vf(i)%sf(j,k,l) = 0
+                                !v_rs_wsR( 1)%vf(i)%sf(j,k,l) = -1
+                                !v_rs_wsR( 2)%vf(i)%sf(j,k,l) = -3
+
+                                !v_rs_wsL(-2)%vf(i)%sf(j,k,l) = 1
+                                !v_rs_wsL(-1)%vf(i)%sf(j,k,l) = 1
+                                !v_rs_wsL( 0)%vf(i)%sf(j,k,l) = 0
+                                !v_rs_wsL( 1)%vf(i)%sf(j,k,l) = -1
+                                !v_rs_wsL( 2)%vf(i)%sf(j,k,l) = -3
                                 !DO q = -weno_polyn, weno_polyn
                                 !    v_rs_wsL(q)%vf(i)%sf(j,k,l) = q
                                 !END DO
@@ -1000,7 +1008,7 @@ MODULE m_weno
                                     END DO
                                     min_u_L = minval(scaling_stencil(:))
                                     max_u_L = maxval(scaling_stencil(:))
-                                    IF (min_u_L == max_u_L) THEN
+                                    IF (ABS(min_u_L - max_u_L)<=1E-12) THEN
                                         same_L = 1
                                     ELSE
                                         same_L = 0
@@ -1017,7 +1025,7 @@ MODULE m_weno
 
                                     min_u_R = minval(scaling_stencil(:))
                                     max_u_R = maxval(scaling_stencil(:))
-                                    IF (min_u_R == max_u_R) THEN
+                                    IF (ABS(min_u_R - max_u_R)<=1E-12) THEN
                                         same_R = 1
                                     ELSE
                                         same_R = 0
@@ -1059,10 +1067,13 @@ MODULE m_weno
                                         + beta_coef(2,2,j)*dvd(-2)*dvd(-2) &
                                         + weno_eps
 
+                                !PRINT *, 'Smoothness indicators', beta
+
                                 alpha_L = d_L(:,j)/(beta*beta)
-
+                                !PRINT *, 'd_L(:,j)', d_L(:,j)
+                                !PRINT *, 'alpha_L', alpha_L
                                 omega_L = alpha_L/SUM(alpha_L)
-
+                                !PRINT *, 'omega_L', omega_L
                                 ! So now we have the scaled nonlinear weights, we can compute the WENO5 coefficients with them
                                 ! Make sure to throw in a IF (neural_network) THEN type thing
                                 IF(neural_net == 1) THEN
@@ -1133,6 +1144,25 @@ MODULE m_weno
 
                                     dc2 = MATMUL(TRANSPOSE(Ac), ct) + bc
                                     CL = ct + dc2! The final left coefficients
+                                    IF (first == 1 .AND. same_L == 0) THEN
+                                        !PRINT *, 'v_rs_wsR(-2)%vf(i)%sf(j,k,l)', v_rs_wsR(-2)%vf(i)%sf(j,k,l)
+                                        !PRINT *, 'v_rs_wsR(-1)%vf(i)%sf(j,k,l)', v_rs_wsR(-1)%vf(i)%sf(j,k,l)
+                                        !PRINT *, 'v_rs_wsR( 0)%vf(i)%sf(j,k,l)', v_rs_wsR(0)%vf(i)%sf(j,k,l)
+                                        !PRINT *, 'v_rs_wsR( 1)%vf(i)%sf(j,k,l)', v_rs_wsR(1)%vf(i)%sf(j,k,l)
+                                        !PRINT *, 'v_rs_wsR( 2)%vf(i)%sf(j,k,l)', v_rs_wsR(2)%vf(i)%sf(j,k,l)
+
+                                        !PRINT *, 'Smoothness Indicators', beta
+                                        !PRINT *, 'Nonlinear Weights', omega_L
+                                        !PRINT *, 'C1', C1
+                                        !PRINT *, 'C2', C2
+                                        !PRINT *, 'C3', C3
+                                        !PRINT *, 'C4', C4
+
+                                        !PRINT *, 'dc', dc
+                                        !PRINT *, 'ct', ct
+                                        !PRINT *, 'dc2', dc2
+                                        !PRINT *, 'CL', CL
+                                    END IF
                                 END IF
 
                                 ! Now the right side
@@ -1216,25 +1246,6 @@ MODULE m_weno
                                     ! IF (first == 1 .AND. same_R == 0) THEN
                                         ! PRINT *, 'CR', CR
                                     ! END IF
-                                    IF (first == 1 .AND. same_L == 0) THEN
-                                        !PRINT *, 'v_rs_wsR(-2)%vf(i)%sf(j,k,l)', v_rs_wsR(-2)%vf(i)%sf(j,k,l)
-                                        !PRINT *, 'v_rs_wsR(-1)%vf(i)%sf(j,k,l)', v_rs_wsR(-1)%vf(i)%sf(j,k,l)
-                                        !PRINT *, 'v_rs_wsR( 0)%vf(i)%sf(j,k,l)', v_rs_wsR(0)%vf(i)%sf(j,k,l)
-                                        !PRINT *, 'v_rs_wsR( 1)%vf(i)%sf(j,k,l)', v_rs_wsR(1)%vf(i)%sf(j,k,l)
-                                        !PRINT *, 'v_rs_wsR( 2)%vf(i)%sf(j,k,l)', v_rs_wsR(2)%vf(i)%sf(j,k,l)
-
-                                        !PRINT *, 'Smoothness Indicators', beta
-                                        !PRINT *, 'Nonlinear Weights', omega_R
-                                        !PRINT *, 'C1', C1
-                                        !PRINT *, 'C2', C2
-                                        !PRINT *, 'C3', C3
-                                        !PRINT *, 'C4', C4
-
-                                        !PRINT *, 'dc', dc
-                                        !PRINT *, 'ct', ct
-                                        !PRINT *, 'dc2', dc2
-                                        !PRINT *, 'CR', CR
-                                    END IF
                                 END IF
 
 
@@ -1258,11 +1269,11 @@ MODULE m_weno
                                     ELSE
                                         !PRINT *, 'v_rs_wsL(0)%vf(i)%sf(j,k,l)', v_rs_wsL(0)%vf(i)%sf(j,k,l)
                                         !PRINT *, 'vL_rs_vf(i)%sf(j,k,l)', vL_rs_vf(i)%sf(j,k,l)
-                                        vL_rs_vf(i)%sf(j,k,l) = (CL(1,1)*v_rs_wsL(-2)%vf(i)%sf(j,k,l)) &
-                                                               +(CL(2,1)*v_rs_wsL(-1)%vf(i)%sf(j,k,l)) &
+                                        vL_rs_vf(i)%sf(j,k,l) = (CL(1,1)*v_rs_wsL(2)%vf(i)%sf(j,k,l)) &
+                                                               +(CL(2,1)*v_rs_wsL(1)%vf(i)%sf(j,k,l)) &
                                                                +(CL(3,1)*v_rs_wsL(0)%vf(i)%sf(j,k,l)) &
-                                                               +(CL(4,1)*v_rs_wsL(1)%vf(i)%sf(j,k,l)) &
-                                                               +(CL(5,1)*v_rs_wsL(2)%vf(i)%sf(j,k,l))
+                                                               +(CL(4,1)*v_rs_wsL(-1)%vf(i)%sf(j,k,l)) &
+                                                               +(CL(5,1)*v_rs_wsL(-2)%vf(i)%sf(j,k,l))
                                         vL_rs_vf(i)%sf(j,k,l) = vL_rs_vf(i)%sf(j,k,l)*(max_u_L - min_u_L) + min_u_L
                                     END IF
 
@@ -1272,11 +1283,11 @@ MODULE m_weno
                                         !PRINT *, vR_rs_vf
                                         !PRINT *, 'v_rs_wsR(0)%vf(i)%sf(j,k,l)', v_rs_wsR(0)%vf(i)%sf(j,k,l)
                                         !PRINT *, 'vR_rs_vf(i)%sf(j,k,l)', vR_rs_vf(i)%sf(j,k,l)
-                                        vR_rs_vf(i)%sf(j,k,l) = (CR(1,1)*v_rs_wsR(2)%vf(i)%sf(j,k,l)) &
-                                                               +(CR(2,1)*v_rs_wsR(1)%vf(i)%sf(j,k,l)) &
+                                        vR_rs_vf(i)%sf(j,k,l) = (CR(1,1)*v_rs_wsR(-2)%vf(i)%sf(j,k,l)) &
+                                                               +(CR(2,1)*v_rs_wsR(-1)%vf(i)%sf(j,k,l)) &
                                                                +(CR(3,1)*v_rs_wsR(0)%vf(i)%sf(j,k,l)) &
-                                                               +(CR(4,1)*v_rs_wsR(-1)%vf(i)%sf(j,k,l)) &
-                                                               +(CR(5,1)*v_rs_wsR(-2)%vf(i)%sf(j,k,l))
+                                                               +(CR(4,1)*v_rs_wsR(1)%vf(i)%sf(j,k,l)) &
+                                                               +(CR(5,1)*v_rs_wsR(2)%vf(i)%sf(j,k,l))
                                         !PRINT *, 'Unscaled Right Flux', vR_rs_vf(i)%sf(j,k,l)
                                         vR_rs_vf(i)%sf(j,k,l) = vR_rs_vf(i)%sf(j,k,l)*(max_u_R - min_u_R) + min_u_R
                                         !PRINT *, 'max_u_R', max_u_R
