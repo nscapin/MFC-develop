@@ -970,12 +970,19 @@ MODULE m_weno
 
             ! WENO5 ============================================================
             ELSE
-                neural_net = 0 !This is not permanent
+                neural_net = 1 !This is not permanent
                 first = 1
                 DO i = 1, v_size
                     DO l = is3%beg, is3%end
                         DO k = is2%beg, is2%end
                             DO j = is1%beg, is1%end
+
+                                !DO q = -weno_polyn, weno_polyn
+                                !    v_rs_wsR(q)%vf(i)%sf(j,k,l) = q
+                                !END DO
+                                !DO q = -weno_polyn, weno_polyn
+                                !    v_rs_wsL(q)%vf(i)%sf(j,k,l) = q
+                                !END DO
 
                                 !PRINT *, 'print 981'
                                 !! Scaling stuff here
@@ -1019,7 +1026,6 @@ MODULE m_weno
                                         END DO
                                     END IF
                                 END IF
-
 
                                 dvd( 1) = v_rs_wsL( 2)%vf(i)%sf(j,k,l) &
                                         - v_rs_wsL( 1)%vf(i)%sf(j,k,l)
@@ -1086,11 +1092,11 @@ MODULE m_weno
 
                                     b4 = RESHAPE((/ 0.00881096,  0.01138764,  0.00464343,  0.0070305 , -0.01644066/), (/5,1/))
 
-                                    C1(1,1) =  1.0/3.0*omega_L(2)
-                                    C1(2,1) = -7.0/6.0*omega_L(2) - 1.0/6.0*omega_L(1)
-                                    C1(3,1) = 11.0/6.0*omega_L(2) + 5.0/6.0*omega_L(1) + 1.0/3.0*omega_L(0)
-                                    C1(4,1) =  1.0/3.0*omega_L(1) + 5.0/6.0*omega_L(0)
-                                    C1(5,1) = -1.0/6.0*omega_L(0)
+                                    C1(1,1) =  1.0/3.0*omega_L(0)
+                                    C1(2,1) = -7.0/6.0*omega_L(0) - 1.0/6.0*omega_L(1)
+                                    C1(3,1) = 11.0/6.0*omega_L(0) + 5.0/6.0*omega_L(1) + 1.0/3.0*omega_L(2)
+                                    C1(4,1) =  1.0/3.0*omega_L(1) + 5.0/6.0*omega_L(2)
+                                    C1(5,1) = -1.0/6.0*omega_L(2)
 
                                     C2 = MATMUL(TRANSPOSE(A1), C1) + b1
                                     DO ii = 1 ,5
@@ -1127,26 +1133,6 @@ MODULE m_weno
 
                                     dc2 = MATMUL(TRANSPOSE(Ac), ct) + bc
                                     CL = ct + dc2! The final left coefficients
-
-                                    IF (first == 1 .AND. same_L == 0) THEN
-                                        PRINT *, 'v_rs_wsL(-2)%vf(i)%sf(j,k,l)', v_rs_wsL(-2)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsL(-1)%vf(i)%sf(j,k,l)', v_rs_wsL(-1)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsL( 0)%vf(i)%sf(j,k,l)', v_rs_wsL(0)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsL( 1)%vf(i)%sf(j,k,l)', v_rs_wsL(1)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsL( 2)%vf(i)%sf(j,k,l)', v_rs_wsL(2)%vf(i)%sf(j,k,l)
-
-                                        PRINT *, 'Smoothness Indicators', beta
-                                        PRINT *, 'Nonlinear Weights', omega_L
-                                        PRINT *, 'C1', C1
-                                        PRINT *, 'C2', C2
-                                        PRINT *, 'C3', C3
-                                        PRINT *, 'C4', C4
-
-                                        PRINT *, 'dc', C4
-                                        PRINT *, 'ct', C4
-                                        PRINT *, 'dc2', C4
-                                        PRINT *, 'CL', CL
-                                    END IF
                                 END IF
 
                                 ! Now the right side
@@ -1230,6 +1216,25 @@ MODULE m_weno
                                     ! IF (first == 1 .AND. same_R == 0) THEN
                                         ! PRINT *, 'CR', CR
                                     ! END IF
+                                    IF (first == 1 .AND. same_L == 0) THEN
+                                        !PRINT *, 'v_rs_wsR(-2)%vf(i)%sf(j,k,l)', v_rs_wsR(-2)%vf(i)%sf(j,k,l)
+                                        !PRINT *, 'v_rs_wsR(-1)%vf(i)%sf(j,k,l)', v_rs_wsR(-1)%vf(i)%sf(j,k,l)
+                                        !PRINT *, 'v_rs_wsR( 0)%vf(i)%sf(j,k,l)', v_rs_wsR(0)%vf(i)%sf(j,k,l)
+                                        !PRINT *, 'v_rs_wsR( 1)%vf(i)%sf(j,k,l)', v_rs_wsR(1)%vf(i)%sf(j,k,l)
+                                        !PRINT *, 'v_rs_wsR( 2)%vf(i)%sf(j,k,l)', v_rs_wsR(2)%vf(i)%sf(j,k,l)
+
+                                        !PRINT *, 'Smoothness Indicators', beta
+                                        !PRINT *, 'Nonlinear Weights', omega_R
+                                        !PRINT *, 'C1', C1
+                                        !PRINT *, 'C2', C2
+                                        !PRINT *, 'C3', C3
+                                        !PRINT *, 'C4', C4
+
+                                        !PRINT *, 'dc', dc
+                                        !PRINT *, 'ct', ct
+                                        !PRINT *, 'dc2', dc2
+                                        !PRINT *, 'CR', CR
+                                    END IF
                                 END IF
 
 
@@ -1253,16 +1258,12 @@ MODULE m_weno
                                     ELSE
                                         !PRINT *, 'v_rs_wsL(0)%vf(i)%sf(j,k,l)', v_rs_wsL(0)%vf(i)%sf(j,k,l)
                                         !PRINT *, 'vL_rs_vf(i)%sf(j,k,l)', vL_rs_vf(i)%sf(j,k,l)
-                                        vL_rs_vf(i)%sf(j,k,l) = (CL(0,0)*v_rs_wsL(-2)%vf(i)%sf(j,k,l)) &
-                                                               +(CL(1,0)*v_rs_wsL(-1)%vf(i)%sf(j,k,l)) &
-                                                               +(CL(2,0)*v_rs_wsL(0)%vf(i)%sf(j,k,l)) &
-                                                               +(CL(3,0)*v_rs_wsL(1)%vf(i)%sf(j,k,l)) &
-                                                               +(CL(4,0)*v_rs_wsL(2)%vf(i)%sf(j,k,l))
-                                        vL_rs_vf(i)%sf(j,k,l) = vL_rs_vf(0)%sf(j,k,l)*(max_u_L - min_u_L) + min_u_L
-                                        IF (first == 1) THEN
-                                            PRINT *, 'Left flux', vL_rs_vf(i)%sf(j,k,l)
-                                            first = 0
-                                        END IF
+                                        vL_rs_vf(i)%sf(j,k,l) = (CL(1,1)*v_rs_wsL(-2)%vf(i)%sf(j,k,l)) &
+                                                               +(CL(2,1)*v_rs_wsL(-1)%vf(i)%sf(j,k,l)) &
+                                                               +(CL(3,1)*v_rs_wsL(0)%vf(i)%sf(j,k,l)) &
+                                                               +(CL(4,1)*v_rs_wsL(1)%vf(i)%sf(j,k,l)) &
+                                                               +(CL(5,1)*v_rs_wsL(2)%vf(i)%sf(j,k,l))
+                                        vL_rs_vf(i)%sf(j,k,l) = vL_rs_vf(i)%sf(j,k,l)*(max_u_L - min_u_L) + min_u_L
                                     END IF
 
                                     IF(same_R == 1) THEN
@@ -1271,12 +1272,16 @@ MODULE m_weno
                                         !PRINT *, vR_rs_vf
                                         !PRINT *, 'v_rs_wsR(0)%vf(i)%sf(j,k,l)', v_rs_wsR(0)%vf(i)%sf(j,k,l)
                                         !PRINT *, 'vR_rs_vf(i)%sf(j,k,l)', vR_rs_vf(i)%sf(j,k,l)
-                                        vR_rs_vf(i)%sf(j,k,l) = (CR(0,0)*v_rs_wsR(-2)%vf(i)%sf(j,k,l)) &
-                                                               +(CR(1,0)*v_rs_wsR(-1)%vf(i)%sf(j,k,l)) &
-                                                               +(CR(2,0)*v_rs_wsR(0)%vf(i)%sf(j,k,l)) &
-                                                               +(CR(3,0)*v_rs_wsR(1)%vf(i)%sf(j,k,l)) &
-                                                               +(CR(4,0)*v_rs_wsR(2)%vf(i)%sf(j,k,l))
-                                        vR_rs_vf(i)%sf(j,k,l) = vR_rs_vf(0)%sf(j,k,l)*(max_u_R - min_u_R) + min_u_R
+                                        vR_rs_vf(i)%sf(j,k,l) = (CR(1,1)*v_rs_wsR(2)%vf(i)%sf(j,k,l)) &
+                                                               +(CR(2,1)*v_rs_wsR(1)%vf(i)%sf(j,k,l)) &
+                                                               +(CR(3,1)*v_rs_wsR(0)%vf(i)%sf(j,k,l)) &
+                                                               +(CR(4,1)*v_rs_wsR(-1)%vf(i)%sf(j,k,l)) &
+                                                               +(CR(5,1)*v_rs_wsR(-2)%vf(i)%sf(j,k,l))
+                                        !PRINT *, 'Unscaled Right Flux', vR_rs_vf(i)%sf(j,k,l)
+                                        vR_rs_vf(i)%sf(j,k,l) = vR_rs_vf(i)%sf(j,k,l)*(max_u_R - min_u_R) + min_u_R
+                                        !PRINT *, 'max_u_R', max_u_R
+                                        !PRINT *, 'min_u_R', min_u_R
+                                        ! PRINT *, 'Right Flux', vR_rs_vf(i)%sf(j,k,l)
                                         !PRINT *, 'vR_rs_vf(i)%sf(j,k,l)', vR_rs_vf(i)%sf(j,k,l)
                                         ! PRINT *, 'v_rs_wsR(-2)%vf(i)%sf(j,k,l)', v_rs_wsR(-2)%vf(i)%sf(j,k,l)
                                         ! PRINT *, 'v_rs_wsR(-1)%vf(i)%sf(j,k,l)', v_rs_wsR(-1)%vf(i)%sf(j,k,l)
@@ -1284,52 +1289,30 @@ MODULE m_weno
                                         !P RINT *, 'v_rs_wsR( 1)%vf(i)%sf(j,k,l)', v_rs_wsR(1)%vf(i)%sf(j,k,l)
                                         !PRINT *, 'v_rs_wsR( 2)%vf(i)%sf(j,k,l)', v_rs_wsR(2)%vf(i)%sf(j,k,l)
                                         !PRINT *, 'Right flux', vR_rs_vf(i)%sf(j,k,l)
+                                        !IF(same_R == 0 .OR. same_L == 0) THEN
+                                        !    PRINT *, 'j: ', j
+                                        !    PRINT *, 'v_rs_wsL(-2)%vf(i)%sf(j,k,l)', v_rs_wsL(-2)%vf(i)%sf(j,k,l)
+                                        !    PRINT *, 'v_rs_wsL(-1)%vf(i)%sf(j,k,l)', v_rs_wsL(-1)%vf(i)%sf(j,k,l)
+                                        !    PRINT *, 'v_rs_wsL( 0)%vf(i)%sf(j,k,l)', v_rs_wsL(0)%vf(i)%sf(j,k,l)
+                                        !    PRINT *, 'v_rs_wsL( 1)%vf(i)%sf(j,k,l)', v_rs_wsL(1)%vf(i)%sf(j,k,l)
+                                        !    PRINT *, 'v_rs_wsL( 2)%vf(i)%sf(j,k,l)', v_rs_wsL(2)%vf(i)%sf(j,k,l)
+                                        !    PRINT *, 'Left Flux', vL_rs_vf(i)%sf(j,k,l)
+                                        !    PRINT *, 'v_rs_wsR(-2)%vf(i)%sf(j,k,l)', v_rs_wsR(-2)%vf(i)%sf(j,k,l)
+                                        !    PRINT *, 'v_rs_wsR(-1)%vf(i)%sf(j,k,l)', v_rs_wsR(-1)%vf(i)%sf(j,k,l)
+                                        !    PRINT *, 'v_rs_wsR( 0)%vf(i)%sf(j,k,l)', v_rs_wsR(0)%vf(i)%sf(j,k,l)
+                                        !    PRINT *, 'v_rs_wsR( 1)%vf(i)%sf(j,k,l)', v_rs_wsR(1)%vf(i)%sf(j,k,l)
+                                        !    PRINT *, 'v_rs_wsR( 2)%vf(i)%sf(j,k,l)', v_rs_wsR(2)%vf(i)%sf(j,k,l)
+                                        !    PRINT *, 'Right Flux', vR_rs_vf(i)%sf(j,k,l)
+                                        !END IF
                                     END IF
                                 ELSE
                                     vL_rs_vf(i)%sf(j,k,l) = SUM(omega_L*poly_L)
                                     vR_rs_vf(i)%sf(j,k,l) = SUM(omega_R*poly_R)
-
-                                    DO q = -weno_polyn, weno_polyn
-                                        scaling_stencil(q) = v_rs_wsL(q)%vf(i)%sf(j,k,l)
-                                    END DO
-                                    min_u_L = minval(scaling_stencil(:))
-                                    max_u_L = maxval(scaling_stencil(:))
-                                    IF (min_u_L == max_u_L) THEN
-                                        same_L = 1
-                                    ELSE
-                                        same_L = 0
-                                        !PRINT *, 'print 1000'
-                                    END IF
-
-                                    ! Now do right side
-                                    DO q = -weno_polyn, weno_polyn
-                                        scaling_stencil(q) = v_rs_wsR(q)%vf(i)%sf(j,k,l)
-                                    END DO
-
-                                    min_u_R = minval(scaling_stencil(:))
-                                    max_u_R = maxval(scaling_stencil(:))
-                                    IF (min_u_R == max_u_R) THEN
-                                        same_R = 1
-                                    ELSE
-                                        same_R = 0
-                                    END IF
-
-                                    IF(same_R == 0 .OR. same_L == 0) THEN
-                                        PRINT *, 'j: ', j
-                                        PRINT *, 'v_rs_wsL(-2)%vf(i)%sf(j,k,l)', v_rs_wsL(-2)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsL(-1)%vf(i)%sf(j,k,l)', v_rs_wsL(-1)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsL( 0)%vf(i)%sf(j,k,l)', v_rs_wsL(0)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsL( 1)%vf(i)%sf(j,k,l)', v_rs_wsL(1)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsL( 2)%vf(i)%sf(j,k,l)', v_rs_wsL(2)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'Left Flux', vL_rs_vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsR(-2)%vf(i)%sf(j,k,l)', v_rs_wsR(-2)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsR(-1)%vf(i)%sf(j,k,l)', v_rs_wsR(-1)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsR( 0)%vf(i)%sf(j,k,l)', v_rs_wsR(0)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsR( 1)%vf(i)%sf(j,k,l)', v_rs_wsR(1)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsR( 2)%vf(i)%sf(j,k,l)', v_rs_wsR(2)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'Right Flux', vR_rs_vf(i)%sf(j,k,l)
-                                    END IF
                                 END IF
+                                !PRINT *, 'j: ', j
+                                !PRINT *, 'Left Flux', vL_rs_vf(i)%sf(j,k,l)
+                                !PRINT *, 'Right Flux', vR_rs_vf(i)%sf(j,k,l)
+
                                 !PRINT *, 'print 1238'
                                 IF(mp_weno .AND. weno_loc == 1) THEN
                                     CALL s_preserve_monotonicity(i,j,k,l)
