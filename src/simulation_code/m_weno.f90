@@ -770,9 +770,7 @@ MODULE m_weno
             REAL(KIND(0d0)), DIMENSION(0:weno_polyn) :: alpha_L, alpha_R  !< Left/right nonlinear weights
             REAL(KIND(0d0)), DIMENSION(0:weno_polyn) :: omega_L, omega_R  !< Left/right nonlinear weights
 
-
             REAL(KIND(0d0)), DIMENSION(0:weno_polyn) :: beta !< Smoothness indicators
-
 
             REAL(KIND(0d0)), DIMENSION(-weno_polyn:weno_polyn) :: scaling_stencil, scaled_vars
             REAL(KIND(0d0)) :: min_u_R, max_u_R, min_u_L, max_u_L
@@ -791,7 +789,7 @@ MODULE m_weno
             REAL(KIND(0d0)), DIMENSION(5,1) :: C1, dc, ct, dc2, CR, CL
             REAL(KIND(0d0)), DIMENSION(3,1) :: C2, C3, C4
 
-            REAL(KIND(0d0)) :: neural_net, same_R, same_L, first
+            INTEGER :: same_R, same_L, first
 
             ! END: ome other WENO-NN related variables ===
 
@@ -970,7 +968,6 @@ MODULE m_weno
 
             ! WENO5 ============================================================
             ELSE
-                neural_net = 1 !This is not permanent
                 first = 1
                 DO i = 1, v_size
                     DO l = is3%beg, is3%end
@@ -1001,7 +998,7 @@ MODULE m_weno
                                 ! u_tmp[:] = u[:,2]
                                 ! for i in range(0,5):
                                 !     u[:,i] = (u[:,i]-min_u)/(max_u-min_u)
-                                IF (neural_net == 1) THEN
+                                IF (weno_nn) THEN
                                     ! First do left side
                                     DO q = -weno_polyn, weno_polyn
                                         scaling_stencil(q) = v_rs_wsL(q)%vf(i)%sf(j,k,l)
@@ -1075,8 +1072,8 @@ MODULE m_weno
                                 omega_L = alpha_L/SUM(alpha_L)
                                 !PRINT *, 'omega_L', omega_L
                                 ! So now we have the scaled nonlinear weights, we can compute the WENO5 coefficients with them
-                                ! Make sure to throw in a IF (neural_network) THEN type thing
-                                IF(neural_net == 1) THEN
+
+                                IF(weno_nn) THEN
                                     ! Now we can do the neural network. Are the matrices oriented the right way?
                                     A1 = TRANSPOSE(RESHAPE((/-0.94130915, -0.32270527, -0.06769955, &
                                                    -0.37087336, -0.05059665,  0.55401474, &
@@ -1203,7 +1200,7 @@ MODULE m_weno
 
                                 omega_R = alpha_R/SUM(alpha_R)
 
-                                IF(neural_net == 1) THEN
+                                IF(weno_nn) THEN
                                     C1(1,1) = 1.0/3.0*omega_R(2)
                                     C1(2,1) =-7.0/6.0*omega_R(2) - 1.0/6.0*omega_R(1)
                                     C1(3,1) =11.0/6.0*omega_R(2) + 5.0/6.0*omega_R(1) + 1.0/3.0*omega_R(0)
@@ -1262,7 +1259,7 @@ MODULE m_weno
                                 ! It is dotting the linear fluxes with the nonlinear weights I think
 
 
-                                IF(neural_net == 1) THEN
+                                IF(weno_nn) THEN
                                     ! Need to do dot product of coefficients C and input cell averages
                                     IF(same_L == 1) THEN
                                         vL_rs_vf(i)%sf(j,k,l) = v_rs_wsL(0)%vf(i)%sf(j,k,l)

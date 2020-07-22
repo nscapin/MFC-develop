@@ -131,6 +131,7 @@ MODULE m_global_parameters
     REAL(KIND(0d0)) :: weno_eps       !< Binding for the WENO nonlinear weights
     LOGICAL         :: char_decomp    !< Characteristic decomposition
     LOGICAL         :: mapped_weno    !< WENO with mapping of nonlinear weights
+    LOGICAL         :: weno_nn        !< Neural-network-enhanded weno coefs and indicators
     LOGICAL         :: mp_weno        !< Monotonicity preserving (MP) WENO
     LOGICAL         :: weno_avg       !< Average left/right cell-boundary states
     LOGICAL         :: weno_Re_flux   !< WENO reconstruct velocity gradients for viscous stress tensor
@@ -391,6 +392,7 @@ MODULE m_global_parameters
             char_decomp      = .FALSE.
             mapped_weno      = .FALSE.
             mp_weno          = .FALSE.
+            weno_nn          = .FALSE.
             weno_avg         = .FALSE.
             weno_Re_flux     = .FALSE.
             riemann_solver   = dflt_int

@@ -76,6 +76,7 @@ case_dict =                                                                     
                     'weno_vars'                    : 2,                        \
                     'weno_order'                   : 5,                        \
                     'weno_eps'                     : 1.E-6,                   \
+                    'weno_nn'                      : 'T',                        \
                     'char_decomp'                  : 'T',                      \
                     'mapped_weno'                  : 'F',                      \
                     'null_weights'                 : 'F',                      \
