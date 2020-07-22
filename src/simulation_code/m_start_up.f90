@@ -370,6 +370,9 @@ MODULE m_start_up
             ELSEIF(weno_nn .AND. mp_weno) THEN
                 PRINT '(A)', 'Unsupported combination of mp_weno and weno_nn. Exiting ...'
                 CALL s_mpi_abort()
+            ELSEIF(weno_nn .AND. (model_eqns /= 2)) THEN
+                PRINT '(A)', 'Unsupported combination of model_eqns and weno_nn. Exiting ...'
+                CALL s_mpi_abort()
             ELSEIF(ALL(weno_vars /= (/1,2/))) THEN
                 PRINT '(A)', 'Unsupported value of weno_vars. Exiting ...'
                 CALL s_mpi_abort()
