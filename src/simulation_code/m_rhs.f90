@@ -1470,7 +1470,7 @@ MODULE m_rhs
             REAL(KIND(0d0)), DIMENSION(2) :: Re_K
             REAL(KIND(0d0)), DIMENSION(1:num_fluids,1:num_fluids) :: We_K
  
-            INTEGER :: i,j,k,l,r,ii !< Generic loop iterators
+            INTEGER :: i,j,k,l,r,ii,s !< Generic loop iterators
             
             
             ! Configuring Coordinate Direction Indexes =========================
@@ -1635,11 +1635,36 @@ MODULE m_rhs
                                                   qR_cons_ndqp(i,:,:), &
                                                          weno_vars, i  )
                     ELSE
+                        IF (DEBUG) THEN
+                            DO l = 1,sys_size
+                                PRINT*, 'Largest primitive var size for var number', l
+                                PRINT*, MAXVAL(ABS(q_prim_qp(0,0,0)%vf(l)%sf(:,0,0)))
+                                DO s = 0,m
+                                    IF (q_prim_qp(0,0,0)%vf(l)%sf(s,0,0) /= & 
+                                        q_prim_qp(0,0,0)%vf(l)%sf(s,0,0) ) THEN 
+                                        PRINT*, l,s, 'is NaN'
+                                    END IF
+                                END DO
+                            END DO 
+                        END IF
                         CALL s_reconstruct_cell_boundary_values(       &
                                    q_prim_qp(0,0,0)%vf(iv%beg:iv%end), &
                                                   qL_prim_ndqp(i,:,:), &
                                                   qR_prim_ndqp(i,:,:), &
                                                          weno_vars, i  )
+                        IF (DEBUG) THEN
+                            DO l = 1,sys_size
+                                PRINT*, 'Largest reconstucted var size for var number', l
+                                PRINT*, MAXVAL(ABS(qL_prim_ndqp(1,0,0)%vf(l)%sf(:,0,0)))
+                                PRINT*, MAXVAL(ABS(qR_prim_ndqp(1,0,0)%vf(l)%sf(:,0,0)))
+                                DO s = 0,m
+                                    IF (qL_prim_ndqp(i,0,0)%vf(l)%sf(s,0,0) /= & 
+                                        qR_prim_ndqp(i,0,0)%vf(l)%sf(s,0,0) ) THEN 
+                                        PRINT*, l,s, 'reconstructed var is NaN'
+                                    END IF
+                                END DO
+                            END DO 
+                        END IF
                     END IF
 
                 ELSE
@@ -5962,6 +5987,7 @@ MODULE m_rhs
                               is3%end = is3%end - weno_polyn
             END IF
             
+            IF (DEBUG) PRINT*, "Get WENO 1D"
             CALL s_weno(            v_vf(iv%beg:iv%end), &
                          vL_qp( 0, 0)%vf(iv%beg:iv%end), &
                          vR_qp( 0, 0)%vf(iv%beg:iv%end), &

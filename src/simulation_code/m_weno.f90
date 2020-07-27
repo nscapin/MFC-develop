@@ -790,7 +790,7 @@ MODULE m_weno
             REAL(KIND(0d0)), DIMENSION(3,1) :: C2, C3, C4
             REAL(KIND(0d0)) :: infinity
 
-            INTEGER :: same_R, same_L, first, debug
+            INTEGER :: same_R, same_L, first
 
             ! END: ome other WENO-NN related variables ===
 
@@ -970,7 +970,6 @@ MODULE m_weno
             ! WENO5 ============================================================
             ELSE
                 first = 1
-                debug = 1
                 DO i = 1, v_size
                     DO l = is3%beg, is3%end
                         DO k = is2%beg, is2%end
@@ -1143,26 +1142,26 @@ MODULE m_weno
 
                                     dc2 = MATMUL(TRANSPOSE(Ac), ct) + bc
                                     CL = ct + dc2! The final left coefficients
-                                    IF (first == 1 .AND. same_L == 0 .AND. debug == 2) THEN
-                                        PRINT *, 'v_rs_wsL(-2)%vf(i)%sf(j,k,l)', v_rs_wsL(-2)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsL(-1)%vf(i)%sf(j,k,l)', v_rs_wsL(-1)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsL( 0)%vf(i)%sf(j,k,l)', v_rs_wsL(0)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsL( 1)%vf(i)%sf(j,k,l)', v_rs_wsL(1)%vf(i)%sf(j,k,l)
-                                        PRINT *, 'v_rs_wsL( 2)%vf(i)%sf(j,k,l)', v_rs_wsL(2)%vf(i)%sf(j,k,l)
+                                    !IF (first == 1 .AND. same_L == 0 .AND. debug) THEN
+                                    !    PRINT *, 'v_rs_wsL(-2)%vf(i)%sf(j,k,l)', v_rs_wsL(-2)%vf(i)%sf(j,k,l)
+                                    !    PRINT *, 'v_rs_wsL(-1)%vf(i)%sf(j,k,l)', v_rs_wsL(-1)%vf(i)%sf(j,k,l)
+                                    !    PRINT *, 'v_rs_wsL( 0)%vf(i)%sf(j,k,l)', v_rs_wsL(0)%vf(i)%sf(j,k,l)
+                                    !    PRINT *, 'v_rs_wsL( 1)%vf(i)%sf(j,k,l)', v_rs_wsL(1)%vf(i)%sf(j,k,l)
+                                    !    PRINT *, 'v_rs_wsL( 2)%vf(i)%sf(j,k,l)', v_rs_wsL(2)%vf(i)%sf(j,k,l)
 
-                                        PRINT *, 'Smoothness Indicators', beta
-                                        PRINT *, 'Nonlinear Weights', omega_L
-                                        PRINT *, 'C1', C1
-                                        PRINT *, 'C2', C2
-                                        PRINT *, 'C3', C3
-                                        PRINT *, 'C4', C4
+                                    !    PRINT *, 'Smoothness Indicators', beta
+                                    !    PRINT *, 'Nonlinear Weights', omega_L
+                                    !    PRINT *, 'C1', C1
+                                    !    PRINT *, 'C2', C2
+                                    !    PRINT *, 'C3', C3
+                                    !    PRINT *, 'C4', C4
 
-                                        PRINT *, 'dc', dc
-                                        PRINT *, 'ct', ct
-                                        PRINT *, 'dc2', dc2
-                                        PRINT *, 'CL', CL
-                                        !first = 0
-                                    END IF
+                                    !    PRINT *, 'dc', dc
+                                    !    PRINT *, 'ct', ct
+                                    !    PRINT *, 'dc2', dc2
+                                    !    PRINT *, 'CL', CL
+                                    !    !first = 0
+                                    !END IF
                                 END IF
 
                                 ! Now the right side
@@ -1300,11 +1299,13 @@ MODULE m_weno
                                         !P RINT *, 'v_rs_wsR( 1)%vf(i)%sf(j,k,l)', v_rs_wsR(1)%vf(i)%sf(j,k,l)
                                         !PRINT *, 'v_rs_wsR( 2)%vf(i)%sf(j,k,l)', v_rs_wsR(2)%vf(i)%sf(j,k,l)
                                         !PRINT *, 'Right flux', vR_rs_vf(i)%sf(j,k,l)
-                                        !IF((same_R == 0 .OR. same_L == 0) .AND. debug == 1 .AND. vL_rs_vf(i)%sf(j,k,l) /= vL_rs_vf(i)%sf(j,k,l)) THEN
+                                        !IF((same_R == 0 .OR. same_L == 0) .AND. DEBUG .AND. vL_rs_vf(i)%sf(j,k,l) /= vL_rs_vf(i)%sf(j,k,l)) THEN
                                         !infinity = HUGE(dbl_prec_var)
                                         infinity = 10000
-                                        IF(vL_rs_vf(i)%sf(j,k,l) /= vL_rs_vf(i)%sf(j,k,l)) THEN
-                                        !IF((same_R == 0 .OR. same_L == 0) .AND. debug == 1 .AND. i /= i) THEN
+                                        IF( (vL_rs_vf(i)%sf(j,k,l) /= vL_rs_vf(i)%sf(j,k,l)) .OR. &
+                                            (vR_rs_vf(i)%sf(j,k,l) /= vR_rs_vf(i)%sf(j,k,l)) &
+                                        ) THEN
+                                        !IF((same_R == 0 .OR. same_L == 0) .AND. DEBUG .AND. i /= i) THEN
                                             PRINT *, 'j: ', j
                                             PRINT *, 'v_rs_wsL(-2)%vf(i)%sf(j,k,l)', v_rs_wsL(-2)%vf(i)%sf(j,k,l)
                                             PRINT *, 'v_rs_wsL(-1)%vf(i)%sf(j,k,l)', v_rs_wsL(-1)%vf(i)%sf(j,k,l)
