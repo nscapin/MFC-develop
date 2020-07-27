@@ -8,8 +8,8 @@ dx      = 10./(1.*(Nx+1))
 #Tend    = 0.1
 #Nt      = 1000
 
-Tend    = 2.0
-Nt      = 500
+Tend    = 2.0/250.
+Nt      = 500./250.
 mydt    = Tend/(1.*Nt)
 
 # Command to navigate between directories
@@ -72,12 +72,12 @@ case_dict =                                                                     
 		    'adv_alphan'                   : 'T',                      \
 		    'mpp_lim'                      : 'F',                      \
 		    'mixture_err'                  : 'F',                      \
-		    'time_stepper'                 : 3,                        \
+		    'time_stepper'                 : 1,                        \
                     'weno_vars'                    : 2,                        \
                     'weno_order'                   : 5,                        \
                     'weno_eps'                     : 1.E-6,                   \
                     'weno_nn'                      : 'T',                        \
-                    'char_decomp'                  : 'T',                      \
+                    'char_decomp'                  : 'F',                      \
                     'mapped_weno'                  : 'F',                      \
                     'null_weights'                 : 'F',                      \
                     'mp_weno'                      : 'F',                      \

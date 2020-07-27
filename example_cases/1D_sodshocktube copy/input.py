@@ -5,8 +5,8 @@ import math
 Nx      = 399
 dx      = 1./(1.*(Nx+1))
 
-Tend    = 0.1
-Nt      = 1000
+Tend    = 0.0001
+Nt      = 1
 mydt    = Tend/(1.*Nt)
 
 # Command to navigate between directories
@@ -73,7 +73,8 @@ case_dict =                                                                     
                     'weno_vars'                    : 2,                        \
                     'weno_order'                   : 5,                        \
                     'weno_eps'                     : 1.E-6,                   \
-                    'char_decomp'                  : 'T',                      \
+                    'char_decomp'                  : 'F',                      \
+                    'weno_nn'                  : 'T',                      \
                     'mapped_weno'                  : 'F',                      \
                     'neural_network'               : 'T',                      \
                     'null_weights'                 : 'F',                      \
