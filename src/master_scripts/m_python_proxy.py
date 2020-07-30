@@ -1240,6 +1240,7 @@ simulation_dict =                                                              \
                     'Re_inv'                        : None,                     \
                     'nb'                            : None,                     \
                     'Monopole'                      : None,                     \
+                    'forcing'                      : None,                     \
                     'num_mono'                      : None,                     \
                     'qbmm'                          : None,                     \
                     'R0_type'                       : None,                     \

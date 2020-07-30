@@ -427,6 +427,13 @@ MODULE m_mpi_proxy
             CALL MPI_BCAST( num_mono,1,          &
                         MPI_INTEGER,0,          &
                         MPI_COMM_WORLD,ierr  )
+
+
+            !Forcing function
+            CALL MPI_BCAST( forcing,1,          &
+                        MPI_LOGICAL,0,          &
+                        MPI_COMM_WORLD,ierr  )
+
                 
             DO j = 1,num_probes_max
                 DO i = 1,3

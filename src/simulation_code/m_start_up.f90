@@ -132,7 +132,7 @@ MODULE m_start_up
                                    polytropic, thermal,                      &
                                    integral, integral_wrt, num_integrals,    &
                                    polydisperse, poly_sigma, qbmm, nnode,    &
-                                   R0_type, DEBUG, t_tol
+                                   R0_type, DEBUG, t_tol, forcing
             
             
             ! Checking that an input file has been provided by the user. If it

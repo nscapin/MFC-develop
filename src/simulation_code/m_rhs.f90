@@ -257,6 +257,13 @@ MODULE m_rhs
     REAL(KIND(0d0)), ALLOCATABLE, DIMENSION(:,:,:) :: mono_mass_src, mono_e_src
     REAL(KIND(0d0)), ALLOCATABLE, DIMENSION(:,:,:,:) :: mono_mom_src
     !> @}
+
+
+    !> @name Forcing source terms
+    !> @{
+    REAL(KIND(0d0)), ALLOCATABLE, DIMENSION(:,:,:) :: forc_mass_src, forc_e_src
+    REAL(KIND(0d0)), ALLOCATABLE, DIMENSION(:,:,:,:) :: forc_mom_src
+    !> @}
     
     !> @name Saved fluxes for testing
     !> @{
@@ -1200,6 +1207,12 @@ MODULE m_rhs
                 ALLOCATE( mono_mass_src(0:m,0:n,0:p) )
                 ALLOCATE( mono_mom_src(1:num_dims,0:m,0:n,0:p) )
                 ALLOCATE( mono_E_src(0:m,0:n,0:p) )
+            END IF
+
+            IF (forcing) THEN
+                ALLOCATE( forc_mass_src(0:m,0:n,0:p) )
+                ALLOCATE( forc_mom_src(1:num_dims,0:m,0:n,0:p) )
+                ALLOCATE( forc_E_src(0:m,0:n,0:p) )
             END IF
 
             ALLOCATE( divu%sf( &
@@ -2150,6 +2163,23 @@ MODULE m_rhs
                         rhs_vf(E_idx)%sf(:,:,:) = rhs_vf(E_idx)%sf(:,:,:) + mono_e_src(:,:,:)
                     END IF
 
+                    ! Add x-direction forcing functions to RHS
+                    IF (forcing) THEN
+                        ! set forcing functions to zero 
+                        forc_mass_src = 0d0; forc_mom_src = 0d0; forc_e_src = 0d0;
+                        ! compute what the forcing functions are
+                        CALL s_get_forcing(i,q_prim_vf,t_step)
+
+                        ! add forcing functions to respective RHSs
+                        DO k = cont_idx%beg,cont_idx%end
+                            rhs_vf(k)%sf(:,:,:) = rhs_vf(k)%sf(:,:,:) + forc_mass_src(:,:,:)
+                        END DO
+                        DO k = mom_idx%beg,mom_idx%end
+                            rhs_vf(k)%sf(:,:,:) = rhs_vf(k)%sf(:,:,:) + forc_mom_src(k-cont_idx%end,:,:,:)
+                        END DO
+                        rhs_vf(E_idx)%sf(:,:,:) = rhs_vf(E_idx)%sf(:,:,:) + forc_e_src(:,:,:)
+                    END IF
+
                     ! Hypoelastic rhs terms
                     IF (hypoelasticity) THEN
                         
@@ -2486,6 +2516,7 @@ MODULE m_rhs
                         END DO
                     END IF
 
+                    ! y-dir monopole
                     IF (monopole) THEN
                         mono_mass_src = 0d0; mono_mom_src = 0d0; mono_e_src = 0d0;
                         
@@ -2501,6 +2532,24 @@ MODULE m_rhs
                             rhs_vf(k)%sf(:,:,:) = rhs_vf(k)%sf(:,:,:) + mono_mom_src(k-cont_idx%end,:,:,:)
                         END DO
                         rhs_vf(E_idx)%sf(:,:,:) = rhs_vf(E_idx)%sf(:,:,:) + mono_e_src(:,:,:)
+                    END IF
+
+
+                    ! Add y-direction forcing functions to RHS
+                    IF (forcing) THEN
+                        ! set forcing functions to zero 
+                        forc_mass_src = 0d0; forc_mom_src = 0d0; forc_e_src = 0d0;
+                        ! compute what the forcing functions are
+                        CALL s_get_forcing(i,q_prim_vf,t_step)
+
+                        ! add forcing functions to respective RHSs
+                        DO k = cont_idx%beg,cont_idx%end
+                            rhs_vf(k)%sf(:,:,:) = rhs_vf(k)%sf(:,:,:) + forc_mass_src(:,:,:)
+                        END DO
+                        DO k = mom_idx%beg,mom_idx%end
+                            rhs_vf(k)%sf(:,:,:) = rhs_vf(k)%sf(:,:,:) + forc_mom_src(k-cont_idx%end,:,:,:)
+                        END DO
+                        rhs_vf(E_idx)%sf(:,:,:) = rhs_vf(E_idx)%sf(:,:,:) + forc_e_src(:,:,:)
                     END IF
 
                     ! Hypoelastic rhs terms
@@ -3710,6 +3759,57 @@ MODULE m_rhs
             END DO
 
         END SUBROUTINE s_get_divergence
+
+
+        SUBROUTINE s_get_forcing(idir,q_prim_vf,t_step) ! ------------------------------
+
+
+            TYPE(scalar_field), DIMENSION(sys_size), INTENT(IN) :: q_prim_vf
+            INTEGER, INTENT(IN) :: idir, t_step
+            
+            INTEGER :: ndirs,j,k,l
+            
+            REAL(KIND(0d0)) :: mytime, sound, n_tait, B_tait
+            REAL(KIND(0d0)) :: s2, myRho, const_sos
+            
+            REAL(KIND(0d0)), DIMENSION(2) :: Re
+            REAL(KIND(0d0)), DIMENSION( num_fluids, &
+                                        num_fluids  ) :: We
+           
+            ! computes number of coordinate directions
+            ndirs = 1; IF (n > 0) ndirs = 2; IF (p > 0) ndirs = 3
+
+            ! only going to define sources if we are at the last direction
+            IF (idir == ndirs) THEN
+                mytime = t_step*dt
+
+                ! loops through space
+                DO j = 0,m; DO k = 0,n; DO l=0,p
+                    CALL s_convert_to_mixture_variables( q_prim_vf, myRho, n_tait, B_tait, Re, We, j, k, l )
+                    n_tait = 1.d0/n_tait + 1.d0 !make this the usual little 'gamma'
+
+                    sound = n_tait*(q_prim_vf(E_idx)%sf(j,k,l) + ((n_tait-1d0)/n_tait)*B_tait)/myRho
+                    sound = dsqrt(sound)
+
+                    const_sos = dsqrt( n_tait )
+
+                    forc_mass_src(j,k,l)    = forc_mass_src(j,k,l) + s2/sound
+                    IF (n ==0) THEN
+                        ! 1D
+                        forc_mom_src(1,j,k,l) = forc_mom_src(1,j,k,l) + s2
+                    ELSE IF (p==0) THEN
+                        ! 2D
+                        forc_mom_src(1,j,k,l) = forc_mom_src(1,j,k,l) + s2
+                        forc_mom_src(2,j,k,l) = forc_mom_src(2,j,k,l) + s2
+                    END IF
+
+                    forc_E_src(j,k,l)   = forc_E_src(j,k,l) + s2*sound/(n_tait - 1.d0)
+                END DO; END DO; END DO
+            END IF
+
+        END SUBROUTINE s_get_forcing
+
+
 
         !> The purpose of this procedure is to compute the source term
         !! that are needed for generating one-way acoustic waves

@@ -334,6 +334,12 @@ MODULE m_global_parameters
     INTEGER         :: num_mono !< Number of monopoles
     !> @}
 
+
+    !> @name Forcing parameters
+    !> @{
+    LOGICAL         :: forcing !< Forcing switch
+    !> @}
+
     REAL(KIND(0d0)) :: mytime       !< Current simulation time
     REAL(KIND(0d0)) :: finaltime    !< Final simulation time
     REAL(KIND(0d0)) :: t_tol        !< Tolerance
@@ -465,6 +471,10 @@ MODULE m_global_parameters
             ! Monopole source
             monopole = .FALSE.
             num_mono = 1
+
+
+            ! Forcing source
+            forcing = .FALSE.
 
             DO j = 1,num_probes_max
                 DO i = 1,3
