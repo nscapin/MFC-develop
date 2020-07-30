@@ -1818,19 +1818,21 @@ MODULE m_initial_condition
         !>  This patch assigns the primitive variables as analytical 
         !!  functions such that the code can be verified. 
         !!  @param patch_id is the patch identifier
-        SUBROUTINE s_2D_analytical(patch_id) ! ---------------------------------
+        SUBROUTINE s_2D_analytical(patch_id) ! ------------------------
+        ! Description: This patch assigns the primitive variables as analytical 
+        !       functions such that the code can be verified. 
 
+            ! Patch identifier
             INTEGER, INTENT(IN) :: patch_id
 
-            REAL(KIND(0d0)) :: a,b,c,d !< placeholderrs for the cell boundary values
-            REAL(KIND(0d0)) :: pi_inf,gamma,lit_gamma !< equation of state parameters
+            ! Placeholders for the cell boundary values
+            REAL(KIND(0d0)) :: a,b,c,d
 
-            INTEGER :: i,j !< generic loop iterators
+            REAL(KIND(0d0)) :: myLx,myLy,myA,rand1,rand2,rand3
 
-            pi_inf = fluid_pp(1)%pi_inf
-            gamma = fluid_pp(1)%gamma
-            lit_gamma = (1d0+gamma)/gamma
-            
+            ! Generic loop iterators
+            INTEGER :: i,j
+
             ! Transferring the patch's centroid and length information
             x_centroid = patch_icpp(patch_id)%x_centroid
             y_centroid = patch_icpp(patch_id)%y_centroid
@@ -1850,88 +1852,185 @@ MODULE m_initial_condition
             ! state in the cells that this patch covers.
             eta = 1d0
 
+            ! get domain sizes in x/y directions
+            myLx = x_boundary%end - x_boundary%beg
+            myLy = y_boundary%end - y_boundary%beg
+
             ! Checking whether the patch covers a particular cell in the 
             ! domain and verifying whether the current patch has the 
             ! permission to write to that cell. If both queries check out, 
             ! the primitive variables of the current patch are assigned
             ! to this cell.
+
+            ! loop through y-direction indices (grid points)
             DO j = 0, n
+                ! look through x-direction indices (grid points)
                 DO i = 0, m
+                    ! (if x/y index/points are in the patch region, then set the
+                    ! IC there. ) For the TG case, there is only one patch, so
+                    ! this gets used everywhere in space
                     IF (    x_boundary%beg <= x_cc(i) .AND. &
-                            x_boundary%end >= x_cc(i) .AND. &
-                            y_boundary%beg <= y_cc(j) .AND. &
-                            y_boundary%end >= y_cc(j) .AND. &
-                            patch_icpp(patch_id)%alter_patch(patch_id_fp(i,j,0))) THEN
-                    
+                        x_boundary%end >= x_cc(i) .AND. &
+                        y_boundary%beg <= y_cc(j) .AND. &
+                        y_boundary%end >= y_cc(j) .AND. &
+                        patch_icpp(patch_id)%alter_patch(patch_id_fp(i,j,0))) THEN
+
+
+                        ! this takes the parameters given in input.py and
+                        ! assigns the primitive variables accordingly (velocity,
+                        ! density, pressure 
                         CALL s_assign_patch_primitive_variables(patch_id, i,j,0)
 
-                        !what variables to alter
-                        !x-y bump in pressure
-                        !q_prim_vf(E_idx)%sf(i,j,0) = q_prim_vf(E_idx)%sf(i,j,0) * &
-                        !    ( 1d0 + 0.2d0*dexp(-1d0*((x_cb(i)-x_centroid)**2.d0 + (y_cb(j)-y_centroid)**2.d0)/(2.d0*0.005d0)) )
+                        ! Now we overwright some of these values
 
-                        !x-bump
-                        q_prim_vf(E_idx)%sf(i,j,0) = q_prim_vf(E_idx)%sf(i,j,0) * &
-                            ( 1d0 + 0.2d0*dexp(-1d0*((x_cb(i)-x_centroid)**2.d0)/(2.d0*0.005d0)) )
+                        ! nominal amplitude/scaling of vortex is set by myA,
+                        ! which here is = u in (input.py)
+                        myA = q_prim_vf(mom_idx%beg)%sf(i,j,0)
 
-                        !bump in void fraction
-                        !q_prim_vf(adv_idx%beg)%sf(i,j,0) = q_prim_vf(adv_idx%beg)%sf(i,j,0) * &
-                        !    ( 1d0 + 0.2d0*exp(-1d0*((x_cb(i)-x_centroid)**2.d0 + (y_cb(j)-y_centroid)**2.d0)/(2.d0*0.005d0)) )
+                        ! T-G Vortex 
+                        ! q_prim_vf(mom_idx%beg) corresponds to u velocity (the
+                        ! first momentum equation)
+                        q_prim_vf(mom_idx%beg)%sf(i,j,0)  = &
+                                 myA*sin(2.d0*pi*x_cc(i)/myLx)*cos(2.0*pi*y_cc(j)/myLy)
 
-                        !bump in R(x)
-                        !q_prim_vf(adv_idx%end+1)%sf(i,j,0) = q_prim_vf(adv_idx%end+1)%sf(i,j,0) * &
-                        !    ( 1d0 + 0.2d0*exp(-1d0*((x_cb(i)-x_centroid)**2.d0 + (y_cb(j)-y_centroid)**2.d0)/(2.d0*0.005d0)) )
+                        ! q_prim_vf(mom_idx%end) corresponds to v velocity (the
+                        ! second and last momentum equation)
+                        q_prim_vf(mom_idx%end)%sf(i,j,0)  = &
+                            -1d0*myA*cos(2.d0*pi*x_cc(i)/myLx)*sin(2.0*pi*y_cc(j)/myLy)
 
-                        !reassign density
-                        q_prim_vf(1)%sf(i,j,0) = &
-                            (((q_prim_vf(E_idx)%sf(i,j,0) + pi_inf)/(pref + pi_inf))**(1d0/lit_gamma)) * &
-                            rhoref*(1d0-q_prim_vf(alf_idx)%sf(i,j,0))
-                       
-                       ! ================================================================================
-
-                        ! Sinusoidal initial condition for all flow variables =============================
-
-                        ! Cell-center values
-!                        a = 0d0
-!                        b = 0d0
-!                        c = 0d0
-!                        d = 0d0
-!                        q_prim_vf(adv_idx%beg)%sf(i,j,0) = SIN(x_cc(i)) * SIN(y_cc(j))
-!                        q_prim_vf(1)%sf(i,j,0) = q_prim_vf(adv_idx%beg)%sf(i,j,0) * 1d0
-!                        q_prim_vf(cont_idx%end)%sf(i,j,0) = (1d0 - q_prim_vf(adv_idx%beg)%sf(i,j,0)) * 1d0
-!                        q_prim_vf(mom_idx%beg)%sf(i,j,0) = SIN(x_cc(i))
-!                        q_prim_vf(mom_idx%end)%sf(i,j,0) = SIN(y_cc(j))
-!                        q_prim_vf(E_idx)%sf(i,j,0) = 1d0
-
-                        ! Cell-average values
-!                       a = x_cc(i) - 5d-1*dx ! x-beg
-!                       b = x_cc(i) + 5d-1*dx ! x-end
-!                       c = y_cc(j) - 5d-1*dy ! y-beg
-!                       d = y_cc(j) + 5d-1*dy ! y-end
-!                       q_prim_vf(adv_idx%beg)%sf(i,j,0) = 1d0/((b-a)*(d-c)) * &
-!                               (COS(a)*COS(c) - COS(a)*COS(d) - COS(b)*COS(c) + COS(b)*COS(d))
-!                       q_prim_vf(1)%sf(i,j,0) = q_prim_vf(adv_idx%beg)%sf(i,j,0) * 1d0
-!                       q_prim_vf(cont_idx%end)%sf(i,j,0) = (1d0 - q_prim_vf(adv_idx%beg)%sf(i,j,0)) * 1d0
-!                       q_prim_vf(mom_idx%beg)%sf(i,j,0) = (COS(a) - COS(b))/(b-a)
-!                       q_prim_vf(mom_idx%end)%sf(i,j,0) = (COS(c) - COS(d))/(d-c)
-!                       q_prim_vf(E_idx)%sf(i,j,0) = 1d0
-                        ! ================================================================================
-
-                        ! Initial pressure profile smearing for bubble collapse case of Tiwari (2013) ====
-                        !IF((       (x_cc(i))**2d0                     &
-                        !         + (y_cc(j))**2d0 <= 1d0**2d0)) THEN
-                        !         q_prim_vf(E_idx)%sf(i,j,0) = 1d5 / 25d0
-                        !ELSE
-                        !    q_prim_vf(E_idx)%sf(i,j,0) = 1d5 + 1d0/SQRT(x_cc(i)**2d0+y_cc(j)**2d0) & 
-                        !                                    * ((1d5/25d0) - 1d5)
-                        !END IF
-                        ! ================================================================================
+                        ! Add randomized disturbance
+                        rand1 = 1.d0 - rand()*1d-2
+                        rand2 = 1.d0 - rand()*1d-2
+                        rand3 = 1.d0 - rand()*1d-2
+                        ! add to x and y-direction velociites
+                        q_prim_vf(mom_idx%beg)%sf(i,j,0)  = q_prim_vf(mom_idx%beg)%sf(i,j,0)*rand1
+                        q_prim_vf(mom_idx%end)%sf(i,j,0)  = q_prim_vf(mom_idx%end)%sf(i,j,0)*rand2
+                        ! add to E_idx equation (which is the energy equation),
+                        ! so this is the pressure (because it's the primitive
+                        ! variable
+                        q_prim_vf(E_idx)%sf(i,j,0)  = q_prim_vf(E_idx)%sf(i,j,0)*rand3
 
                     END IF
                 END DO
             END DO
 
-        END SUBROUTINE s_2D_analytical ! ---------------------------------------
+        END SUBROUTINE s_2D_analytical ! ------------------------------------------
+
+        ! old
+        !SUBROUTINE s_2D_analytical(patch_id) ! ---------------------------------
+
+        !    INTEGER, INTENT(IN) :: patch_id
+
+        !    REAL(KIND(0d0)) :: a,b,c,d !< placeholderrs for the cell boundary values
+        !    REAL(KIND(0d0)) :: pi_inf,gamma,lit_gamma !< equation of state parameters
+
+        !    INTEGER :: i,j !< generic loop iterators
+
+        !    pi_inf = fluid_pp(1)%pi_inf
+        !    gamma = fluid_pp(1)%gamma
+        !    lit_gamma = (1d0+gamma)/gamma
+            
+        !    ! Transferring the patch's centroid and length information
+        !    x_centroid = patch_icpp(patch_id)%x_centroid
+        !    y_centroid = patch_icpp(patch_id)%y_centroid
+        !    length_x = patch_icpp(patch_id)%length_x
+        !    length_y = patch_icpp(patch_id)%length_y
+
+        !    ! Computing the beginning and the end x- and y-coordinates
+        !    ! of the patch based on its centroid and lengths
+        !    x_boundary%beg = x_centroid - 0.5d0*length_x
+        !    x_boundary%end = x_centroid + 0.5d0*length_x
+        !    y_boundary%beg = y_centroid - 0.5d0*length_y
+        !    y_boundary%end = y_centroid + 0.5d0*length_y
+
+        !    ! Since the patch doesn't allow for its boundaries to be
+        !    ! smoothed out, the pseudo volume fraction is set to 1 to 
+        !    ! ensure that only the current patch contributes to the fluid
+        !    ! state in the cells that this patch covers.
+        !    eta = 1d0
+
+        !    ! Checking whether the patch covers a particular cell in the 
+        !    ! domain and verifying whether the current patch has the 
+        !    ! permission to write to that cell. If both queries check out, 
+        !    ! the primitive variables of the current patch are assigned
+        !    ! to this cell.
+        !    DO j = 0, n
+        !        DO i = 0, m
+        !            IF (    x_boundary%beg <= x_cc(i) .AND. &
+        !                    x_boundary%end >= x_cc(i) .AND. &
+        !                    y_boundary%beg <= y_cc(j) .AND. &
+        !                    y_boundary%end >= y_cc(j) .AND. &
+        !                    patch_icpp(patch_id)%alter_patch(patch_id_fp(i,j,0))) THEN
+                    
+        !                CALL s_assign_patch_primitive_variables(patch_id, i,j,0)
+
+        !                !what variables to alter
+        !                !x-y bump in pressure
+        !                !q_prim_vf(E_idx)%sf(i,j,0) = q_prim_vf(E_idx)%sf(i,j,0) * &
+        !                !    ( 1d0 + 0.2d0*dexp(-1d0*((x_cb(i)-x_centroid)**2.d0 + (y_cb(j)-y_centroid)**2.d0)/(2.d0*0.005d0)) )
+
+        !                !x-bump
+        !                q_prim_vf(E_idx)%sf(i,j,0) = q_prim_vf(E_idx)%sf(i,j,0) * &
+        !                    ( 1d0 + 0.2d0*dexp(-1d0*((x_cb(i)-x_centroid)**2.d0)/(2.d0*0.005d0)) )
+
+        !                !bump in void fraction
+        !                !q_prim_vf(adv_idx%beg)%sf(i,j,0) = q_prim_vf(adv_idx%beg)%sf(i,j,0) * &
+        !                !    ( 1d0 + 0.2d0*exp(-1d0*((x_cb(i)-x_centroid)**2.d0 + (y_cb(j)-y_centroid)**2.d0)/(2.d0*0.005d0)) )
+
+        !                !bump in R(x)
+        !                !q_prim_vf(adv_idx%end+1)%sf(i,j,0) = q_prim_vf(adv_idx%end+1)%sf(i,j,0) * &
+        !                !    ( 1d0 + 0.2d0*exp(-1d0*((x_cb(i)-x_centroid)**2.d0 + (y_cb(j)-y_centroid)**2.d0)/(2.d0*0.005d0)) )
+
+        !                !reassign density
+        !                q_prim_vf(1)%sf(i,j,0) = &
+        !                    (((q_prim_vf(E_idx)%sf(i,j,0) + pi_inf)/(pref + pi_inf))**(1d0/lit_gamma)) * &
+        !                    rhoref*(1d0-q_prim_vf(alf_idx)%sf(i,j,0))
+                       
+        !               ! ================================================================================
+
+        !                ! Sinusoidal initial condition for all flow variables =============================
+
+        !                ! Cell-center values
+!!                        a = 0d0
+!!                        b = 0d0
+!!                        c = 0d0
+!!                        d = 0d0
+!!                        q_prim_vf(adv_idx%beg)%sf(i,j,0) = SIN(x_cc(i)) * SIN(y_cc(j))
+!!                        q_prim_vf(1)%sf(i,j,0) = q_prim_vf(adv_idx%beg)%sf(i,j,0) * 1d0
+!!                        q_prim_vf(cont_idx%end)%sf(i,j,0) = (1d0 - q_prim_vf(adv_idx%beg)%sf(i,j,0)) * 1d0
+!!                        q_prim_vf(mom_idx%beg)%sf(i,j,0) = SIN(x_cc(i))
+!!                        q_prim_vf(mom_idx%end)%sf(i,j,0) = SIN(y_cc(j))
+!!                        q_prim_vf(E_idx)%sf(i,j,0) = 1d0
+
+        !                ! Cell-average values
+!!                       a = x_cc(i) - 5d-1*dx ! x-beg
+!!                       b = x_cc(i) + 5d-1*dx ! x-end
+!!                       c = y_cc(j) - 5d-1*dy ! y-beg
+!!                       d = y_cc(j) + 5d-1*dy ! y-end
+!!                       q_prim_vf(adv_idx%beg)%sf(i,j,0) = 1d0/((b-a)*(d-c)) * &
+!!                               (COS(a)*COS(c) - COS(a)*COS(d) - COS(b)*COS(c) + COS(b)*COS(d))
+!!                       q_prim_vf(1)%sf(i,j,0) = q_prim_vf(adv_idx%beg)%sf(i,j,0) * 1d0
+!!                       q_prim_vf(cont_idx%end)%sf(i,j,0) = (1d0 - q_prim_vf(adv_idx%beg)%sf(i,j,0)) * 1d0
+!!                       q_prim_vf(mom_idx%beg)%sf(i,j,0) = (COS(a) - COS(b))/(b-a)
+!!                       q_prim_vf(mom_idx%end)%sf(i,j,0) = (COS(c) - COS(d))/(d-c)
+!!                       q_prim_vf(E_idx)%sf(i,j,0) = 1d0
+        !                ! ================================================================================
+
+        !                ! Initial pressure profile smearing for bubble collapse case of Tiwari (2013) ====
+        !                !IF((       (x_cc(i))**2d0                     &
+        !                !         + (y_cc(j))**2d0 <= 1d0**2d0)) THEN
+        !                !         q_prim_vf(E_idx)%sf(i,j,0) = 1d5 / 25d0
+        !                !ELSE
+        !                !    q_prim_vf(E_idx)%sf(i,j,0) = 1d5 + 1d0/SQRT(x_cc(i)**2d0+y_cc(j)**2d0) & 
+        !                !                                    * ((1d5/25d0) - 1d5)
+        !                !END IF
+        !                ! ================================================================================
+
+        !            END IF
+        !        END DO
+        !    END DO
+
+        !END SUBROUTINE s_2D_analytical ! ---------------------------------------
 
 
 
