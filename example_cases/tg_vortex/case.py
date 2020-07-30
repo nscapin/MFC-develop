@@ -167,6 +167,7 @@ case_dict =                                                                     
                     # 'fluid_pp(1)%Re(1)'            : 10000.0,      \
                     # 'fluid_pp(1)%Re(2)'            : 0.01,      \
                     # ==========================================================
+                    'forcing'            : 'T',                \
     }
 
 # Executing MFC component
