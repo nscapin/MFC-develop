@@ -1953,8 +1953,8 @@ MODULE m_rhs
                             print*, 'Detected NaN in flux at equation ', j, 'pt', k  
                             do ii = 1,sys_size
                                 print*, ' prim var ', ii
-                                print*, 'k',   qL_prim_ndqp(i,0,0)%vf(ii)%sf(k,0,0),   qR_prim_ndqp(i,1,0)%vf(ii)%sf(k,0,0)
-                                print*, 'k-1', qL_prim_ndqp(i,1,0)%vf(ii)%sf(k-1,0,0), qR_prim_ndqp(i,0,0)%vf(ii)%sf(k-1,0,0)
+                                print*, 'k',   qL_prim_ndqp(i,0,0)%vf(ii)%sf(k,0,0),   qR_prim_ndqp(i,0,0)%vf(ii)%sf(k,0,0)
+                                print*, 'k-1', qL_prim_ndqp(i,0,0)%vf(ii)%sf(k-1,0,0), qR_prim_ndqp(i,0,0)%vf(ii)%sf(k-1,0,0)
                                 print*, 'k+1', qL_prim_ndqp(i,0,0)%vf(ii)%sf(k+1,0,0), qR_prim_ndqp(i,0,0)%vf(ii)%sf(k+1,0,0)
                             end do
                             call s_mpi_abort()
