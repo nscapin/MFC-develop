@@ -1643,6 +1643,7 @@ MODULE m_rhs
                                     IF (q_prim_qp(0,0,0)%vf(l)%sf(s,0,0) /= & 
                                         q_prim_qp(0,0,0)%vf(l)%sf(s,0,0) ) THEN 
                                         PRINT*, l,s, 'is NaN'
+                                        call s_mpi_abort()
                                     END IF
                                 END DO
                             END DO 
@@ -1659,8 +1660,14 @@ MODULE m_rhs
                                 PRINT*, MAXVAL(ABS(qR_prim_ndqp(1,0,0)%vf(l)%sf(:,0,0)))
                                 DO s = 0,m
                                     IF (qL_prim_ndqp(i,0,0)%vf(l)%sf(s,0,0) /= & 
+                                        qL_prim_ndqp(i,0,0)%vf(l)%sf(s,0,0) ) THEN 
+                                        PRINT*, l,s, 'reconstructed L var is NaN'
+                                        call s_mpi_abort()
+                                    END IF
+                                    IF (qR_prim_ndqp(i,0,0)%vf(l)%sf(s,0,0) /= & 
                                         qR_prim_ndqp(i,0,0)%vf(l)%sf(s,0,0) ) THEN 
-                                        PRINT*, l,s, 'reconstructed var is NaN'
+                                        PRINT*, l,s, 'reconstructed R var is NaN'
+                                        call s_mpi_abort()
                                     END IF
                                 END DO
                             END DO 
@@ -1939,6 +1946,22 @@ MODULE m_rhs
                         END DO
                     END DO
 
+                    do j = 1,sys_size
+                    do k = 0,m
+                        IF ( flux_ndqp(i,0,0)%vf(j)%sf(k,0,0) /= &
+                             flux_ndqp(i,0,0)%vf(j)%sf(k,0,0) ) THEN
+                            print*, 'Detected NaN in flux at equation ', j, 'pt', k  
+                            do ii = 1,sys_size
+                                print*, ' prim var ', ii
+                                print*, 'k',   qL_prim_ndqp(i,0,0)%vf(ii)%sf(k,0,0),   qR_prim_ndqp(i,1,0)%vf(ii)%sf(k,0,0)
+                                print*, 'k-1', qL_prim_ndqp(i,1,0)%vf(ii)%sf(k-1,0,0), qR_prim_ndqp(i,0,0)%vf(ii)%sf(k-1,0,0)
+                                print*, 'k+1', qL_prim_ndqp(i,0,0)%vf(ii)%sf(k+1,0,0), qR_prim_ndqp(i,0,0)%vf(ii)%sf(k+1,0,0)
+                            end do
+                            call s_mpi_abort()
+                        END IF
+                    end do  
+                    end do
+
                     ! do j = 1,sys_size
                     !     print*, 'fluxes ', flux_ndqp(i,0,0)%vf(j)%sf(:,0,0)
                     ! end do
@@ -2004,6 +2027,7 @@ MODULE m_rhs
                                     flux_src_ndqp(i,0,0)%vf, i,  1, ix,iy,iz  )
                     END IF
             
+
                     ! Applying the Riemann fluxes
                     DO j = 1, sys_size
                         DO k = 0, m
@@ -2012,6 +2036,17 @@ MODULE m_rhs
                             - flux_ndqp(i,0,0)%vf(j)%sf( k ,0:n,0:p) )
                         END DO
                     END DO
+
+
+                    do j = 1,sys_size
+                    do k = 0,m
+                        IF ( rhs_vf(j)%sf(k,0,0) /= &
+                             rhs_vf(j)%sf(k,0,0) ) THEN
+                            print*, 'Pre: divu. detected NaN in rhs at equation ', j, 'pt', k  
+                            call s_mpi_abort()
+                        END IF
+                    end do  
+                    end do
 
 
                     ! Applying source terms to the RHS of the advection equations
@@ -2096,6 +2131,17 @@ MODULE m_rhs
                         END DO
                     END IF
 
+
+                    do j = 1,sys_size
+                    do k = 0,m
+                        IF ( rhs_vf(j)%sf(k,0,0) /= &
+                             rhs_vf(j)%sf(k,0,0) ) THEN
+                            print*, 'Post: divu. detected NaN in rhs at equation ', j, 'pt', k  
+                            call s_mpi_abort()
+                        END IF
+                    end do  
+                    end do
+
                     IF (DEBUG) print*, 'pre-QBMM rhs'
                     DO j = 1, sys_size
                         ! DO k = 0,m             
@@ -2150,16 +2196,6 @@ MODULE m_rhs
                         ! print*, 'rhs = ', rhs_vf(j)%sf(1,0,0)
                     end do
 
-    
-                    ! do j = 1,sys_size
-                    ! do k = 1,m
-                    !     IF ( ABS(rhs_vf(j)%sf(k,0,0) - rhs_vf(j)%sf(k-1,0,0)) > 1.d-14) THEN
-                    !         print*, 'detected discontinuity in rhs at equation ', j
-                    !         print*, 'rhs: ', rhs_vf(j)%sf(:,0,0)
-                    !         call s_mpi_abort()
-                    !     END IF
-                    ! end do  
-                    ! end do
 
                    IF (monopole) THEN
                         mono_mass_src = 0d0; mono_mom_src = 0d0; mono_e_src = 0d0;
@@ -5993,6 +6029,9 @@ MODULE m_rhs
                          vR_qp( 0, 0)%vf(iv%beg:iv%end), &
                          cd_vars, norm_dir, weno_dir, 1, &
                          is1,is2,is3                     )
+
+
+
             ! ==================================================================
             
             ! Reconstruction in s2-direction ===================================

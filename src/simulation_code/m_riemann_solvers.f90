@@ -1399,13 +1399,29 @@ MODULE m_riemann_solvers
                                 END DO
                             ELSE
 
+                                ! Ben: WENO-NN fluxes...
                                 DO i = 1, cont_idx%end
                                     flux_rs_vf(i)%sf(j,k,l) = &
                                            xi_M*alpha_rho_L(i)                    &
                                          * (vel_L(dir_idx(1)) + s_M*(xi_L - 1d0)) &
                                          + xi_P*alpha_rho_R(i)                    &
                                          * (vel_R(dir_idx(1)) + s_P*(xi_R - 1d0))
+                                    IF ( flux_rs_vf(i)%sf(j,k,l) /=  &
+                                         flux_rs_vf(i)%sf(j,k,l) ) THEN
+                                         PRINT*, 'bad eqn', i, 'flux @ indx', j
+                                         PRINT*, 'term 1', xi_M*alpha_rho_L(i) * (vel_L(dir_idx(1)) + s_M*(xi_L - 1d0))
+                                         PRINT*, 'term 2', xi_P*alpha_rho_R(i) * (vel_R(dir_idx(1)) + s_P*(xi_R - 1d0))
+                                         PRINT*, 'L', xi_M, alpha_rho_L(i), vel_L(1), s_M, s_L, s_S, c_L
+                                         PRINT*, 'R', xi_P, alpha_rho_R(i), vel_R(1), s_P, s_R, s_S, c_R
+                                         ! PRINT*, xi_M, xi_P
+                                         ! PRINT*, s_M, s_P
+                                         ! PRINT*, vel_L(dir_idx(2)), vel_R(dir_idx(1))
+                                         ! PRINT*, alpha_rho_L(i), alpha_rho_R(i)
+                                         call s_mpi_abort()
+                                    END IF
                                 END DO
+
+
 
                                 IF (bubbles .AND. (model_eqns == 2) .AND. (num_fluids > 1) ) THEN
                                     ! Kill mass transport @ gas density
@@ -1994,12 +2010,20 @@ MODULE m_riemann_solvers
                             (rho_R*(1d0-alpha_R(num_fluids))) 
                 END IF
             ELSE
+                PRINT*, 'getting sound speeds'
                 DO i = 1, num_fluids 
                     alpha_L(i) = qL_prim_rs_vf(E_idx+i)%sf( j ,k,l)
                     alpha_R(i) = qR_prim_rs_vf(E_idx+i)%sf(j+1,k,l)
                 END DO
                 c_L = ((H_L - 5d-1*SUM(vel_L**2d0))/gamma_L)
                 c_R = ((H_R - 5d-1*SUM(vel_R**2d0))/gamma_R)
+                IF (c_L <0 ) THEN
+                    PRINT*, 'Bad c_L', c_L, H_L, 5d-1*SUM(vel_L**2d0),gamma_L
+                    call s_mpi_abort()
+                ELSE IF (c_R<0) THEN
+                    PRINT*, 'Bad c_R', c_R, H_R, 5d-1*SUM(vel_R**2d0),gamma_R
+                    call s_mpi_abort()
+                END IF
             END IF
 
             IF (mixture_err .AND. c_L < 0d0) THEN
@@ -2007,6 +2031,7 @@ MODULE m_riemann_solvers
             ELSE
                 c_L = SQRT(c_L)
             END IF
+
             IF (mixture_err .AND. c_R < 0d0) THEN
                 c_R = 100.d0*sgm_eps
             ELSE
@@ -2664,6 +2689,10 @@ MODULE m_riemann_solvers
             E_R = gamma_R*pres_R + pi_inf_R + 5d-1*rho_R*SUM(vel_R**2d0)
             
             H_L = (E_L + pres_L)/rho_L
+            IF (H_L < 0.) THEN
+                PRINT*, 'Bad H_L, negative'
+                PRINT*, E_L, pres_L, rho_L
+            END IF
             H_R = (E_R + pres_R)/rho_R
 
             IF (hypoelasticity) THEN
@@ -2855,7 +2884,7 @@ MODULE m_riemann_solvers
             INTEGER, INTENT(IN) :: j,k,l
             
 
-            REAL(KIND(0d0)) :: denom, dpres_We !< Capillary pressure
+            REAL(KIND(0d0)) ::dpres_We !< Capillary pressure
             
 
             INTEGER :: i !< Generic loop iterator
@@ -2874,16 +2903,16 @@ MODULE m_riemann_solvers
                 END DO
             END IF
             
-            s_L = MIN(vel_L(dir_idx(1)) - c_L, vel_R(dir_idx(1)) - c_R) 
-            s_R = MAX(vel_R(dir_idx(1)) + c_R, vel_L(dir_idx(1)) + c_L) 
+            s_L = MIN(vel_L(dir_idx(2)) - c_L, vel_R(dir_idx(1)) - c_R) 
+            s_R = MAX(vel_R(dir_idx(3)) + c_R, vel_L(dir_idx(1)) + c_L) 
             
-            s_S = ( pres_R - pres_L - dpres_We + rho_L*vel_L(dir_idx(1))  * &
-                                                (s_L - vel_L(dir_idx(1))) - &
-                                                 rho_R*vel_R(dir_idx(1))  * &
-                                                (s_R - vel_R(dir_idx(1))) ) &
-                / ( rho_L*(s_L - vel_L(dir_idx(1))) - &
-                    rho_R*(s_R - vel_R(dir_idx(1))) )
-            denom = rho_L*(s_L - vel_L(dir_idx(1))) - rho_R*(s_R - vel_R(dir_idx(1))) 
+            s_S = ( pres_R - pres_L - dpres_We + rho_L*vel_L(dir_idx(2))  * &
+                                                (s_L - vel_L(dir_idx(2))) - &
+                                                 rho_R*vel_R(dir_idx(2))  * &
+                                                (s_R - vel_R(dir_idx(2))) ) &
+                / ( rho_L*(s_L - vel_L(dir_idx(3))) - &
+                    rho_R*(s_R - vel_R(dir_idx(3))) )
+
 
             IF (tvd_wave_speeds) THEN
                 lo_s_L = MIN(lo_vel_L(dir_idx(1)) - lo_c_L, vel_avg(dir_idx(1)) - c_avg)

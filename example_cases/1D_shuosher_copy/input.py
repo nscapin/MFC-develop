@@ -60,7 +60,7 @@ case_dict =                                                                     
                     'p'                            : 0,                         \
                     'dt'                           : mydt,                      \
                     't_step_start'                 : 0,                         \
-                    't_step_stop'                  : 1,                   \
+                    't_step_stop'                  : 2,                   \
                     # 't_step_stop'                  : int(Nt),                   \
                     # 't_step_save'                  : int(math.ceil(Nt/10.)),    \
                     't_step_save'                  : 1,    \

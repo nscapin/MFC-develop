@@ -207,7 +207,6 @@ MODULE m_qbmm
                         coeffs(10,i1,i2) = -3d0*i2*gam/(c*rho)
                         coeffs(11,i1,i2) = -3d0*i2*gam/(c*c*rho)
                         coeffs(12,i1,i2) = i1
-
                     END IF
                 END IF
             END DO; END DO
