@@ -2903,15 +2903,15 @@ MODULE m_riemann_solvers
                 END DO
             END IF
             
-            s_L = MIN(vel_L(dir_idx(2)) - c_L, vel_R(dir_idx(1)) - c_R) 
-            s_R = MAX(vel_R(dir_idx(3)) + c_R, vel_L(dir_idx(1)) + c_L) 
+            s_L = MIN(vel_L(dir_idx(1)) - c_L, vel_R(dir_idx(1)) - c_R) 
+            s_R = MAX(vel_R(dir_idx(1)) + c_R, vel_L(dir_idx(1)) + c_L) 
             
-            s_S = ( pres_R - pres_L - dpres_We + rho_L*vel_L(dir_idx(2))  * &
-                                                (s_L - vel_L(dir_idx(2))) - &
-                                                 rho_R*vel_R(dir_idx(2))  * &
-                                                (s_R - vel_R(dir_idx(2))) ) &
-                / ( rho_L*(s_L - vel_L(dir_idx(3))) - &
-                    rho_R*(s_R - vel_R(dir_idx(3))) )
+            s_S = ( pres_R - pres_L - dpres_We + rho_L*vel_L(dir_idx(1))  * &
+                                                (s_L - vel_L(dir_idx(1))) - &
+                                                 rho_R*vel_R(dir_idx(1))  * &
+                                                (s_R - vel_R(dir_idx(1))) ) &
+                / ( rho_L*(s_L - vel_L(dir_idx(1))) - &
+                    rho_R*(s_R - vel_R(dir_idx(1))) )
 
 
             IF (tvd_wave_speeds) THEN
