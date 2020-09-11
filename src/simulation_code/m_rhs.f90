@@ -1616,6 +1616,7 @@ MODULE m_rhs
                 ! ===============================================================
                 
                 ! Reconstructing Primitive/Conservative Variables ===============
+                ! SHB: Where we debug weno-nn
                 IF(char_decomp .OR. (ALL(Re_size == 0) .AND. We_size == 0)) THEN
                    
                     iv%beg = 1;
@@ -1635,24 +1636,28 @@ MODULE m_rhs
                                                   qR_cons_ndqp(i,:,:), &
                                                          weno_vars, i  )
                     ELSE
-                        IF (DEBUG) THEN
-                            DO l = 1,sys_size
-                                PRINT*, 'Largest primitive var size for var number', l
-                                PRINT*, MAXVAL(ABS(q_prim_qp(0,0,0)%vf(l)%sf(:,0,0)))
-                                DO s = 0,m
-                                    IF (q_prim_qp(0,0,0)%vf(l)%sf(s,0,0) /= & 
-                                        q_prim_qp(0,0,0)%vf(l)%sf(s,0,0) ) THEN 
-                                        PRINT*, l,s, 'is NaN'
-                                        call s_mpi_abort()
-                                    END IF
-                                END DO
-                            END DO 
-                        END IF
+                        ! IF (DEBUG) THEN
+                        !     DO l = 1,sys_size
+                        !         PRINT*, 'Largest primitive var size for var number', l
+                        !         PRINT*, MAXVAL(ABS(q_prim_qp(0,0,0)%vf(l)%sf(:,0,0)))
+                        !         DO s = 0,m
+                        !             IF (q_prim_qp(0,0,0)%vf(l)%sf(s,0,0) /= & 
+                        !                 q_prim_qp(0,0,0)%vf(l)%sf(s,0,0) ) THEN 
+                        !                 PRINT*, l,s, 'is NaN'
+                        !                 call s_mpi_abort()
+                        !             END IF
+                        !         END DO
+                        !     END DO 
+                        ! END IF
+
                         CALL s_reconstruct_cell_boundary_values(       &
                                    q_prim_qp(0,0,0)%vf(iv%beg:iv%end), &
                                                   qL_prim_ndqp(i,:,:), &
                                                   qR_prim_ndqp(i,:,:), &
                                                          weno_vars, i  )
+
+
+
                         IF (DEBUG) THEN
                             DO l = 1,sys_size
                                 PRINT*, 'Largest reconstucted var size for var number', l
@@ -6008,6 +6013,8 @@ MODULE m_rhs
             INTEGER :: weno_dir !< Coordinate direction of the WENO reconstruction
 
             TYPE(bounds_info) :: is1,is2,is3 !< Indical bounds in the s1-, s2- and s3-directions
+
+            INTEGER :: s ! indexing dummy variable
             
             ! Reconstruction in s1-direction ===================================
             is1 = ix; is2 = iy; is3 = iz
@@ -6022,6 +6029,23 @@ MODULE m_rhs
                 weno_dir = 3; is3%beg = is3%beg + weno_polyn
                               is3%end = is3%end - weno_polyn
             END IF
+
+            IF (DEBUG) THEN
+                PRINT*, 'Pre-reconstruction'
+                OPEN(123,file='D/qprim.dat')
+                DO s = ix%beg,ix%end
+                    WRITE(123,*) s, &
+                        v_vf(1)%sf(s,0,0),  &
+                        v_vf(2)%sf(s,0,0),  &
+                        v_vf(3)%sf(s,0,0),  &
+                        v_vf(4)%sf(s,0,0)
+                END DO
+                CLOSE(123)
+                ! DO l = 1,sys_size
+                !     PRINT*, 'Var number', l
+                !     PRINT*, v_vf(l)%sf(ix%beg:ix%end,0,0) 
+                ! END DO 
+            END IF
             
             IF (DEBUG) PRINT*, "Get WENO 1D"
             CALL s_weno(            v_vf(iv%beg:iv%end), &
@@ -6029,6 +6053,36 @@ MODULE m_rhs
                          vR_qp( 0, 0)%vf(iv%beg:iv%end), &
                          cd_vars, norm_dir, weno_dir, 1, &
                          is1,is2,is3                     )
+
+
+            IF (DEBUG) THEN
+                OPEN(123,file='D/qL.dat')
+                DO s = is1%beg,is1%end
+                    WRITE(123,*) s, &
+                        vL_qp(0,0)%vf(1)%sf(s,0,0),  &
+                        vL_qp(0,0)%vf(2)%sf(s,0,0),  &
+                        vL_qp(0,0)%vf(3)%sf(s,0,0),  &
+                        vL_qp(0,0)%vf(4)%sf(s,0,0)
+                END DO
+                CLOSE(123)
+                OPEN(123,file='D/qR.dat')
+                DO s = is1%beg,is1%end
+                    WRITE(123,*) s, &
+                        vR_qp(0,0)%vf(1)%sf(s,0,0),  &
+                        vR_qp(0,0)%vf(2)%sf(s,0,0),  &
+                        vR_qp(0,0)%vf(3)%sf(s,0,0),  &
+                        vR_qp(0,0)%vf(4)%sf(s,0,0)
+                END DO
+                CLOSE(123)
+                ! DO l = 1,sys_size
+                !     PRINT*, 'Variable number', l
+                !     PRINT*, 'qL'
+                !     PRINT*, qL_prim_ndqp(i,0,0)%vf(l)%sf(0:m,0,0)
+                !     PRINT*, 'qR'
+                !     PRINT*, qR_prim_ndqp(i,0,0)%vf(l)%sf(0:m,0,0)
+                ! END DO
+                CALL s_mpi_abort()
+            END IF
 
 
 

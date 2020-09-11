@@ -990,6 +990,13 @@ MODULE m_weno
                                 !    v_rs_wsL(q)%vf(i)%sf(j,k,l) = q
                                 !END DO
 
+                                ! DONT DO THIS
+                                !     v_rs_wsL(1)%vf(i)%sf(:,0,0) = v_rs(1)%vf(i)%sf(:,0,0)
+                                ! DO THIS (just a make believe example, not real code)
+                                ! do is1%beg,is1%end
+                                !     v_rs_wsL(1)%vf(i)%sf(j,0,0) = v_rs(1)%vf(i)%sf(j,0,0)
+                                ! end do
+
                                 !PRINT *, 'print 981'
                                 !! Scaling stuff here
                                 ! min_u = np.amin(u,1)
@@ -1028,7 +1035,9 @@ MODULE m_weno
                                     ELSE
                                         same_R = 0
                                         DO q = -weno_polyn, weno_polyn
-                                            v_rs_wsR(q)%vf(i)%sf(j,k,l) = (v_rs_wsR(q)%vf(i)%sf(j,k,l) - min_u_R)/(max_u_R-min_u_R)
+                                            v_rs_wsR(q)%vf(i)%sf(j,k,l) = &
+                                                (v_rs_wsR(q)%vf(i)%sf(j,k,l) - min_u_R) / &
+                                                (max_u_R-min_u_R)
                                         END DO
                                     END IF
                                 END IF
@@ -1041,6 +1050,10 @@ MODULE m_weno
                                         - v_rs_wsL(-1)%vf(i)%sf(j,k,l)
                                 dvd(-2) = v_rs_wsL(-1)%vf(i)%sf(j,k,l) &
                                         - v_rs_wsL(-2)%vf(i)%sf(j,k,l)
+
+                                IF (DEBUG) &
+                                    PRINT*, 'var', i, 'pt', j, 'dvd, -2:1', &
+                                        dvd(-2), dvd(-1), dvd(0), dvd(1)
 
                                 poly_L(0) = v_rs_wsL(0)%vf(i)%sf(j,k,l) &
                                           + poly_coef_L(0,0,j)*dvd( 1)  &
@@ -1299,7 +1312,8 @@ MODULE m_weno
                                         !P RINT *, 'v_rs_wsR( 1)%vf(i)%sf(j,k,l)', v_rs_wsR(1)%vf(i)%sf(j,k,l)
                                         !PRINT *, 'v_rs_wsR( 2)%vf(i)%sf(j,k,l)', v_rs_wsR(2)%vf(i)%sf(j,k,l)
                                         !PRINT *, 'Right flux', vR_rs_vf(i)%sf(j,k,l)
-                                        !IF((same_R == 0 .OR. same_L == 0) .AND. DEBUG .AND. vL_rs_vf(i)%sf(j,k,l) /= vL_rs_vf(i)%sf(j,k,l)) THEN
+                                        !IF((same_R == 0 .OR. same_L == 0) .AND. DEBUG &
+                                        !  .AND. vL_rs_vf(i)%sf(j,k,l) /= vL_rs_vf(i)%sf(j,k,l)) THEN
                                         !infinity = HUGE(dbl_prec_var)
                                         infinity = 10000
                                         IF( (vL_rs_vf(i)%sf(j,k,l) /= vL_rs_vf(i)%sf(j,k,l)) .OR. &

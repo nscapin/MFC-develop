@@ -2,7 +2,7 @@
 import math
 
 #Numerical setup
-Nx      = 399
+Nx      = 29
 dx      = 1./(1.*(Nx+1))
 
 #Tend    = 0.1
@@ -50,6 +50,7 @@ case_dict =                                                                     
                     'queue'                        : 'normal',                  \
                     'walltime'                     : '24:00:00',                \
                     'mail_list'                    : '',                        \
+                    'debug'                    : 'T',                        \
                     # ==========================================================
                                                                                 \
                     # Computational Domain Parameters ==========================
@@ -60,8 +61,8 @@ case_dict =                                                                     
                     'p'                            : 0,                         \
                     'dt'                           : mydt,                      \
                     't_step_start'                 : 0,                         \
-                    't_step_stop'                  : int(Nt),                   \
-                    't_step_save'                  : int(math.ceil(Nt/10.)),    \
+                    't_step_stop'                  : 1,                   \
+                    't_step_save'                  : 1,    \
 		    # ==========================================================
                                                                                 \
                     # Simulation Algorithm Parameters ==========================
@@ -72,7 +73,7 @@ case_dict =                                                                     
 		    'adv_alphan'                   : 'T',                      \
 		    'mpp_lim'                      : 'F',                      \
 		    'mixture_err'                  : 'F',                      \
-		    'time_stepper'                 : 3,                        \
+		    'time_stepper'                 : 1,                        \
                     'weno_vars'                    : 2,                        \
                     'weno_order'                   : 5,                        \
                     'weno_eps'                     : 1.E-6,                   \

@@ -9,7 +9,8 @@ FC = mpif90
 ### Compiler flags [set according to your compiler] ### 
 #Note: Requires -cpp to enable preprocessor 
 
-FFLAGS = -cpp -c -w -freal-4-real-8
+FFLAGS = -cpp -c -w -freal-4-real-8 
+#-ffree-line-length-0
 #NOTE: Cray compilers require: -eZ
 
 
