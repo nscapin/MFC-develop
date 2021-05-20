@@ -165,23 +165,15 @@ case_dict =                                                                     
                     'weno_vars'                    : 2,                        \
                     'weno_order'                   : 5,                        \
                     'weno_eps'                     : 1.E-16,                   \
-                    'char_decomp'                  : 'F',                      \
                     'mapped_weno'                  : 'T',                      \
                     'null_weights'                 : 'F',                      \
                     'mp_weno'                      : 'T',                      \
-                    'weno_avg'                     : 'F',                      \
                     'weno_Re_flux'                 : 'F',                      \
-		    'riemann_solver'               : 2,                        \
+		            'riemann_solver'               : 2,                        \
                     'wave_speeds'                  : 1,                        \
                     'avg_state'                    : 2,                        \
                     'regularization'               : 'F',                      \
                     'reg_eps'                      : 1.E+00,                   \
-                    'We_riemann_flux'              : 'F',                      \
-                    'We_rhs_flux'                  : 'F',                      \
-                    'We_src'                       : 'F',                      \
-                    'We_wave_speeds'               : 'F',                      \
-                    'lsq_deriv'                    : 'F',                      \
-                    'alt_crv'                      : 'F',                      \
                     'bc_x%beg'                     : -2,                       \
                     'bc_x%end'                     : -2,                       \
                     'bc_y%beg'                     : -2,                      \
