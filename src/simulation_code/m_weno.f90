@@ -163,55 +163,7 @@ contains
                               0:2*(weno_polyn - 1), &
                               ix%beg:ix%end))
 
-        call s_compute_weno_coefficients(1, ix)
-
-        ! ==================================================================
-
-        ! Allocating/Computing WENO Coefficients in y-direction ============
-        if (n == 0) return
-
-        iy%beg = -buff_size + weno_polyn; iy%end = n - iy%beg
-
-        allocate (poly_coef_cbL_y(0:weno_polyn, &
-                                  0:weno_polyn - 1, &
-                                  iy%beg:iy%end))
-        allocate (poly_coef_cbR_y(0:weno_polyn, &
-                                  0:weno_polyn - 1, &
-                                  iy%beg:iy%end))
-
-        allocate (d_cbL_y(0:weno_polyn, iy%beg:iy%end))
-        allocate (d_cbR_y(0:weno_polyn, iy%beg:iy%end))
-
-        allocate (beta_coef_y(0:weno_polyn, &
-                              0:2*(weno_polyn - 1), &
-                              iy%beg:iy%end))
-
-        call s_compute_weno_coefficients(2, iy)
-
-        ! ==================================================================
-
-        ! Allocating/Computing WENO Coefficients in z-direction ============
-        if (p == 0) return
-
-        iz%beg = -buff_size + weno_polyn; iz%end = p - iz%beg
-
-        allocate (poly_coef_cbL_z(0:weno_polyn, &
-                                  0:weno_polyn - 1, &
-                                  iz%beg:iz%end))
-        allocate (poly_coef_cbR_z(0:weno_polyn, &
-                                  0:weno_polyn - 1, &
-                                  iz%beg:iz%end))
-
-        allocate (d_cbL_z(0:weno_polyn, iz%beg:iz%end))
-        allocate (d_cbR_z(0:weno_polyn, iz%beg:iz%end))
-
-        allocate (beta_coef_z(0:weno_polyn, &
-                              0:2*(weno_polyn - 1), &
-                              iz%beg:iz%end))
-
-        call s_compute_weno_coefficients(3, iz)
-
-        ! ==================================================================
+        call s_compute_weno_coefficients(ix)
 
     end subroutine s_initialize_weno_module ! ------------------------------
 
@@ -220,11 +172,9 @@ contains
         !!      weights and smoothness indicators, provided the order,
         !!      the coordinate direction and the location of the WENO
         !!      reconstruction.
-        !! @param weno_dir Coordinate direction of the WENO reconstruction
         !! @param is Index bounds in the s-direction
-    subroutine s_compute_weno_coefficients(weno_dir, is) ! -------
+    subroutine s_compute_weno_coefficients(is) ! -------
 
-        integer, intent(IN) :: weno_dir
         type(bounds_info), intent(IN) :: is
         integer :: s
 
@@ -236,18 +186,12 @@ contains
         integer :: i !< Generic loop iterator
 
         ! Associating WENO coefficients pointers
-        call s_associate_weno_coefficients_pointers(weno_dir)
+        call s_associate_weno_coefficients_pointers
 
         ! Determining the number of cells, the cell-boundary locations and
         ! the boundary conditions in the coordinate direction selected for
         ! the WENO reconstruction
-        if (weno_dir == 1) then
-            s = m; s_cb => x_cb; bc_s = bc_x
-        elseif (weno_dir == 2) then
-            s = n; s_cb => y_cb; bc_s = bc_y
-        else
-            s = p; s_cb => z_cb; bc_s = bc_z
-        end if
+        s = m; s_cb => x_cb; bc_s = bc_x
 
         ! Computing WENO3 Coefficients =====================================
         if (weno_order == 3) then
@@ -451,39 +395,14 @@ contains
         !!      coefficients' pointers with their appropriate targets,
         !!      based on the coordinate direction and the location of
         !!      the WENO reconstruction.
-        !! @param weno_dir Coordinate direction of the WENO reconstruction
-    subroutine s_associate_weno_coefficients_pointers(weno_dir)
-
-        integer, intent(IN) :: weno_dir
+    subroutine s_associate_weno_coefficients_pointers
 
         ! Associating WENO Coefficients in x-direction =====================
-        if (weno_dir == 1) then
-
-            poly_coef_L => poly_coef_cbL_x
-            poly_coef_R => poly_coef_cbR_x
-            d_L => d_cbL_x
-            d_R => d_cbR_x
-            beta_coef => beta_coef_x
-
-        ! Associating WENO Coefficients in y-direction =====================
-        elseif (weno_dir == 2) then
-
-            poly_coef_L => poly_coef_cbL_y
-            poly_coef_R => poly_coef_cbR_y
-            d_L => d_cbL_y
-            d_R => d_cbR_y
-            beta_coef => beta_coef_y
-
-        ! Associating WENO Coefficients in z-direction =====================
-        else
-
-            poly_coef_L => poly_coef_cbL_z
-            poly_coef_R => poly_coef_cbR_z
-            d_L => d_cbL_z
-            d_R => d_cbR_z
-            beta_coef => beta_coef_z
-
-        end if
+        poly_coef_L => poly_coef_cbL_x
+        poly_coef_R => poly_coef_cbR_x
+        d_L => d_cbL_x
+        d_R => d_cbR_x
+        beta_coef => beta_coef_x
         ! ==================================================================
 
     end subroutine s_associate_weno_coefficients_pointers ! ----------------
@@ -500,16 +419,15 @@ contains
         !! @param v_vf Cell-averaged variables
         !! @param vL_vf Left WENO reconstructed cell-boundary values
         !! @param vR_vf Right WENO reconstructed cell-boundary values
-        !! @param weno_dir Coordinate direction of the WENO reconstruction
         !! @param ix Index bounds in first coordinate direction
         !! @param iy Index bounds in second coordinate direction
         !! @param iz Index bounds in third coordinate direction
     subroutine s_weno(v_vf, vL_vf, vR_vf, & ! -------------------
-                      weno_dir, ix, iy, iz)
+                      weno_dir_dummy, ix, iy, iz)
 
         type(scalar_field), dimension(:), intent(IN) :: v_vf
         type(scalar_field), dimension(:), intent(INOUT) :: vL_vf, vR_vf
-        integer, intent(IN) :: weno_dir
+        integer, intent(IN) :: weno_dir_dummy
         type(bounds_info), intent(IN) :: ix, iy, iz
 
         real(kind(0d0)), dimension(-weno_polyn:weno_polyn - 1) :: dvd !<
@@ -530,8 +448,8 @@ contains
         ! data and in addition associating the WENO coefficients pointers
         if (weno_order /= 1) then
             call s_initialize_weno(v_vf, vL_vf, vR_vf, &
-                                   weno_dir, ix, iy, iz)
-            call s_associate_weno_coefficients_pointers(weno_dir)
+                                   ix, iy, iz)
+            call s_associate_weno_coefficients_pointers
         end if
 
         ! WENO1 ============================================================
@@ -724,7 +642,7 @@ contains
         ! Reshaping and/or projecting onto physical fields the outputted
         ! data, as well as disassociating the WENO coefficients pointers
         if (weno_order /= 1) then
-            call s_finalize_weno(vL_vf, vR_vf, weno_dir, ix, iy, iz)
+            call s_finalize_weno(vL_vf, vR_vf, ix, iy, iz)
             nullify (poly_coef_L, poly_coef_R, d_L, d_R, beta_coef)
         end if
 
@@ -737,16 +655,14 @@ contains
         !! @param v_vf Cell-averaged variables
         !! @param vL_vf Left WENO reconstructed cell-boundary values
         !! @param vR_vf Right WENO reconstructed cell-boundary values
-        !! @param weno_dir Coordinate direction of the WENO reconstruction
         !! @param ix Index bounds in first coordinate direction
         !! @param iy Index bounds in second coordinate direction
         !! @param iz Index bounds in third coordinate direction
     subroutine s_initialize_weno(v_vf, vL_vf, vR_vf, & ! ---------
-                                 weno_dir, ix, iy, iz)
+                                 ix, iy, iz)
 
         type(scalar_field), dimension(:), intent(IN) :: v_vf
         type(scalar_field), dimension(:), intent(INOUT) :: vL_vf, vR_vf
-        integer, intent(IN) :: weno_dir
         type(bounds_info), intent(IN) :: ix, iy, iz
 
         integer :: i, j, k, l !< Generic loop iterators
@@ -758,13 +674,7 @@ contains
         ! the WENO reconstruction
         v_size = ubound(v_vf, 1)
 
-        if (weno_dir == 1) then
-            is1 = ix; is2 = iy; is3 = iz
-        elseif (weno_dir == 2) then
-            is1 = iy; is2 = ix; is3 = iz
-        else
-            is1 = iz; is2 = iy; is3 = ix
-        end if
+        is1 = ix; is2 = iy; is3 = iz
 
         ! Allocating the cell-average variables, which are reshaped, and/or
         ! characteristically decomposed, in the coordinate direction of the
@@ -790,66 +700,21 @@ contains
         ! decomposed, in the coordinate direction of WENO reconstruction
         allocate (vL_rs_vf(1:v_size), vR_rs_vf(1:v_size))
 
-        if (weno_dir == 1) then
-            do i = 1, v_size
-                vL_rs_vf(i)%sf => vL_vf(i)%sf
-                vR_rs_vf(i)%sf => vR_vf(i)%sf
-            end do
-        else
-            do i = 1, v_size
-                allocate (vL_rs_vf(i)%sf(is1%beg:is1%end, &
-                                         is2%beg:is2%end, &
-                                         is3%beg:is3%end))
-                allocate (vR_rs_vf(i)%sf(is1%beg:is1%end, &
-                                         is2%beg:is2%end, &
-                                         is3%beg:is3%end))
-            end do
-        end if
+        do i = 1, v_size
+            vL_rs_vf(i)%sf => vL_vf(i)%sf
+            vR_rs_vf(i)%sf => vR_vf(i)%sf
+        end do
 
-        ! Reshaping/Projecting onto Characteristic Fields in x-direction ===
-        if (weno_dir == 1) then
 
-            do i = -weno_polyn, weno_polyn
-                do j = 1, v_size
-                    do k = ix%beg, ix%end
-                        v_rs_wsL(i)%vf(j)%sf(k, :, :) = &
-                            v_vf(j)%sf(i + k, iy%beg:iy%end, iz%beg:iz%end)
-                    end do
+        do i = -weno_polyn, weno_polyn
+            do j = 1, v_size
+                do k = ix%beg, ix%end
+                    v_rs_wsL(i)%vf(j)%sf(k, :, :) = &
+                        v_vf(j)%sf(i + k, iy%beg:iy%end, iz%beg:iz%end)
                 end do
             end do
+        end do
 
-
-        elseif (weno_dir == 2) then
-
-            do i = -weno_polyn, weno_polyn
-                do j = 1, v_size
-                    do k = ix%beg, ix%end
-                        do l = iy%beg, iy%end
-                            v_rs_wsL(i)%vf(j)%sf(l, k, :) = &
-                                v_vf(j)%sf(k, i + l, iz%beg:iz%end)
-                        end do
-                    end do
-                end do
-            end do
-
-
-            ! ==================================================================
-
-            ! Reshaping/Projecting onto Characteristic Fields in z-direction ===
-        else
-
-            do i = -weno_polyn, weno_polyn
-                do j = 1, v_size
-                    do k = ix%beg, ix%end
-                        do l = iz%beg, iz%end
-                            v_rs_wsL(i)%vf(j)%sf(l, :, k) = &
-                                v_vf(j)%sf(k, iy%beg:iy%end, i + l)
-                        end do
-                    end do
-                end do
-            end do
-        end if
-        ! ==================================================================
 
     end subroutine s_initialize_weno ! -------------------------------------
 
@@ -1039,51 +904,16 @@ contains
         !!      necessary in order to finalize the WENO reconstruction
         !! @param vL_vf Left WENO reconstructed cell-boundary values
         !! @param vR_vf Right WENO reconstructed cell-boundary values
-        !! @param weno_dir Coordinate direction of the WENO reconstruction
         !! @param ix Index bounds in first coordinate direction
         !! @param iy Index bounds in second coordinate direction
         !! @param iz Index bounds in third coordinate direction
     subroutine s_finalize_weno(vL_vf, vR_vf, & ! -----------------
-                               weno_dir, ix, iy, iz)
+                               ix, iy, iz)
 
         type(scalar_field), dimension(:), intent(INOUT) :: vL_vf, vR_vf
-        integer, intent(IN) :: weno_dir
         type(bounds_info), intent(IN) :: ix, iy, iz
 
         integer :: i, j, k !< Generic loop iterators
-
-        ! Reshaping/Projecting onto Physical Fields in x-direction =========
-        if (weno_dir == 1) then
-
-            ! Reshaping/Projecting onto Physical Fields in y-direction =========
-        elseif (weno_dir == 2) then
-
-
-            do i = 1, v_size
-                do j = ix%beg, ix%end
-                    do k = iy%beg, iy%end
-                        vL_vf(i)%sf(j, k, iz%beg:iz%end) = vL_rs_vf(i)%sf(k, j, :)
-                        vR_vf(i)%sf(j, k, iz%beg:iz%end) = vR_rs_vf(i)%sf(k, j, :)
-                    end do
-                end do
-            end do
-
-            ! ==================================================================
-
-            ! Reshaping/Projecting onto Physical Fields in z-direction =========
-        else
-
-            do i = 1, v_size
-                do j = ix%beg, ix%end
-                    do k = iz%beg, iz%end
-                        vL_vf(i)%sf(j, iy%beg:iy%end, k) = vL_rs_vf(i)%sf(k, :, j)
-                        vR_vf(i)%sf(j, iy%beg:iy%end, k) = vR_rs_vf(i)%sf(k, :, j)
-                    end do
-                end do
-            end do
-
-        end if
-        ! ==================================================================
 
         do i = -weno_polyn, weno_polyn
 
@@ -1099,17 +929,10 @@ contains
 
         end do
 
-        if (weno_dir == 1) then
-            do i = 1, v_size
-                vL_rs_vf(i)%sf => null()
-                vR_rs_vf(i)%sf => null()
-            end do
-        else
-            do i = 1, v_size
-                deallocate (vL_rs_vf(i)%sf)
-                deallocate (vR_rs_vf(i)%sf)
-            end do
-        end if
+        do i = 1, v_size
+            vL_rs_vf(i)%sf => null()
+            vR_rs_vf(i)%sf => null()
+        end do
 
         deallocate (vL_rs_vf, vR_rs_vf)
 
