@@ -231,8 +231,6 @@ contains
                        0, MPI_COMM_WORLD, ierr)
         call MPI_BCAST(mp_weno, 1, MPI_LOGICAL, &
                        0, MPI_COMM_WORLD, ierr)
-        call MPI_BCAST(weno_Re_flux, 1, MPI_LOGICAL, &
-                       0, MPI_COMM_WORLD, ierr)
         call MPI_BCAST(riemann_solver, 1, MPI_INTEGER, &
                        0, MPI_COMM_WORLD, ierr)
         call MPI_BCAST(wave_speeds, 1, MPI_INTEGER, &
@@ -274,9 +272,6 @@ contains
                            MPI_DOUBLE_PRECISION, 0, &
                            MPI_COMM_WORLD, ierr)
             call MPI_BCAST(fluid_pp(i)%pi_inf, 1, &
-                           MPI_DOUBLE_PRECISION, 0, &
-                           MPI_COMM_WORLD, ierr)
-            call MPI_BCAST(fluid_pp(i)%Re(1), 2, &
                            MPI_DOUBLE_PRECISION, 0, &
                            MPI_COMM_WORLD, ierr)
 
@@ -1032,14 +1027,6 @@ contains
                         MPI_DOUBLE_PRECISION, MPI_MAX, 0, &
                         MPI_COMM_WORLD, ierr)
 
-        if (any(Re_size > 0)) then
-            call MPI_REDUCE(vcfl_max_loc, vcfl_max_glb, 1, &
-                            MPI_DOUBLE_PRECISION, MPI_MAX, 0, &
-                            MPI_COMM_WORLD, ierr)
-            call MPI_REDUCE(Rc_min_loc, Rc_min_glb, 1, &
-                            MPI_DOUBLE_PRECISION, MPI_MIN, 0, &
-                            MPI_COMM_WORLD, ierr)
-        end if
 
     end subroutine s_mpi_reduce_stability_criteria_extrema ! ---------------
 

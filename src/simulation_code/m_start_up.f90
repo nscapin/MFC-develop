@@ -111,7 +111,7 @@ contains
             fluid_pp, com_wrt, cb_wrt, probe_wrt, &
             fd_order, probe, num_probes, t_step_old, &
             threshold_mf, moment_order, &
-            alt_soundspeed, mixture_err, weno_Re_flux, &
+            alt_soundspeed, mixture_err, &
             null_weights, &
             precision, &
             parallel_io, &
@@ -584,39 +584,6 @@ contains
                     'pi_inf. Exiting ...'
                 call s_mpi_abort()
             end if
-
-            do j = 1, 2
-
-                if (fluid_pp(i)%Re(j) /= dflt_real &
-                    .and. &
-                    fluid_pp(i)%Re(j) <= 0d0) then
-                    print '(A,I0,A,I0,A)', 'Unsupported value of '// &
-                        'fluid_pp(', i, ')%'// &
-                        'Re(', j, '). Exiting ...'
-                    call s_mpi_abort()
-                end if
-
-                if (model_eqns == 1 &
-                    .and. &
-                    fluid_pp(i)%Re(j) /= dflt_real) then
-                    print '(A,I0,A,I0,A)', 'Unsupported combination '// &
-                        'of values of model_eqns '// &
-                        'and fluid_pp(', i, ')%'// &
-                        'Re(', j, '). Exiting ...'
-                    call s_mpi_abort()
-                end if
-
-                if (i > num_fluids &
-                    .and. &
-                    fluid_pp(i)%Re(j) /= dflt_real) then
-                    print '(A,I0,A,I0,A)', 'Unsupported combination '// &
-                        'of values of num_fluids '// &
-                        'and fluid_pp(', i, ')%'// &
-                        'Re(', j, '). Exiting ...'
-                    call s_mpi_abort()
-                end if
-
-            end do
 
         end do
         ! END: Fluids Physical Parameters ==================================
@@ -1145,7 +1112,6 @@ contains
         real(kind(0d0))                                        :: dyn_pres
         real(kind(0d0))                                        ::    gamma
         real(kind(0d0))                                        ::   pi_inf
-        real(kind(0d0)), dimension(2)                          ::       Re
         real(kind(0d0))                                        ::     pres
 
         integer :: i, j, k, l
@@ -1154,7 +1120,7 @@ contains
             do k = 0, n
                 do l = 0, p
 
-                    call s_convert_to_mixture_variables(v_vf, rho, gamma, pi_inf, Re, j, k, l)
+                    call s_convert_to_mixture_variables(v_vf, rho, gamma, pi_inf, j, k, l)
 
                     dyn_pres = 0d0
                     do i = mom_idx%beg, mom_idx%end

@@ -192,13 +192,8 @@ contains
         write (1, '(A)') ''; write (1, '(A)') ''
 
         ! Generating table header for the stability criteria to be outputted
-        if (any(Re_size > 0)) then
-            write (1, '(A)') '==== Time-steps ====== Time ======= ICFL '// &
-                'Max ==== VCFL Max ====== Rc Min ======='
-        else
-            write (1, '(A)') '=========== Time-steps ============== Time '// &
-                '============== ICFL Max ============='
-        end if
+        write (1, '(A)') '=========== Time-steps ============== Time '// &
+            '============== ICFL Max ============='
 
     end subroutine s_open_run_time_information_file ! ----------------------
 
@@ -396,7 +391,6 @@ contains
         real(kind(0d0))                                   :: gamma      !< Cell-avg. sp. heat ratio
         real(kind(0d0))                                   :: pi_inf     !< Cell-avg. liquid stiffness function
         real(kind(0d0))                                   :: c          !< Cell-avg. sound speed
-        real(kind(0d0)), dimension(2)                     :: Re         !< Cell-avg. Reynolds numbers
 
         ! ICFL, VCFL, CCFL and Rc stability criteria extrema for the current
         ! time-step and located on both the local (loc) and the global (glb)
@@ -422,7 +416,7 @@ contains
 
                     call s_convert_to_mixture_variables(q_prim_vf, rho, &
                                                         gamma, pi_inf, &
-                                                        Re, j, k, l)
+                                                        j, k, l)
 
                     do i = 1, num_dims
                         vel(i) = q_prim_vf(cont_idx%end + i)%sf(j, k, l)
@@ -479,55 +473,15 @@ contains
                                                       dz(l)/(abs(vel(3)) + c))
                         end if
 
-                        if (any(Re_size > 0)) then
-
-                            if (grid_geometry == 3) then
-                                vcfl_sf(j, k, l) = maxval(dt/Re) &
-                                                   /min(dx(j), dy(k), fltr_dtheta)**2d0
-
-                                Rc_sf(j, k, l) = min(dx(j)*(abs(vel(1)) + c), &
-                                                     dy(k)*(abs(vel(2)) + c), &
-                                                     fltr_dtheta*(abs(vel(3)) + c)) &
-                                                 /maxval(1d0/Re)
-                            else
-                                vcfl_sf(j, k, l) = maxval(dt/Re) &
-                                                   /min(dx(j), dy(k), dz(l))**2d0
-
-                                Rc_sf(j, k, l) = min(dx(j)*(abs(vel(1)) + c), &
-                                                     dy(k)*(abs(vel(2)) + c), &
-                                                     dz(l)*(abs(vel(3)) + c)) &
-                                                 /maxval(1d0/Re)
-                            end if
-
-                        end if
 
                     elseif (n > 0) then
                         !2D
                         icfl_sf(j, k, l) = dt/min(dx(j)/(abs(vel(1)) + c), &
                                                   dy(k)/(abs(vel(2)) + c))
 
-                        if (any(Re_size > 0)) then
-
-                            vcfl_sf(j, k, l) = maxval(dt/Re)/min(dx(j), dy(k))**2d0
-
-                            Rc_sf(j, k, l) = min(dx(j)*(abs(vel(1)) + c), &
-                                                 dy(k)*(abs(vel(2)) + c)) &
-                                             /maxval(1d0/Re)
-
-                        end if
-
                     else
                         !1D
                         icfl_sf(j, k, l) = (dt/dx(j))*(abs(vel(1)) + c)
-
-                        if (any(Re_size > 0)) then
-
-                            vcfl_sf(j, k, l) = maxval(dt/Re)/dx(j)**2d0
-
-                            Rc_sf(j, k, l) = dx(j)*(abs(vel(1)) + c)/maxval(1d0/Re)
-
-                        end if
-
                     end if
 
                 end do
@@ -537,8 +491,6 @@ contains
 
         ! Determining local stability criteria extrema at current time-step
         icfl_max_loc = maxval(icfl_sf)
-        if (any(Re_size > 0)) vcfl_max_loc = maxval(vcfl_sf)
-        if (any(Re_size > 0)) Rc_min_loc = minval(Rc_sf)
 
         ! Determining global stability criteria extrema at current time-step
         if (num_procs > 1) then
@@ -552,29 +504,15 @@ contains
                                                          Rc_min_glb)
         else
             icfl_max_glb = icfl_max_loc
-            if (any(Re_size > 0)) vcfl_max_glb = vcfl_max_loc
-            if (any(Re_size > 0)) Rc_min_glb = Rc_min_loc
         end if
 
         ! Determining the stability criteria extrema over all the time-steps
         if (icfl_max_glb > icfl_max) icfl_max = icfl_max_glb
 
-        if (any(Re_size > 0)) then
-            if (vcfl_max_glb > vcfl_max) vcfl_max = vcfl_max_glb
-            if (Rc_min_glb < Rc_min) Rc_min = Rc_min_glb
-        end if
-
         ! Outputting global stability criteria extrema at current time-step
         if (proc_rank == 0) then
-            if (any(Re_size > 0)) then
-                write (1, '(6X,I8,6X,F10.6,6X,F9.6,6X,F9.6,6X,F10.6)') &
-                    t_step, t_step*dt, icfl_max_glb, &
-                    vcfl_max_glb, &
-                    Rc_min_glb
-            else
-                write (1, '(13X,I8,14X,F10.6,13X,F9.6)') &
-                    t_step, t_step*dt, icfl_max_glb
-            end if
+            write (1, '(13X,I8,14X,F10.6,13X,F9.6)') &
+                t_step, t_step*dt, icfl_max_glb
 
             if (icfl_max_glb /= icfl_max_glb) then
                 print '(A)', 'ICFL is NaN. Exiting ...'
@@ -618,7 +556,6 @@ contains
         real(kind(0d0)) :: nbub                         !< Temporary bubble number density
         real(kind(0d0)) :: gamma, lit_gamma, pi_inf     !< Temporary EOS params
         real(kind(0d0)) :: rho                          !< Temporary density
-        real(kind(0d0)), dimension(2)                   :: Re !< Temporary Reynolds number
 
         ! Creating or overwriting the time-step root directory
         write (t_step_dir, '(A,I0,A,I0)') trim(case_dir)//'/p_all'
@@ -702,7 +639,7 @@ contains
 
                     open (2, FILE=trim(file_path))
                     do j = 0, m
-                        call s_convert_to_mixture_variables(q_cons_vf, rho, gamma, pi_inf, Re, j, 0, 0)
+                        call s_convert_to_mixture_variables(q_cons_vf, rho, gamma, pi_inf, j, 0, 0)
                         lit_gamma = 1d0/gamma + 1d0
 
                         if (((i .ge. cont_idx%beg) .and. (i .le. cont_idx%end)) &
@@ -1639,7 +1576,6 @@ contains
         real(kind(0d0))                                   :: accel
         real(kind(0d0))                                   :: int_pres
         real(kind(0d0))                                   :: max_pres
-        real(kind(0d0)), dimension(2)             :: Re
 
         integer :: i, j, k, l, s !< Generic loop iterator
 
@@ -1705,7 +1641,7 @@ contains
                     ! Computing/Sharing necessary state variables
                     call s_convert_to_mixture_variables(q_cons_vf, rho, &
                                                         gamma, pi_inf, &
-                                                        Re, j - 2, k, l)
+                                                        j - 2, k, l)
                     do s = 1, num_dims
                         vel(s) = q_cons_vf(cont_idx%end + s)%sf(j - 2, k, l)/rho
                     end do
@@ -1814,7 +1750,7 @@ contains
                         ! Computing/Sharing necessary state variables
                         call s_convert_to_mixture_variables(q_cons_vf, rho, &
                                                             gamma, pi_inf, &
-                                                            Re, j - 2, k - 2, l)
+                                                            j - 2, k - 2, l)
                         do s = 1, num_dims
                             vel(s) = q_cons_vf(cont_idx%end + s)%sf(j - 2, k - 2, l)/rho
                         end do
@@ -1908,7 +1844,7 @@ contains
                             ! Computing/Sharing necessary state variables
                             call s_convert_to_mixture_variables(q_cons_vf, rho, &
                                                                 gamma, pi_inf, &
-                                                                Re, j - 2, k - 2, l - 2)
+                                                                j - 2, k - 2, l - 2)
                             do s = 1, num_dims
                                 vel(s) = q_cons_vf(cont_idx%end + s)%sf(j - 2, k - 2, l - 2)/rho
                             end do
@@ -2132,7 +2068,7 @@ contains
                             npts = npts + 1
                             call s_convert_to_mixture_variables(q_cons_vf, rho, &
                                                                 gamma, pi_inf, &
-                                                                Re, j, k, l)
+                                                                j, k, l)
                             do s = 1, num_dims
                                 vel(s) = q_cons_vf(cont_idx%end + s)%sf(j, k, l)/rho
                             end do
@@ -2205,7 +2141,7 @@ contains
                                 npts = npts + 1
                                 call s_convert_to_mixture_variables(q_cons_vf, rho, &
                                                                     gamma, pi_inf, &
-                                                                    Re, j, k, l)
+                                                                    j, k, l)
                                 do s = 1, num_dims
                                     vel(s) = q_cons_vf(cont_idx%end + s)%sf(j, k, l)/rho
                                 end do
@@ -2264,8 +2200,6 @@ contains
         write (1, '(A)') ''
 
         write (1, '(A,F9.6)') 'ICFL Max: ', icfl_max
-        if (any(Re_size > 0)) write (1, '(A,F9.6)') 'VCFL Max: ', vcfl_max
-        if (any(Re_size > 0)) write (1, '(A,F10.6)') 'Rc Min: ', Rc_min
 
         call cpu_time(run_time)
 
@@ -2325,8 +2259,6 @@ contains
 
         ! Allocating/initializing ICFL, VCFL, CCFL and Rc stability criteria
         allocate (icfl_sf(0:m, 0:n, 0:p)); icfl_max = 0d0
-        if (any(Re_size > 0)) allocate (vcfl_sf(0:m, 0:n, 0:p)); vcfl_max = 0d0
-        if (any(Re_size > 0)) allocate (Rc_sf(0:m, 0:n, 0:p)); Rc_min = 1d3
 
         ! Associating the procedural pointer to the appropriate subroutine
         ! that will be utilized in the conversion to the mixture variables
@@ -2386,8 +2318,6 @@ contains
 
         ! Deallocating the ICFL, VCFL, CCFL, and Rc stability criteria
         deallocate (icfl_sf)
-        if (any(Re_size > 0)) deallocate (vcfl_sf)
-        if (any(Re_size > 0)) deallocate (Rc_sf)
 
         ! Deallocating the storage employed for the flow variables that
         ! were written to CoM and probe files

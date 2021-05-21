@@ -123,7 +123,6 @@ module m_global_parameters
     real(kind(0d0)) :: weno_eps       !< Binding for the WENO nonlinear weights
     logical         :: mapped_weno    !< WENO with mapping of nonlinear weights
     logical         :: mp_weno        !< Monotonicity preserving (MP) WENO
-    logical         :: weno_Re_flux   !< WENO reconstruct velocity gradients for viscous stress tensor
     integer         :: riemann_solver !< Riemann solver algorithm
     integer         :: wave_speeds    !< Wave speeds estimation method
     integer         :: avg_state      !< Average state evaluation method
@@ -173,14 +172,6 @@ module m_global_parameters
     integer               :: alf_idx               !< Index of void fraction
     integer           :: gamma_idx                 !< Index of specific heat ratio func. eqn.
     integer           :: pi_inf_idx                !< Index of liquid stiffness func. eqn.
-    !> @}
-
-    !> @name The number of fluids, along with their identifying indexes, respectively,
-    !! for which viscous effects, e.g. the shear and/or the volume Reynolds (Re)
-    !! numbers, will be non-negligible.
-    !> @{
-    integer, dimension(2)   :: Re_size
-    integer, allocatable, dimension(:, :) :: Re_idx
     !> @}
 
     !> @name The coordinate direction indexes and flags (flg), respectively, for which
@@ -332,7 +323,6 @@ contains
         weno_eps = dflt_real
         mapped_weno = .false.
         mp_weno = .false.
-        weno_Re_flux = .false.
         riemann_solver = dflt_int
         wave_speeds = dflt_int
         avg_state = dflt_int
@@ -352,7 +342,6 @@ contains
         do i = 1, num_fluids_max
             fluid_pp(i)%gamma = dflt_real
             fluid_pp(i)%pi_inf = dflt_real
-            fluid_pp(i)%Re(:) = dflt_real
             fluid_pp(i)%mul0 = dflt_real
             fluid_pp(i)%ss = dflt_real
             fluid_pp(i)%pv = dflt_real
@@ -453,7 +442,6 @@ contains
         ! for which surface tension will be important and also, the number
         ! of fluids for which the physical and geometric curvatures of the
         ! interfaces will be computed
-        Re_size = 0
 
         ! Gamma/Pi_inf Model ===============================================
         if (model_eqns == 1) then
@@ -664,35 +652,6 @@ contains
                 end if
             end if
 
-            ! Determining the number of fluids for which the shear and the
-            ! volume Reynolds numbers, e.g. viscous effects, are important
-            do i = 1, num_fluids
-                if (fluid_pp(i)%Re(1) > 0) Re_size(1) = Re_size(1) + 1
-                if (fluid_pp(i)%Re(2) > 0) Re_size(2) = Re_size(2) + 1
-            end do
-
-            ! Bookkeeping the indexes of any viscous fluids and any pairs of
-            ! fluids whose interface will support effects of surface tension
-            if (any(Re_size > 0)) then
-
-                allocate (Re_idx(1:2, 1:maxval(Re_size)))
-
-                k = 0
-                do i = 1, num_fluids
-                    if (fluid_pp(i)%Re(1) > 0) then
-                        k = k + 1; Re_idx(1, k) = i
-                    end if
-                end do
-
-                k = 0
-                do i = 1, num_fluids
-                    if (fluid_pp(i)%Re(2) > 0) then
-                        k = k + 1; Re_idx(2, k) = i
-                    end if
-                end do
-
-            end if
-
         end if
         ! END: Volume Fraction Model =======================================
 
@@ -708,11 +667,7 @@ contains
         ! sufficient boundary conditions data as to iterate the solution in
         ! the physical computational domain from one time-step iteration to
         ! the next one
-        if (any(Re_size > 0)) then
-            buff_size = 2*weno_polyn + 2
-        else
-            buff_size = weno_polyn + 2
-        end if
+        buff_size = weno_polyn + 2
 
         ! Configuring Coordinate Direction Indexes =========================
         if (bubbles) then
@@ -922,10 +877,6 @@ contains
 
         integer :: i
 
-        ! Deallocating the variables bookkeeping the indexes of any viscous
-        ! fluids and any pairs of fluids whose interfaces supported effects
-        ! of surface tension
-        if (any(Re_size > 0)) deallocate (Re_idx)
 
         ! Deallocating grid variables for the x-, y- and z-directions
         deallocate (x_cb, x_cc, dx)

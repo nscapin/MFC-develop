@@ -75,21 +75,18 @@ module m_variables_conversion
         !! @param rho_K Mixture density
         !! @param gamma_K Mixture sp. heat ratio
         !! @param pi_inf_K Mixture stiffness function
-        !! @param Re_K Reynolds number
         !! @param i Cell location first index
         !! @param j Cell location second index
         !! @param k Cell location third index
         subroutine s_convert_abstract_to_mixture_variables(qK_vf, rho_K, &
                                                            gamma_K, pi_inf_K, &
-                                                           Re_K, i, j, k)
+                                                           i, j, k)
 
             import :: scalar_field, sys_size, num_fluids
 
             type(scalar_field), dimension(sys_size), intent(IN) :: qK_vf
 
             real(kind(0d0)), intent(OUT) :: rho_K, gamma_K, pi_inf_K
-
-            real(kind(0d0)), dimension(2), intent(OUT) :: Re_K
 
             integer, intent(IN) :: i, j, k
 
@@ -120,7 +117,6 @@ module m_variables_conversion
     real(kind(0d0)), allocatable, dimension(:)   ::     mf_L, mf_R      !< left/right states mass fraction
     real(kind(0d0))                              ::  gamma_L, gamma_R      !< left/right states specific heat ratio
     real(kind(0d0))                              :: pi_inf_L, pi_inf_R      !< left/right states liquid stiffness
-    real(kind(0d0)), dimension(2)   ::     Re_L, Re_R      !< left/right states Reynolds number
     real(kind(0d0))                              ::   alpha_L, alpha_R    !< left/right states void fraction
     !> @}
 
@@ -161,16 +157,14 @@ contains
         !! @param rho_K density
         !! @param gamma_K  specific heat ratio function
         !! @param pi_inf_K liquid stiffness
-        !! @param Re_k Reynolds number
     subroutine s_convert_mixture_to_mixture_variables(qK_vf, rho_K, &
                                                       gamma_K, pi_inf_K, &
-                                                      Re_K, i, j, k)
+                                                      i, j, k)
 
         type(scalar_field), dimension(sys_size), intent(IN) :: qK_vf
 
         real(kind(0d0)), intent(OUT) :: rho_K, gamma_K, pi_inf_K
 
-        real(kind(0d0)), dimension(2), intent(OUT) :: Re_K
 
         integer, intent(IN) :: i, j, k
 
@@ -192,19 +186,16 @@ contains
         !! @param rho_K density
         !! @param gamma_K specific heat ratio
         !! @param pi_inf_K liquid stiffness
-        !! @param Re_K mixture Reynolds number
         !! @param i Cell index
         !! @param j Cell index
         !! @param k Cell index
     subroutine s_convert_species_to_mixture_variables_bubbles(qK_vf, rho_K, &
                                                               gamma_K, pi_inf_K, &
-                                                              Re_K, i, j, k)
+                                                              i, j, k)
 
         type(scalar_field), dimension(sys_size), intent(IN) :: qK_vf
 
         real(kind(0d0)), intent(OUT) :: rho_K, gamma_K, pi_inf_K
-
-        real(kind(0d0)), dimension(2), intent(OUT) :: Re_K
 
         real(kind(0d0)), dimension(num_fluids) :: alpha_rho_K, alpha_K  !<
             !! Partial densities and volume fractions
@@ -265,19 +256,16 @@ contains
         !! @param rho_K density
         !! @param gamma_K specific heat ratio
         !! @param pi_inf_K liquid stiffness
-        !! @param Re_K mixture Reynolds number
         !! @param k Cell index
         !! @param l Cell index
         !! @param r Cell index
     subroutine s_convert_species_to_mixture_variables(qK_vf, rho_K, &
                                                       gamma_K, pi_inf_K, &
-                                                      Re_K,  k, l, r)
+                                                      k, l, r)
 
         type(scalar_field), dimension(sys_size), intent(IN) :: qK_vf
 
         real(kind(0d0)), intent(OUT) :: rho_K, gamma_K, pi_inf_K
-
-        real(kind(0d0)), dimension(2), intent(OUT) :: Re_K
 
         real(kind(0d0)), dimension(num_fluids) :: alpha_rho_K, alpha_K !<
             !! Partial densities and volume fractions
@@ -315,20 +303,6 @@ contains
             rho_K = rho_K + alpha_rho_K(i)
             gamma_K = gamma_K + alpha_K(i)*fluid_pp(i)%gamma
             pi_inf_K = pi_inf_K + alpha_K(i)*fluid_pp(i)%pi_inf
-        end do
-
-        ! Computing the shear and bulk Reynolds numbers from species analogs
-        do i = 1, 2
-
-            Re_K(i) = dflt_real; if (Re_size(i) > 0) Re_K(i) = 0d0
-
-            do j = 1, Re_size(i)
-                Re_K(i) = alpha_K(Re_idx(i, j))/fluid_pp(Re_idx(i, j))%Re(i) &
-                          + Re_K(i)
-            end do
-
-            Re_K(i) = 1d0/max(Re_K(i), sgm_eps)
-
         end do
 
     end subroutine s_convert_species_to_mixture_variables ! ----------------
@@ -462,7 +436,6 @@ contains
         real(kind(0d0))                                   ::    gamma_K
         real(kind(0d0))                                   ::   pi_inf_K
         real(kind(0d0))                                   ::       nbub
-        real(kind(0d0)), dimension(2)                     ::       Re_K
         real(kind(0d0)), dimension(nb) :: nRtmp
 
         integer :: i, j, k, l !< Generic loop iterators
@@ -477,7 +450,7 @@ contains
                     if (model_eqns .ne. 4) then
                         call s_convert_to_mixture_variables(qK_cons_vf, rho_K, &
                                                             gamma_K, pi_inf_K, &
-                                                            Re_K, j, k, l)
+                                                            j, k, l)
                         !no mixture variables if single bubble mixture
                     end if
 
@@ -687,7 +660,6 @@ contains
         real(kind(0d0)), dimension(adv_idx%end - E_idx)     ::       adv_K
         real(kind(0d0))                                   ::     gamma_K
         real(kind(0d0))                                   ::    pi_inf_K
-        real(kind(0d0)), dimension(2)                     ::        Re_K
 
         integer :: i, j, k, l !< Generic loop iterators
 
@@ -709,7 +681,7 @@ contains
 
                     call s_convert_to_mixture_variables(qK_prim_vf, rho_K, &
                                                         gamma_K, pi_inf_K, &
-                                                        Re_K, j, k, l)
+                                                        j, k, l)
 
                     ! Computing the energy from the pressure
                     E_K = gamma_K*pres_K + pi_inf_K &
@@ -793,7 +765,6 @@ contains
         real(kind(0d0)), dimension(adv_idx%end - E_idx)     ::       adv_K
         real(kind(0d0))                                   ::     gamma_K
         real(kind(0d0))                                   ::    pi_inf_K
-        real(kind(0d0)), dimension(2)                     ::        Re_K
 
         ! Generic loop iterators
         integer :: i, j, k, l
@@ -818,7 +789,7 @@ contains
 
                     call s_convert_to_mixture_variables(qK_prim_vf, rho_K, &
                                                         gamma_K, pi_inf_K, &
-                                                        Re_K, j, k, l)
+                                                        j, k, l)
 
                     ! mass flux, \rho u
                     do i = 1, cont_idx%end

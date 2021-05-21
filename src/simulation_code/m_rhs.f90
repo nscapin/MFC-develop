@@ -72,8 +72,7 @@ module m_rhs
  s_compute_rhs, &
  s_pressure_relaxation_procedure, &
  s_populate_variables_buffers, &
- s_finalize_rhs_module, &
- s_get_viscous
+ s_finalize_rhs_module
 
     type(vector_field) :: q_cons_qp !<
     !! This variable contains the WENO-reconstructed values of the cell-average
@@ -155,11 +154,6 @@ module m_rhs
     type(scalar_field), allocatable, dimension(:) :: reg_src_vf !<
     !! Additional field for regularization terms
 
-    !> @name Additional field for capillary source terms
-    !> @{
-    type(scalar_field), allocatable, dimension(:) :: tau_Re_vf
-    !> @}
-
     type(bounds_info) :: iv !< Vector field indical bounds
 
     !> @name Indical bounds in the x-, y- and z-directions
@@ -209,18 +203,6 @@ contains
 
         ix%end = m - ix%beg; iy%end = n - iy%beg; iz%end = p - iz%beg
         ! ==================================================================
-
-        if (any(Re_size > 0) .and. cyl_coord) then
-            allocate (tau_Re_vf(1:sys_size))
-            do i = 1, num_dims
-                allocate (tau_Re_vf(cont_idx%end + i)%sf(ix%beg:ix%end, &
-                                                         iy%beg:iy%end, &
-                                                         iz%beg:iz%end))
-            end do
-            allocate (tau_Re_vf(E_idx)%sf(ix%beg:ix%end, &
-                                          iy%beg:iy%end, &
-                                          iz%beg:iz%end))
-        end if
 
 
         allocate (q_cons_qp%vf(1:sys_size))
@@ -363,44 +345,6 @@ contains
                     qR_prim_ndqp(i)%vf(l)%sf => &
                         qR_prim_ndqp(1)%vf(l)%sf
                 end do
-
-                if (any(Re_size > 0)) then
-                    if (weno_vars == 1) then
-                        do l = 1, mom_idx%end
-                            allocate (qL_cons_ndqp(i)%vf(l)%sf( &
-                                      ix%beg:ix%end, &
-                                      iy%beg:iy%end, &
-                                      iz%beg:iz%end))
-                            allocate (qR_cons_ndqp(i)%vf(l)%sf( &
-                                      ix%beg:ix%end, &
-                                      iy%beg:iy%end, &
-                                      iz%beg:iz%end))
-                        end do
-                    else
-                        do l = mom_idx%beg, mom_idx%end
-                            allocate (qL_prim_ndqp(i)%vf(l)%sf( &
-                                      ix%beg:ix%end, &
-                                      iy%beg:iy%end, &
-                                      iz%beg:iz%end))
-                            allocate (qR_prim_ndqp(i)%vf(l)%sf( &
-                                      ix%beg:ix%end, &
-                                      iy%beg:iy%end, &
-                                      iz%beg:iz%end))
-                        end do
-                        if (model_eqns == 3) then
-                            do l = internalEnergies_idx%beg, internalEnergies_idx%end
-                                allocate (qL_prim_ndqp(i)%vf(l)%sf( &
-                                          ix%beg:ix%end, &
-                                          iy%beg:iy%end, &
-                                          iz%beg:iz%end))
-                                allocate (qR_prim_ndqp(i)%vf(l)%sf( &
-                                          ix%beg:ix%end, &
-                                          iy%beg:iy%end, &
-                                          iz%beg:iz%end))
-                            end do
-                        end if
-                    end if
-                end if
             end if
 
             if (DEBUG) print*, 'pointing prim to cons!'
@@ -426,57 +370,11 @@ contains
                         qR_cons_ndqp(i)%vf(l)%sf
                 end do
             end if
-
-
         end do
+
+
         ! END: Allocation/Association of qK_cons_ndqp and qK_prim_ndqp =====
 
-        ! Allocation of dq_prim_ds_qp ======================================
-
-        if (any(Re_size > 0)) then
-
-            allocate (dq_prim_dx_qp%vf(1:sys_size))
-            allocate (dq_prim_dy_qp%vf(1:sys_size))
-            allocate (dq_prim_dz_qp%vf(1:sys_size))
-            allocate (gm_vel_qp%vf(1:sys_size))
-
-            if (any(Re_size > 0)) then
-
-                do l = mom_idx%beg, mom_idx%end
-                    allocate (dq_prim_dx_qp%vf(l)%sf( &
-                              ix%beg:ix%end, &
-                              iy%beg:iy%end, &
-                              iz%beg:iz%end))
-                    allocate (gm_vel_qp%vf(l)%sf( &
-                              ix%beg:ix%end, &
-                              iy%beg:iy%end, &
-                              iz%beg:iz%end))
-                end do
-
-                if (n > 0) then
-
-                    do l = mom_idx%beg, mom_idx%end
-                        allocate (dq_prim_dy_qp%vf(l)%sf( &
-                                  ix%beg:ix%end, &
-                                  iy%beg:iy%end, &
-                                  iz%beg:iz%end))
-                    end do
-
-                    if (p > 0) then
-                        do l = mom_idx%beg, mom_idx%end
-                            allocate (dq_prim_dz_qp%vf(l)%sf( &
-                                      ix%beg:ix%end, &
-                                      iy%beg:iy%end, &
-                                      iz%beg:iz%end))
-                        end do
-                    end if
-
-                end if
-
-            end if
-
-        end if
-        ! END: Allocation of dq_prim_ds_qp =================================
 
         ! Allocation/Association of dqK_prim_ds_ndqp =======================
         allocate (dqL_prim_dx_ndqp(1:num_dims))
@@ -486,58 +384,6 @@ contains
         allocate (dqR_prim_dy_ndqp(1:num_dims))
         allocate (dqR_prim_dz_ndqp(1:num_dims))
 
-        if (any(Re_size > 0)) then
-            do i = 1, num_dims
-                allocate (dqL_prim_dx_ndqp(i)%vf(1:sys_size))
-                allocate (dqL_prim_dy_ndqp(i)%vf(1:sys_size))
-                allocate (dqL_prim_dz_ndqp(i)%vf(1:sys_size))
-                allocate (dqR_prim_dx_ndqp(i)%vf(1:sys_size))
-                allocate (dqR_prim_dy_ndqp(i)%vf(1:sys_size))
-                allocate (dqR_prim_dz_ndqp(i)%vf(1:sys_size))
-
-                if (any(Re_size > 0)) then
-
-                    do l = mom_idx%beg, mom_idx%end
-                        allocate (dqL_prim_dx_ndqp(i)%vf(l)%sf( &
-                                  ix%beg:ix%end, &
-                                  iy%beg:iy%end, &
-                                  iz%beg:iz%end))
-                        allocate (dqR_prim_dx_ndqp(i)%vf(l)%sf( &
-                                  ix%beg:ix%end, &
-                                  iy%beg:iy%end, &
-                                  iz%beg:iz%end))
-                    end do
-
-                    if (n > 0) then
-                        do l = mom_idx%beg, mom_idx%end
-                            allocate (dqL_prim_dy_ndqp(i)%vf(l)%sf( &
-                                      ix%beg:ix%end, &
-                                      iy%beg:iy%end, &
-                                      iz%beg:iz%end))
-                            allocate (dqR_prim_dy_ndqp(i)%vf(l)%sf( &
-                                      ix%beg:ix%end, &
-                                      iy%beg:iy%end, &
-                                      iz%beg:iz%end))
-                        end do
-                    end if
-
-                    if (p > 0) then
-                        do l = mom_idx%beg, mom_idx%end
-                            allocate (dqL_prim_dz_ndqp(i)%vf(l)%sf( &
-                                      ix%beg:ix%end, &
-                                      iy%beg:iy%end, &
-                                      iz%beg:iz%end))
-                            allocate (dqR_prim_dz_ndqp(i)%vf(l)%sf( &
-                                      ix%beg:ix%end, &
-                                      iy%beg:iy%end, &
-                                      iz%beg:iz%end))
-                        end do
-                    end if
-
-                end if
-
-            end do
-        end if
         ! END: Allocation/Association of dqK_prim_ds_ndqp ==================
 
 
@@ -609,15 +455,6 @@ contains
                               iy%beg:iy%end, &
                               iz%beg:iz%end))
                 end do
-
-                if (any(Re_size > 0)) then
-                    do l = mom_idx%beg, E_idx
-                        allocate (flux_src_ndqp(i)%vf(l)%sf( &
-                                  ix%beg:ix%end, &
-                                  iy%beg:iy%end, &
-                                  iz%beg:iz%end))
-                    end do
-                end if
 
                 allocate (flux_src_ndqp(i)%vf(adv_idx%beg)%sf( &
                           ix%beg:ix%end, &
@@ -704,7 +541,6 @@ contains
         real(kind(0d0)) :: rho_K
         real(kind(0d0)), dimension(0:m, 0:n, 0:p) :: rho_K_field
         real(kind(0d0)) :: gamma_K, pi_inf_K
-        real(kind(0d0)), dimension(2) :: Re_K
 
         integer :: i, j, k, l, r, ii !< Generic loop iterators
 
@@ -784,8 +620,6 @@ contains
         if (t_step == t_step_stop) return
         ! ==================================================================
 
-        if (any(Re_size > 0)) call s_get_viscous(q_cons_vf, q_prim_vf, rhs_vf)
-
         if (DEBUG) print *, 'Before qbmm'
 
         ! compute required moments
@@ -803,105 +637,38 @@ contains
             ! ===============================================================
 
             ! Reconstructing Primitive/Conservative Variables ===============
-            if (all(Re_size == 0)) then
 
-                iv%beg = 1; 
-                if (adv_alphan) then
-                    iv%end = adv_idx%end
-                    if (bubbles) iv%end = sys_size
-                else
-                    iv%end = adv_idx%end + 1
-                end if
-
-                !reconstruct either primitive or conservative vars
-                if (DEBUG) then
-                    do j = 1,sys_size
-                        print*, 'j', j
-                        print*, 'q', q_cons_qp%vf(j)%sf(:,:,:)
-                        print*, 'qL', qL_prim_ndqp(i)%vf(j)%sf(:,:,:)
-                        print*, 'qR', qR_prim_ndqp(i)%vf(j)%sf(:,:,:)
-                    end do
-                end if
-                if (DEBUG) print*, 'get reconstruction'
-                if (weno_vars == 1) then
-                    call s_reconstruct_cell_boundary_values( &
-                        q_cons_qp%vf(iv%beg:iv%end), &
-                        qL_cons_ndqp(i), &
-                        qR_cons_ndqp(i), &
-                        i)
-                else
-                    call s_reconstruct_cell_boundary_values( &
-                        q_prim_qp%vf(iv%beg:iv%end), &
-                        qL_prim_ndqp(i), &
-                        qR_prim_ndqp(i), &
-                        i)
-                end if
-
+            iv%beg = 1; 
+            if (adv_alphan) then
+                iv%end = adv_idx%end
+                if (bubbles) iv%end = sys_size
             else
-                ! ===============================================================
+                iv%end = adv_idx%end + 1
+            end if
 
-                ! Reconstructing Continuity Variables ===========================
-                if (weno_vars == 2 .or. all(Re_size == 0)) then
+            !reconstruct either primitive or conservative vars
+            if (DEBUG) then
+                do j = 1,sys_size
+                    print*, 'j', j
+                    print*, 'q', q_cons_qp%vf(j)%sf(:,:,:)
+                    print*, 'qL', qL_prim_ndqp(i)%vf(j)%sf(:,:,:)
+                    print*, 'qR', qR_prim_ndqp(i)%vf(j)%sf(:,:,:)
+                end do
+            end if
+            if (DEBUG) print*, 'get reconstruction'
 
-                    iv%beg = cont_idx%beg; iv%end = cont_idx%end
-
-                    call s_reconstruct_cell_boundary_values( &
-                        q_cons_qp%vf(iv%beg:iv%end), &
-                        qL_cons_ndqp(i), &
-                        qR_cons_ndqp(i), &
-                        i)
-
-                end if
-                ! ===============================================================
-
-                ! Reconstructing Momentum/Velocity Variables ====================
-                if (all(Re_size == 0)) then
-
-                    iv%beg = mom_idx%beg; iv%end = mom_idx%end
-
-                    if (weno_vars == 1) then
-                        call s_reconstruct_cell_boundary_values( &
-                            q_cons_qp%vf(iv%beg:iv%end), &
-                            qL_cons_ndqp(i), &
-                            qR_cons_ndqp(i), &
-                            i)
-                    else
-                        call s_reconstruct_cell_boundary_values( &
-                            q_prim_qp%vf(iv%beg:iv%end), &
-                            qL_prim_ndqp(i), &
-                            qR_prim_ndqp(i), &
-                            i)
-                    end if
-
-                end if
-                ! ===============================================================
-
-                ! Reconstructing Partial or Mixture Energy/Pressure Variables ===
-                iv%beg = E_idx; iv%end = iv%beg
-
-                if (weno_vars == 1) then
-                    call s_reconstruct_cell_boundary_values( &
-                        q_cons_qp%vf(iv%beg:iv%end), &
-                        qL_cons_ndqp(i), &
-                        qR_cons_ndqp(i), &
-                        i)
-                else
-                    call s_reconstruct_cell_boundary_values( &
-                        q_prim_qp%vf(iv%beg:iv%end), &
-                        qL_prim_ndqp(i), &
-                        qR_prim_ndqp(i), &
-                        i)
-                end if
-                ! ===============================================================
-
-                iv%beg = adv_idx%beg; iv%end = adv_idx%end
-
+            if (weno_vars == 1) then
                 call s_reconstruct_cell_boundary_values( &
                     q_cons_qp%vf(iv%beg:iv%end), &
                     qL_cons_ndqp(i), &
                     qR_cons_ndqp(i), &
                     i)
-
+            else
+                call s_reconstruct_cell_boundary_values( &
+                    q_prim_qp%vf(iv%beg:iv%end), &
+                    qL_prim_ndqp(i), &
+                    qR_prim_ndqp(i), &
+                    i)
             end if
 
             if ((model_eqns == 2 .or. model_eqns == 3) .and. (adv_alphan .neqv. .true.)) then
@@ -935,40 +702,6 @@ contains
             end if
             ! ===============================================================
 
-            ! Reconstructing First-Order Spatial Derivatives of Velocity ====
-            if (any(Re_size > 0)) then
-
-                iv%beg = mom_idx%beg; iv%end = mom_idx%end
-
-                if (weno_Re_flux) then
-
-                    call s_reconstruct_cell_boundary_values( &
-                        dq_prim_dx_qp%vf(iv%beg:iv%end), &
-                        dqL_prim_dx_ndqp(i), &
-                        dqR_prim_dx_ndqp(i), &
-                        i)
-
-                    if (n > 0) then
-
-                        call s_reconstruct_cell_boundary_values( &
-                            dq_prim_dy_qp%vf(iv%beg:iv%end), &
-                            dqL_prim_dy_ndqp(i), &
-                            dqR_prim_dy_ndqp(i), &
-                            i)
-                        if (p > 0) then
-                            call s_reconstruct_cell_boundary_values( &
-                                dq_prim_dz_qp%vf(iv%beg:iv%end), &
-                                dqL_prim_dz_ndqp(i), &
-                                dqR_prim_dz_ndqp(i), &
-                                i)
-                        end if
-
-                    end if
-
-                end if
-
-            end if
-            ! ===============================================================
 
             ! Configuring Coordinate Direction Indexes ======================
             if (i == 1) then
@@ -1001,12 +734,7 @@ contains
                                   i, ix, iy, iz)
 
             iv%beg = 1; iv%end = adv_idx%end
-
-            if (any(Re_size > 0)) then
-                iv%beg = mom_idx%beg
-            else
-                iv%beg = adv_idx%beg
-            end if
+            iv%beg = adv_idx%beg
 
             if (riemann_solver /= 1) iv%end = adv_idx%beg
 
@@ -1200,18 +928,6 @@ contains
                     end do
                 end if
 
-                ! Applying the viscous and capillary source fluxes from the Riemann solver
-                if (any(Re_size > 0)) then
-                    do j = mom_idx%beg, E_idx
-                        do k = 0, m
-                            rhs_vf(j)%sf(k, :, :) = &
-                                rhs_vf(j)%sf(k, :, :) + 1d0/dx(k)* &
-                                (flux_src_ndqp(i)%vf(j)%sf(k - 1, 0:n, 0:p) &
-                                 - flux_src_ndqp(i)%vf(j)%sf(k, 0:n, 0:p))
-                        end do
-                    end do
-                end if
-
                 ! ===============================================================
 
                 ! RHS Contribution in y-direction ===============================
@@ -1386,66 +1102,6 @@ contains
                                  + flux_gsrc_ndqp(i)%vf(j)%sf(0:m, k, 0:p))
                         end do
                     end do
-                end if
-
-                ! Applying the viscous and capillary source fluxes from the Riemann solver
-                if (any(Re_size > 0)) then
-                    do j = mom_idx%beg, E_idx
-                        if (cyl_coord .and. ((bc_y%beg == -2) .or. (bc_y%beg == -13))) then
-                            if (p > 0) then
-                                call s_compute_viscous_stress_tensor(q_prim_qp%vf, &
-                                                                     dq_prim_dx_qp%vf(mom_idx%beg:mom_idx%end), &
-                                                                     dq_prim_dy_qp%vf(mom_idx%beg:mom_idx%end), &
-                                                                     dq_prim_dz_qp%vf(mom_idx%beg:mom_idx%end))
-                            else
-                                call s_compute_viscous_stress_tensor(q_prim_qp%vf, &
-                                                                     dq_prim_dx_qp%vf(mom_idx%beg:mom_idx%end), &
-                                                                     dq_prim_dy_qp%vf(mom_idx%beg:mom_idx%end), &
-                                                                     dq_prim_dy_qp%vf(mom_idx%beg:mom_idx%end))
-                            end if
-                            do k = 1, n
-                                rhs_vf(j)%sf(:, k, :) = &
-                                    rhs_vf(j)%sf(:, k, :) + 1d0/dy(k)* &
-                                    (flux_src_ndqp(i)%vf(j)%sf(0:m, k - 1, 0:p) &
-                                     - flux_src_ndqp(i)%vf(j)%sf(0:m, k, 0:p))
-                            end do
-                            rhs_vf(j)%sf(:, 0, :) = &
-                                rhs_vf(j)%sf(:, 0, :) + 1d0/(y_cc(1) - y_cc(-1))* &
-                                (tau_Re_vf(j)%sf(0:m, -1, 0:p) &
-                                 - tau_Re_vf(j)%sf(0:m, 1, 0:p))
-                        else
-                            do k = 0, n
-                                rhs_vf(j)%sf(:, k, :) = &
-                                    rhs_vf(j)%sf(:, k, :) + 1d0/dy(k)* &
-                                    (flux_src_ndqp(i)%vf(j)%sf(0:m, k - 1, 0:p) &
-                                     - flux_src_ndqp(i)%vf(j)%sf(0:m, k, 0:p))
-                            end do
-                        end if
-                    end do
-                    ! Applying the geometrical viscous Riemann source fluxes calculated as average
-                    ! of values at cell boundaries
-                    if (cyl_coord) then
-                        do j = mom_idx%beg, E_idx
-                            if ((bc_y%beg == -2) .or. (bc_y%beg == -13)) then
-                                do k = 1, n
-                                    rhs_vf(j)%sf(:, k, :) = &
-                                        rhs_vf(j)%sf(:, k, :) - 5d-1/y_cc(k)* &
-                                        (flux_src_ndqp(i)%vf(j)%sf(0:m, k - 1, 0:p) &
-                                         + flux_src_ndqp(i)%vf(j)%sf(0:m, k, 0:p))
-                                end do
-                                rhs_vf(j)%sf(:, 0, :) = &
-                                    rhs_vf(j)%sf(:, 0, :) - 1d0/y_cc(0)* &
-                                    tau_Re_vf(j)%sf(0:m, 0, 0:p)
-                            else
-                                do k = 0, n
-                                    rhs_vf(j)%sf(:, k, :) = &
-                                        rhs_vf(j)%sf(:, k, :) - 5d-1/y_cc(k)* &
-                                        (flux_src_ndqp(i)%vf(j)%sf(0:m, k - 1, 0:p) &
-                                         + flux_src_ndqp(i)%vf(j)%sf(0:m, k, 0:p))
-                                end do
-                            end if
-                        end do
-                    end if
                 end if
 
                 ! Applying interface sharpening regularization source terms
@@ -1659,40 +1315,6 @@ contains
                     end do
                 end if
 
-                ! Applying the viscous and capillary source fluxes from the Riemann solver
-                if (any(Re_size > 0)) then
-                    do j = mom_idx%beg, E_idx
-                        do k = 0, p
-                            rhs_vf(j)%sf(:, :, k) = &
-                                rhs_vf(j)%sf(:, :, k) + 1d0/dz(k)* &
-                                (flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k - 1) &
-                                 - flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k))
-                        end do
-                    end do
-                    ! Modifying momentum components of geometric source term
-                    if (grid_geometry == 3) then
-                        do k = 0, p
-                            rhs_vf(mom_idx%beg + 1)%sf(:, :, k) = &
-                                rhs_vf(mom_idx%beg + 1)%sf(:, :, k) + 5d-1* &
-                                (flux_src_ndqp(i)%vf(mom_idx%end)%sf(0:m, 0:n, k - 1) &
-                                 + flux_src_ndqp(i)%vf(mom_idx%end)%sf(0:m, 0:n, k))
-
-                            rhs_vf(mom_idx%end)%sf(:, :, k) = &
-                                rhs_vf(mom_idx%end)%sf(:, :, k) - 5d-1* &
-                                (flux_src_ndqp(i)%vf(mom_idx%beg + 1)%sf(0:m, 0:n, k - 1) &
-                                 + flux_src_ndqp(i)%vf(mom_idx%beg + 1)%sf(0:m, 0:n, k))
-                        end do
-                    end if
-                end if
-
-                ! Applying interface sharpening regularization source terms
-                if (regularization .and. num_dims == 3) then
-                    call s_compute_regularization_source(i, q_prim_vf)
-                    do j = cont_idx%beg, adv_idx%end
-                        rhs_vf(j)%sf(:, :, :) = rhs_vf(j)%sf(:, :, :) + reg_src_vf(j)%sf(:, :, :)
-                    end do
-                end if
-
             end if
             ! ===============================================================
 
@@ -1707,153 +1329,6 @@ contains
 
     end subroutine s_compute_rhs ! -----------------------------------------
 
-    !> The purpose of this subroutine is to compute the viscous
-        !!      stress tensor for the cells directly next to the axis in
-        !!      cylindrical coordinates. This is necessary to avoid the
-        !!      1/r singularity that arises at the cell boundary coinciding
-        !!      with the axis, i.e., y_cb(-1) = 0.
-        !!  @param q_prim_vf Cell-average primitive variables
-        !!  @param grad_x_vf Cell-average primitive variable derivatives, x-dir
-        !!  @param grad_y_vf Cell-average primitive variable derivatives, y-dir
-        !!  @param grad_z_vf Cell-average primitive variable derivatives, z-dir
-    subroutine s_compute_viscous_stress_tensor(q_prim_vf, grad_x_vf, grad_y_vf, grad_z_vf) ! ---
-
-        type(scalar_field), dimension(sys_size), intent(IN) :: q_prim_vf
-        type(scalar_field), dimension(num_dims), intent(IN) :: grad_x_vf, grad_y_vf, grad_z_vf
-
-        real(kind(0d0)) :: rho_visc, gamma_visc, pi_inf_visc  !< Mixture variables
-        real(kind(0d0)), dimension(2) :: Re_visc
-
-        real(kind(0d0)), dimension(num_dims, num_dims) :: tau_Re !< Capillary stress tensor components
-
-        type(bounds_info) :: ix, iy, iz
-
-        integer :: i, j, k, l !< Generic loop iterator
-
-        ix%beg = -buff_size; iy%beg = 0; iz%beg = 0
-        if (n > 0) iy%beg = -buff_size; if (p > 0) iz%beg = -buff_size
-        ix%end = m - ix%beg; iy%end = n - iy%beg; iz%end = p - iz%beg
-
-        do i = mom_idx%beg, E_idx
-            tau_Re_vf(i)%sf = 0d0
-        end do
-
-        if (Re_size(1) > 0) then    ! Shear stresses
-            do l = iz%beg, iz%end
-                do k = -1, 1
-                    do j = ix%beg, ix%end
-
-                        call s_convert_to_mixture_variables(q_prim_vf, rho_visc, &
-                                                            gamma_visc, pi_inf_visc, &
-                                                            Re_visc,  j, k, l)
-
-                        tau_Re(2, 1) = (grad_y_vf(1)%sf(j, k, l) + &
-                                        grad_x_vf(2)%sf(j, k, l))/ &
-                                       Re_visc(1)
-
-                        tau_Re(2, 2) = (4d0*grad_y_vf(2)%sf(j, k, l) &
-                                        - 2d0*grad_x_vf(1)%sf(j, k, l) &
-                                        - 2d0*q_prim_vf(mom_idx%beg + 1)%sf(j, k, l)/y_cc(k))/ &
-                                       (3d0*Re_visc(1))
-
-                        do i = 1, 2
-                            tau_Re_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                tau_Re_vf(cont_idx%end + i)%sf(j, k, l) - &
-                                tau_Re(2, i)
-
-                            tau_Re_vf(E_idx)%sf(j, k, l) = &
-                                tau_Re_vf(E_idx)%sf(j, k, l) - &
-                                q_prim_vf(cont_idx%end + i)%sf(j, k, l)*tau_Re(2, i)
-                        end do
-
-                    end do
-                end do
-            end do
-        end if
-
-        if (Re_size(2) > 0) then    ! Bulk stresses
-            do l = iz%beg, iz%end
-                do k = -1, 1
-                    do j = ix%beg, ix%end
-
-                        call s_convert_to_mixture_variables(q_prim_vf, rho_visc, &
-                                                            gamma_visc, pi_inf_visc, &
-                                                            Re_visc, j, k, l)
-
-                        tau_Re(2, 2) = (grad_x_vf(1)%sf(j, k, l) + &
-                                        grad_y_vf(2)%sf(j, k, l) + &
-                                        q_prim_vf(mom_idx%beg + 1)%sf(j, k, l)/y_cc(k))/ &
-                                       Re_visc(2)
-
-                        tau_Re_vf(mom_idx%beg + 1)%sf(j, k, l) = &
-                            tau_Re_vf(mom_idx%beg + 1)%sf(j, k, l) - &
-                            tau_Re(2, 2)
-
-                        tau_Re_vf(E_idx)%sf(j, k, l) = &
-                            tau_Re_vf(E_idx)%sf(j, k, l) - &
-                            q_prim_vf(mom_idx%beg + 1)%sf(j, k, l)*tau_Re(2, 2)
-
-                    end do
-                end do
-            end do
-        end if
-
-        if (p == 0) return
-
-        if (Re_size(1) > 0) then    ! Shear stresses
-            do l = iz%beg, iz%end
-                do k = -1, 1
-                    do j = ix%beg, ix%end
-
-                        call s_convert_to_mixture_variables(q_prim_vf, rho_visc, &
-                                                            gamma_visc, pi_inf_visc, &
-                                                            Re_visc, j, k, l)
-
-                        tau_Re(2, 2) = -(2d0/3d0)*grad_z_vf(3)%sf(j, k, l)/y_cc(k)/ &
-                                       Re_visc(1)
-
-                        tau_Re(2, 3) = ((grad_z_vf(2)%sf(j, k, l) - &
-                                         q_prim_vf(mom_idx%end)%sf(j, k, l))/ &
-                                        y_cc(k) + grad_y_vf(3)%sf(j, k, l))/ &
-                                       Re_visc(1)
-
-                        do i = 2, 3
-                            tau_Re_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                tau_Re_vf(cont_idx%end + i)%sf(j, k, l) - &
-                                tau_Re(2, i)
-
-                            tau_Re_vf(E_idx)%sf(j, k, l) = &
-                                tau_Re_vf(E_idx)%sf(j, k, l) - &
-                                q_prim_vf(cont_idx%end + i)%sf(j, k, l)*tau_Re(2, i)
-                        end do
-
-                    end do
-                end do
-            end do
-        end if
-
-        if (Re_size(2) > 0) then    ! Bulk stresses
-            do l = iz%beg, iz%end
-                do k = -1, 1
-                    do j = ix%beg, ix%end
-
-                        tau_Re(2, 2) = grad_z_vf(3)%sf(j, k, l)/y_cc(k)/ &
-                                       Re_visc(2)
-
-                        tau_Re_vf(mom_idx%beg + 1)%sf(j, k, l) = &
-                            tau_Re_vf(mom_idx%beg + 1)%sf(j, k, l) - &
-                            tau_Re(2, 2)
-
-                        tau_Re_vf(E_idx)%sf(j, k, l) = &
-                            tau_Re_vf(E_idx)%sf(j, k, l) - &
-                            q_prim_vf(mom_idx%beg + 1)%sf(j, k, l)*tau_Re(2, 2)
-
-                    end do
-                end do
-            end do
-        end if
-
-    end subroutine s_compute_viscous_stress_tensor ! ----------------------------------------
 
     !> Gets the divergence term for k div(U)
     !> @param idir Coordinate direction
@@ -1905,7 +1380,6 @@ contains
         real(kind(0d0)) :: mytime, sound, n_tait, B_tait
         real(kind(0d0)) :: s2, myRho, const_sos
 
-        real(kind(0d0)), dimension(2) :: Re
 
         ndirs = 1; if (n > 0) ndirs = 2; if (p > 0) ndirs = 3
 
@@ -1915,7 +1389,7 @@ contains
             if ((mytime < mymono%delay) .and. mymono%delay /= dflt_real) return
 
             do j = 0, m; do k = 0, n; do l = 0, p
-                    call s_convert_to_mixture_variables(q_prim_vf, myRho, n_tait, B_tait, Re, j, k, l)
+                    call s_convert_to_mixture_variables(q_prim_vf, myRho, n_tait, B_tait, j, k, l)
                     n_tait = 1.d0/n_tait + 1.d0 !make this the usual little 'gamma'
 
                     sound = n_tait*(q_prim_vf(E_idx)%sf(j, k, l) + ((n_tait - 1d0)/n_tait)*B_tait)/myRho
@@ -2429,7 +1903,6 @@ contains
         real(kind(0d0))                                   ::      pi_inf
         real(kind(0d0)), dimension(num_fluids)            ::   gamma_min
         real(kind(0d0)), dimension(num_fluids)            ::    pres_inf
-        real(kind(0d0)), dimension(2)                     ::          Re
 
         integer :: i, j, k, l, iter !< Generic loop iterators
         integer :: relax !< Relaxation procedure determination variable
@@ -2553,7 +2026,7 @@ contains
 
                     call s_convert_to_mixture_variables(q_cons_vf, rho, &
                                                         gamma, pi_inf, &
-                                                        Re, j, k, l)
+                                                        j, k, l)
 
                     dyn_pres = 0d0
                     do i = mom_idx%beg, mom_idx%end
@@ -2575,285 +2048,6 @@ contains
 
     end subroutine s_pressure_relaxation_procedure ! -----------------------
 
-    !>  This subroutine compute the TVD flux function
-        !!  @param q_cons_vf Cell-averaged conservative variables
-        !!  @param q_prim_vf Cell-averaged primitive variables
-        !!  @param rhs_vf Cell-averaged RHS variables
-        !!  @param i Dimensional splitting index
-
-    !>  Computes viscous terms
-        !!  @param q_cons_vf Cell-averaged conservative variables
-        !!  @param q_prim_vf Cell-averaged primitive variables
-        !!  @param rhs_vf Cell-averaged RHS variables
-    subroutine s_get_viscous(q_cons_vf, q_prim_vf, rhs_vf) ! -------
-
-        type(scalar_field), dimension(sys_size), intent(INOUT) :: q_cons_vf
-        type(scalar_field), dimension(sys_size), intent(INOUT) :: q_prim_vf
-        type(scalar_field), dimension(sys_size), intent(INOUT) :: rhs_vf
-
-        integer :: i, j, k, l, r !< Generic loop iterators
-
-        do i = 1, num_dims
-            ! WENO reconstruct variables to cell boundaries
-            if (weno_vars == 1) then
-
-                iv%beg = 1; iv%end = mom_idx%end
-
-                call s_reconstruct_cell_boundary_values( &
-                    q_cons_qp%vf(iv%beg:iv%end), &
-                    qL_cons_ndqp(i), &
-                    qR_cons_ndqp(i), &
-                    i)
-
-                do l = mom_idx%beg, mom_idx%end
-
-                    qL_prim_ndqp(i)%vf(l)%sf = sgm_eps
-                    qR_prim_ndqp(i)%vf(l)%sf = sgm_eps
-
-                    do r = 1, cont_idx%end
-                        qL_prim_ndqp(i)%vf(l)%sf = &
-                            qL_prim_ndqp(i)%vf(l)%sf + &
-                            qL_cons_ndqp(i)%vf(r)%sf
-                        qR_prim_ndqp(i)%vf(l)%sf = &
-                            qR_prim_ndqp(i)%vf(l)%sf + &
-                            qR_cons_ndqp(i)%vf(r)%sf
-                    end do
-
-                    qL_prim_ndqp(i)%vf(l)%sf = &
-                        qL_cons_ndqp(i)%vf(l)%sf/ &
-                        qL_prim_ndqp(i)%vf(l)%sf
-                    qR_prim_ndqp(i)%vf(l)%sf = &
-                        qR_cons_ndqp(i)%vf(l)%sf/ &
-                        qR_prim_ndqp(i)%vf(l)%sf
-
-                end do
-
-            else
-
-                iv%beg = mom_idx%beg; iv%end = mom_idx%end
-
-                call s_reconstruct_cell_boundary_values( &
-                    q_prim_qp%vf(iv%beg:iv%end), &
-                    qL_prim_ndqp(i), &
-                    qR_prim_ndqp(i), &
-                    i)
-
-            end if
-
-            iv%beg = mom_idx%beg; iv%end = mom_idx%end
-
-        end do
-
-        if (weno_Re_flux) then
-            ! Compute velocity gradient at cell centers using scalar
-            ! divergence theorem
-            do i = 1, num_dims
-                if (i == 1) then
-                    call s_apply_scalar_divergence_theorem( &
-                        qL_prim_ndqp(i)%vf(iv%beg:iv%end), &
-                        qR_prim_ndqp(i)%vf(iv%beg:iv%end), &
-                        dq_prim_dx_qp%vf(iv%beg:iv%end), i)
-                elseif (i == 2) then
-                    call s_apply_scalar_divergence_theorem( &
-                        qL_prim_ndqp(i)%vf(iv%beg:iv%end), &
-                        qR_prim_ndqp(i)%vf(iv%beg:iv%end), &
-                        dq_prim_dy_qp%vf(iv%beg:iv%end), i)
-                else
-                    call s_apply_scalar_divergence_theorem( &
-                        qL_prim_ndqp(i)%vf(iv%beg:iv%end), &
-                        qR_prim_ndqp(i)%vf(iv%beg:iv%end), &
-                        dq_prim_dz_qp%vf(iv%beg:iv%end), i)
-                end if
-            end do
-
-        else ! Compute velocity gradient at cell centers using finite differences
-
-            iv%beg = mom_idx%beg; iv%end = mom_idx%end
-
-            do k = iv%beg, iv%end
-
-                do j = ix%beg + 1, ix%end
-                    dqL_prim_dx_ndqp(1)%vf(k)%sf(j, :, :) = &
-                        (q_prim_qp%vf(k)%sf(j, :, :) - &
-                         q_prim_qp%vf(k)%sf(j - 1, :, :))/ &
-                        (x_cc(j) - x_cc(j - 1))
-                end do
-
-                do j = ix%beg, ix%end - 1
-                    dqR_prim_dx_ndqp(1)%vf(k)%sf(j, :, :) = &
-                        (q_prim_qp%vf(k)%sf(j + 1, :, :) - &
-                         q_prim_qp%vf(k)%sf(j, :, :))/ &
-                        (x_cc(j + 1) - x_cc(j))
-                end do
-
-                if (n > 0) then
-                    do j = iy%beg + 1, iy%end
-                        dqL_prim_dy_ndqp(2)%vf(k)%sf(:, j, :) = &
-                            (q_prim_qp%vf(k)%sf(:, j, :) - &
-                             q_prim_qp%vf(k)%sf(:, j - 1, :))/ &
-                            (y_cc(j) - y_cc(j - 1))
-                    end do
-                    do j = iy%beg, iy%end - 1
-                        dqR_prim_dy_ndqp(2)%vf(k)%sf(:, j, :) = &
-                            (q_prim_qp%vf(k)%sf(:, j + 1, :) - &
-                             q_prim_qp%vf(k)%sf(:, j, :))/ &
-                            (y_cc(j + 1) - y_cc(j))
-                    end do
-                    do j = iy%beg + 1, iy%end
-                        dqL_prim_dx_ndqp(2)%vf(k)%sf(ix%beg + 1:ix%end - 1, j, :) = &
-                            (dqL_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, j, :) + &
-                             dqR_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, j, :) + &
-                             dqL_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, j - 1, :) + &
-                             dqR_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, j - 1, :))
-                    end do
-                    do j = iy%beg, iy%end - 1
-                        dqR_prim_dx_ndqp(2)%vf(k)%sf(ix%beg + 1:ix%end - 1, j, :) = &
-                            (dqL_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, j + 1, :) + &
-                             dqR_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, j + 1, :) + &
-                             dqL_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, j, :) + &
-                             dqR_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, j, :))
-                    end do
-                    do j = ix%beg + 1, ix%end
-                        dqL_prim_dy_ndqp(1)%vf(k)%sf(j, iy%beg + 1:iy%end - 1, :) = &
-                            (dqL_prim_dy_ndqp(2)%vf(k)%sf(j, iy%beg + 1:iy%end - 1, :) + &
-                             dqR_prim_dy_ndqp(2)%vf(k)%sf(j, iy%beg + 1:iy%end - 1, :) + &
-                             dqL_prim_dy_ndqp(2)%vf(k)%sf(j - 1, iy%beg + 1:iy%end - 1, :) + &
-                             dqR_prim_dy_ndqp(2)%vf(k)%sf(j - 1, iy%beg + 1:iy%end - 1, :))
-                    end do
-                    do j = ix%beg, ix%end - 1
-                        dqR_prim_dy_ndqp(1)%vf(k)%sf(j, iy%beg + 1:iy%end - 1, :) = &
-                            (dqL_prim_dy_ndqp(2)%vf(k)%sf(j + 1, iy%beg + 1:iy%end - 1, :) + &
-                             dqR_prim_dy_ndqp(2)%vf(k)%sf(j + 1, iy%beg + 1:iy%end - 1, :) + &
-                             dqL_prim_dy_ndqp(2)%vf(k)%sf(j, iy%beg + 1:iy%end - 1, :) + &
-                             dqR_prim_dy_ndqp(2)%vf(k)%sf(j, iy%beg + 1:iy%end - 1, :))
-                    end do
-                    dqL_prim_dx_ndqp(2)%vf(k)%sf(ix%beg + 1:ix%end - 1, iy%beg + 1:iy%end, :) = 25d-2* &
-                                                                                                      dqL_prim_dx_ndqp(2)%vf(k)%sf(ix%beg + 1:ix%end - 1, iy%beg + 1:iy%end, :)
-                    dqR_prim_dx_ndqp(2)%vf(k)%sf(ix%beg + 1:ix%end - 1, iy%beg:iy%end - 1, :) = 25d-2* &
-                                                                                                      dqR_prim_dx_ndqp(2)%vf(k)%sf(ix%beg + 1:ix%end - 1, iy%beg:iy%end - 1, :)
-                    dqL_prim_dy_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end, iy%beg + 1:iy%end - 1, :) = 25d-2* &
-                                                                                                      dqL_prim_dy_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end, iy%beg + 1:iy%end - 1, :)
-                    dqR_prim_dy_ndqp(1)%vf(k)%sf(ix%beg:ix%end - 1, iy%beg + 1:iy%end - 1, :) = 25d-2* &
-                                                                                                      dqR_prim_dy_ndqp(1)%vf(k)%sf(ix%beg:ix%end - 1, iy%beg + 1:iy%end - 1, :)
-
-                    if (p > 0) then
-
-                        do j = iz%beg + 1, iz%end
-                            dqL_prim_dz_ndqp(3)%vf(k)%sf(:, :, j) = &
-                                (q_prim_qp%vf(k)%sf(:, :, j) - &
-                                 q_prim_qp%vf(k)%sf(:, :, j - 1))/ &
-                                (z_cc(j) - z_cc(j - 1))
-                        end do
-                        do j = iz%beg, iz%end - 1
-                            dqR_prim_dz_ndqp(3)%vf(k)%sf(:, :, j) = &
-                                (q_prim_qp%vf(k)%sf(:, :, j + 1) - &
-                                 q_prim_qp%vf(k)%sf(:, :, j))/ &
-                                (z_cc(j + 1) - z_cc(j))
-                        end do
-                        do j = ix%beg + 1, ix%end
-                            dqL_prim_dz_ndqp(1)%vf(k)%sf(j, :, iz%beg + 1:iz%end - 1) = &
-                                (dqL_prim_dz_ndqp(3)%vf(k)%sf(j, :, iz%beg + 1:iz%end - 1) + &
-                                 dqR_prim_dz_ndqp(3)%vf(k)%sf(j, :, iz%beg + 1:iz%end - 1) + &
-                                 dqL_prim_dz_ndqp(3)%vf(k)%sf(j - 1, :, iz%beg + 1:iz%end - 1) + &
-                                 dqR_prim_dz_ndqp(3)%vf(k)%sf(j - 1, :, iz%beg + 1:iz%end - 1))
-                        end do
-                        do j = ix%beg, ix%end - 1
-                            dqR_prim_dz_ndqp(1)%vf(k)%sf(j, :, iz%beg + 1:iz%end - 1) = &
-                                (dqL_prim_dz_ndqp(3)%vf(k)%sf(j + 1, :, iz%beg + 1:iz%end - 1) + &
-                                 dqR_prim_dz_ndqp(3)%vf(k)%sf(j + 1, :, iz%beg + 1:iz%end - 1) + &
-                                 dqL_prim_dz_ndqp(3)%vf(k)%sf(j, :, iz%beg + 1:iz%end - 1) + &
-                                 dqR_prim_dz_ndqp(3)%vf(k)%sf(j, :, iz%beg + 1:iz%end - 1))
-                        end do
-                        do j = iy%beg + 1, iy%end
-                            dqL_prim_dz_ndqp(2)%vf(k)%sf(:, j, iz%beg + 1:iz%end - 1) = &
-                                (dqL_prim_dz_ndqp(3)%vf(k)%sf(:, j, iz%beg + 1:iz%end - 1) + &
-                                 dqR_prim_dz_ndqp(3)%vf(k)%sf(:, j, iz%beg + 1:iz%end - 1) + &
-                                 dqL_prim_dz_ndqp(3)%vf(k)%sf(:, j - 1, iz%beg + 1:iz%end - 1) + &
-                                 dqR_prim_dz_ndqp(3)%vf(k)%sf(:, j - 1, iz%beg + 1:iz%end - 1))
-                        end do
-                        do j = iy%beg, iy%end - 1
-                            dqR_prim_dz_ndqp(2)%vf(k)%sf(:, j, iz%beg + 1:iz%end - 1) = &
-                                (dqL_prim_dz_ndqp(3)%vf(k)%sf(:, j + 1, iz%beg + 1:iz%end - 1) + &
-                                 dqR_prim_dz_ndqp(3)%vf(k)%sf(:, j + 1, iz%beg + 1:iz%end - 1) + &
-                                 dqL_prim_dz_ndqp(3)%vf(k)%sf(:, j, iz%beg + 1:iz%end - 1) + &
-                                 dqR_prim_dz_ndqp(3)%vf(k)%sf(:, j, iz%beg + 1:iz%end - 1))
-                        end do
-                        do j = iz%beg + 1, iz%end
-                            dqL_prim_dy_ndqp(3)%vf(k)%sf(:, iy%beg + 1:iy%end - 1, j) = &
-                                (dqL_prim_dy_ndqp(2)%vf(k)%sf(:, iy%beg + 1:iy%end - 1, j) + &
-                                 dqR_prim_dy_ndqp(2)%vf(k)%sf(:, iy%beg + 1:iy%end - 1, j) + &
-                                 dqL_prim_dy_ndqp(2)%vf(k)%sf(:, iy%beg + 1:iy%end - 1, j - 1) + &
-                                 dqR_prim_dy_ndqp(2)%vf(k)%sf(:, iy%beg + 1:iy%end - 1, j - 1))
-                        end do
-                        do j = iz%beg, iz%end - 1
-                            dqR_prim_dy_ndqp(3)%vf(k)%sf(:, iy%beg + 1:iy%end - 1, j) = &
-                                (dqL_prim_dy_ndqp(2)%vf(k)%sf(:, iy%beg + 1:iy%end - 1, j + 1) + &
-                                 dqR_prim_dy_ndqp(2)%vf(k)%sf(:, iy%beg + 1:iy%end - 1, j + 1) + &
-                                 dqL_prim_dy_ndqp(2)%vf(k)%sf(:, iy%beg + 1:iy%end - 1, j) + &
-                                 dqR_prim_dy_ndqp(2)%vf(k)%sf(:, iy%beg + 1:iy%end - 1, j))
-                        end do
-                        do j = iz%beg + 1, iz%end
-                            dqL_prim_dx_ndqp(3)%vf(k)%sf(ix%beg + 1:ix%end - 1, :, j) = &
-                                (dqL_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, :, j) + &
-                                 dqR_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, :, j) + &
-                                 dqL_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, :, j - 1) + &
-                                 dqR_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, :, j - 1))
-                        end do
-                        do j = iz%beg, iz%end - 1
-                            dqR_prim_dx_ndqp(3)%vf(k)%sf(ix%beg + 1:ix%end - 1, :, j) = &
-                                (dqL_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, :, j + 1) + &
-                                 dqR_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, :, j + 1) + &
-                                 dqL_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, :, j) + &
-                                 dqR_prim_dx_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end - 1, :, j))
-                        end do
-
-                        dqL_prim_dz_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end, :, iz%beg + 1:iz%end - 1) = 25d-2* &
-                                                                                                          dqL_prim_dz_ndqp(1)%vf(k)%sf(ix%beg + 1:ix%end, :, iz%beg + 1:iz%end - 1)
-                        dqR_prim_dz_ndqp(1)%vf(k)%sf(ix%beg:ix%end - 1, :, iz%beg + 1:iz%end - 1) = 25d-2* &
-                                                                                                          dqR_prim_dz_ndqp(1)%vf(k)%sf(ix%beg:ix%end - 1, :, iz%beg + 1:iz%end - 1)
-                        dqL_prim_dz_ndqp(2)%vf(k)%sf(:, iy%beg + 1:iy%end, iz%beg + 1:iz%end - 1) = 25d-2* &
-                                                                                                          dqL_prim_dz_ndqp(2)%vf(k)%sf(:, iy%beg + 1:iy%end, iz%beg + 1:iz%end - 1)
-                        dqR_prim_dz_ndqp(2)%vf(k)%sf(:, iy%beg:iy%end - 1, iz%beg + 1:iz%end - 1) = 25d-2* &
-                                                                                                          dqR_prim_dz_ndqp(2)%vf(k)%sf(:, iy%beg:iy%end - 1, iz%beg + 1:iz%end - 1)
-                        dqL_prim_dy_ndqp(3)%vf(k)%sf(:, iy%beg + 1:iy%end - 1, iz%beg + 1:iz%end) = 25d-2* &
-                                                                                                          dqL_prim_dy_ndqp(3)%vf(k)%sf(:, iy%beg + 1:iy%end - 1, iz%beg + 1:iz%end)
-                        dqR_prim_dy_ndqp(3)%vf(k)%sf(:, iy%beg + 1:iy%end - 1, iz%beg:iz%end - 1) = 25d-2* &
-                                                                                                          dqR_prim_dy_ndqp(3)%vf(k)%sf(:, iy%beg + 1:iy%end - 1, iz%beg:iz%end - 1)
-                        dqL_prim_dx_ndqp(3)%vf(k)%sf(ix%beg + 1:ix%end - 1, :, iz%beg + 1:iz%end) = 25d-2* &
-                                                                                                          dqL_prim_dx_ndqp(3)%vf(k)%sf(ix%beg + 1:ix%end - 1, :, iz%beg + 1:iz%end)
-                        dqR_prim_dx_ndqp(3)%vf(k)%sf(ix%beg + 1:ix%end - 1, :, iz%beg:iz%end - 1) = 25d-2* &
-                                                                                                          dqR_prim_dx_ndqp(3)%vf(k)%sf(ix%beg + 1:ix%end - 1, :, iz%beg:iz%end - 1)
-
-                        call s_compute_fd_gradient(q_prim_qp%vf(k), &
-                                                   dq_prim_dx_qp%vf(k), &
-                                                   dq_prim_dy_qp%vf(k), &
-                                                   dq_prim_dz_qp%vf(k), &
-                                                   gm_vel_qp%vf(k))
-
-                    else
-
-                        call s_compute_fd_gradient(q_prim_qp%vf(k), &
-                                                   dq_prim_dx_qp%vf(k), &
-                                                   dq_prim_dy_qp%vf(k), &
-                                                   dq_prim_dy_qp%vf(k), &
-                                                   gm_vel_qp%vf(k))
-
-                    end if
-
-                else
-                    call s_compute_fd_gradient(q_prim_qp%vf(k), &
-                                               dq_prim_dx_qp%vf(k), &
-                                               dq_prim_dx_qp%vf(k), &
-                                               dq_prim_dx_qp%vf(k), &
-                                               gm_vel_qp%vf(k))
-
-                end if
-
-            end do
-
-        end if
-
-    end subroutine s_get_viscous
 
     !>  The purpose of this procedure is to populate the buffers
         !!      of the conservative variables, depending on the selected
@@ -3883,34 +3077,12 @@ contains
             end do
 
             if (i /= 1) then
-
-                if (any(Re_size > 0)) then
-                    if (weno_vars == 1) then
-                        do l = 1, mom_idx%end
-                            deallocate (qL_cons_ndqp(i)%vf(l)%sf)
-                            deallocate (qR_cons_ndqp(i)%vf(l)%sf)
-                        end do
-                    else
-                        do l = mom_idx%beg, mom_idx%end
-                            deallocate (qL_prim_ndqp(i)%vf(l)%sf)
-                            deallocate (qR_prim_ndqp(i)%vf(l)%sf)
-                        end do
-                        if (model_eqns == 3) then
-                            do l = internalEnergies_idx%beg, internalEnergies_idx%end
-                                deallocate (qL_prim_ndqp(i)%vf(l)%sf)
-                                deallocate (qR_prim_ndqp(i)%vf(l)%sf)
-                            end do
-                        end if
-                    end if
-                end if
-
                 do l = 1, sys_size
                     nullify (qL_cons_ndqp(i)%vf(l)%sf)
                     nullify (qR_cons_ndqp(i)%vf(l)%sf)
                     nullify (qL_prim_ndqp(i)%vf(l)%sf)
                     nullify (qR_prim_ndqp(i)%vf(l)%sf)
                 end do
-
             else
 
                 do l = 1, cont_idx%end
@@ -3951,68 +3123,6 @@ contains
         deallocate (qL_cons_ndqp, qR_cons_ndqp, qL_prim_ndqp, qR_prim_ndqp)
         ! END: Deallocation/Disassociation of qK_cons_ndqp and qK_prim_ndqp
 
-        ! Deallocation of dq_prim_ds_qp ====================================
-        if (any(Re_size > 0)) then
-            do l = mom_idx%beg, mom_idx%end
-                deallocate (dq_prim_dx_qp%vf(l)%sf)
-                deallocate (gm_vel_qp%vf(l)%sf)
-            end do
-
-            if (n > 0) then
-
-                do l = mom_idx%beg, mom_idx%end
-                    deallocate (dq_prim_dy_qp%vf(l)%sf)
-                end do
-
-                if (p > 0) then
-                    do l = mom_idx%beg, mom_idx%end
-                        deallocate (dq_prim_dz_qp%vf(l)%sf)
-                    end do
-                end if
-
-            end if
-
-            deallocate (dq_prim_dx_qp%vf)
-            deallocate (dq_prim_dy_qp%vf)
-            deallocate (dq_prim_dz_qp%vf)
-            deallocate (gm_vel_qp%vf)
-        end if
-        ! END: Deallocation of dq_prim_ds_qp ===============================
-
-        ! Deallocation/Disassociation of dqK_prim_ds_ndqp ==================
-        if (any(Re_size > 0)) then
-            do i = num_dims, 1, -1
-                if (any(Re_size > 0)) then
-
-                    do l = mom_idx%beg, mom_idx%end
-                        deallocate (dqL_prim_dx_ndqp(i)%vf(l)%sf)
-                        deallocate (dqR_prim_dx_ndqp(i)%vf(l)%sf)
-                    end do
-
-                    if (n > 0) then
-                        do l = mom_idx%beg, mom_idx%end
-                            deallocate (dqL_prim_dy_ndqp(i)%vf(l)%sf)
-                            deallocate (dqR_prim_dy_ndqp(i)%vf(l)%sf)
-                        end do
-                    end if
-
-                    if (p > 0) then
-                        do l = mom_idx%beg, mom_idx%end
-                            deallocate (dqL_prim_dz_ndqp(i)%vf(l)%sf)
-                            deallocate (dqR_prim_dz_ndqp(i)%vf(l)%sf)
-                        end do
-                    end if
-
-                end if
-
-                deallocate (dqL_prim_dx_ndqp(i)%vf)
-                deallocate (dqL_prim_dy_ndqp(i)%vf)
-                deallocate (dqL_prim_dz_ndqp(i)%vf)
-                deallocate (dqR_prim_dx_ndqp(i)%vf)
-                deallocate (dqR_prim_dy_ndqp(i)%vf)
-                deallocate (dqR_prim_dz_ndqp(i)%vf)
-            end do
-        end if
 
         deallocate (dqL_prim_dx_ndqp, dqL_prim_dy_ndqp, dqL_prim_dz_ndqp)
         deallocate (dqR_prim_dx_ndqp, dqR_prim_dy_ndqp, dqR_prim_dz_ndqp)
@@ -4020,15 +3130,6 @@ contains
 
         ! ==================================================================
 
-
-        if (any(Re_size > 0) .and. cyl_coord) then
-            do i = 1, num_dims
-                deallocate (tau_Re_vf(cont_idx%end + i)%sf)
-            end do
-            deallocate (tau_Re_vf(E_idx)%sf)
-
-            deallocate (tau_Re_vf)
-        end if
 
         ! Deallocation of reg_src_vf
         if (regularization) then
@@ -4054,12 +3155,6 @@ contains
                     deallocate (flux_ndqp(i)%vf(l)%sf)
                     deallocate (flux_gsrc_ndqp(i)%vf(l)%sf)
                 end do
-
-                if (any(Re_size > 0)) then
-                    do l = mom_idx%beg, E_idx
-                        deallocate (flux_src_ndqp(i)%vf(l)%sf)
-                    end do
-                end if
 
                 if (riemann_solver == 1) then
                     do l = adv_idx%beg + 1, adv_idx%end

@@ -166,42 +166,6 @@ module m_riemann_solvers
 
         end subroutine s_compute_abstract_wave_speeds
 
-        !> The abstract interface to the subroutines that are utilized to compute
-        !! the viscous source fluxes for either Cartesian or cylindrical geometries.
-        !! For more information please refer to:
-        !!      1) s_compute_cartesian_viscous_source_flux
-        !!      2) s_compute_cylindrical_viscous_source_flux
-        subroutine s_compute_abstract_viscous_source_flux(velL_vf, & ! -------------
-                                                          dvelL_dx_vf, &
-                                                          dvelL_dy_vf, &
-                                                          dvelL_dz_vf, &
-                                                          velR_vf, &
-                                                          dvelR_dx_vf, &
-                                                          dvelR_dy_vf, &
-                                                          dvelR_dz_vf, &
-                                                          flux_src_vf, &
-                                                          norm_dir, &
-                                                          ix, iy, iz)
-
-            import :: scalar_field, bounds_info, num_dims, sys_size
-
-            type(scalar_field), &
-                dimension(num_dims), &
-                intent(IN) ::         velL_vf, velR_vf, &
-                              dvelL_dx_vf, dvelR_dx_vf, &
-                              dvelL_dy_vf, dvelR_dy_vf, &
-                              dvelL_dz_vf, dvelR_dz_vf
-
-            type(scalar_field), &
-                dimension(sys_size), &
-                intent(INOUT) :: flux_src_vf
-
-            integer, intent(IN) :: norm_dir
-
-            type(bounds_info), intent(IN) :: ix, iy, iz
-
-        end subroutine s_compute_abstract_viscous_source_flux
-
     end interface ! ============================================================
 
     !> The left (L) and right (R) WENO-reconstructed cell-boundary values of the
@@ -251,7 +215,6 @@ module m_riemann_solvers
     real(kind(0d0))                              ::     gamma_L, gamma_R
     real(kind(0d0))                              ::    pi_inf_L, pi_inf_R
     real(kind(0d0))                              ::         c_L, c_R
-    real(kind(0d0)), dimension(2)   ::        Re_L, Re_R
     real(kind(0d0)), allocatable, dimension(:)   ::     tau_e_L, tau_e_R
 
     !> @}
@@ -315,7 +278,6 @@ module m_riemann_solvers
     type(scalar_field), allocatable, dimension(:)   :: alpha_avg_rs_vf
     real(kind(0d0))                                 :: gamma_avg
     real(kind(0d0))                                 :: c_avg
-    type(scalar_field), allocatable, dimension(:)   :: Re_avg_rs_vf
     !> @}
 
     !> @name Left, right and star (S) region wave speeds
@@ -353,11 +315,6 @@ module m_riemann_solvers
     !! Pointer to the subroutine that is utilized to compute the wave speeds of
     !! the Riemann problem either directly or by the means of pressure-velocity
     !! estimates, based on the selected method of estimation of the wave speeds
-
-    procedure(s_compute_abstract_viscous_source_flux), &
-        pointer :: s_compute_viscous_source_flux => null() !<
-    !! Pointer to the subroutine that is utilized to compute the viscous source
-    !! flux for either Cartesian or cylindrical geometries.
 
     !> @name Indical bounds in the s1-, s2- and s3-directions
     !> @{
@@ -561,32 +518,6 @@ contains
             end do
         end do
 
-        ! Computing the viscous and capillary source flux
-        if (any(Re_size > 0)) then
-            if (weno_Re_flux) then
-                call s_compute_viscous_source_flux( &
-                    qL_prim_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dx_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dy_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dz_vf(mom_idx%beg:mom_idx%end), &
-                    qR_prim_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dx_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dy_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dz_vf(mom_idx%beg:mom_idx%end), &
-                    flux_src_vf, norm_dir, ix, iy, iz)
-            else
-                call s_compute_viscous_source_flux( &
-                    q_prim_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dx_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dy_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dz_vf(mom_idx%beg:mom_idx%end), &
-                    q_prim_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dx_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dy_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dz_vf(mom_idx%beg:mom_idx%end), &
-                    flux_src_vf, norm_dir, ix, iy, iz)
-            end if
-        end if
 
         ! Reshaping outputted data based on dimensional splitting direction
         call s_finalize_riemann_solver(flux_vf, flux_src_vf, &
@@ -1036,33 +967,6 @@ contains
             end do
         end do
 
-        ! Computing the viscous and capillary source flux
-        if (any(Re_size > 0)) then
-            if (weno_Re_flux) then
-                call s_compute_viscous_source_flux( &
-                    qL_prim_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dx_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dy_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dz_vf(mom_idx%beg:mom_idx%end), &
-                    qR_prim_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dx_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dy_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dz_vf(mom_idx%beg:mom_idx%end), &
-                    flux_src_vf, norm_dir, ix, iy, iz)
-            else
-                call s_compute_viscous_source_flux( &
-                    q_prim_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dx_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dy_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dz_vf(mom_idx%beg:mom_idx%end), &
-                    q_prim_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dx_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dy_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dz_vf(mom_idx%beg:mom_idx%end), &
-                    flux_src_vf, norm_dir, ix, iy, iz)
-            end if
-        end if
-
         ! Reshaping outputted data based on dimensional splitting direction
         call s_finalize_riemann_solver(flux_vf, flux_src_vf, &
                                        flux_gsrc_vf, &
@@ -1194,33 +1098,6 @@ contains
             end do
         end do
 
-        ! Computing the viscous and capillary source flux
-        if (any(Re_size > 0)) then
-            if (weno_Re_flux) then
-                call s_compute_viscous_source_flux( &
-                    qL_prim_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dx_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dy_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dz_vf(mom_idx%beg:mom_idx%end), &
-                    qR_prim_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dx_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dy_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dz_vf(mom_idx%beg:mom_idx%end), &
-                    flux_src_vf, norm_dir, ix, iy, iz)
-            else
-                call s_compute_viscous_source_flux( &
-                    q_prim_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dx_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dy_vf(mom_idx%beg:mom_idx%end), &
-                    dqL_prim_dz_vf(mom_idx%beg:mom_idx%end), &
-                    q_prim_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dx_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dy_vf(mom_idx%beg:mom_idx%end), &
-                    dqR_prim_dz_vf(mom_idx%beg:mom_idx%end), &
-                    flux_src_vf, norm_dir, ix, iy, iz)
-            end if
-        end if
-
         ! Reshaping outputted data based on dimensional splitting direction
         call s_finalize_riemann_solver(flux_vf, flux_src_vf, &
                                        flux_gsrc_vf, &
@@ -1255,11 +1132,11 @@ contains
 
         call s_convert_to_mixture_variables(qL_prim_rs_vf, &
                                             rho_L, gamma_L, &
-                                            pi_inf_L, Re_L, &
+                                            pi_inf_L, &
                                             j, k, l)
         call s_convert_to_mixture_variables(qR_prim_rs_vf, &
                                             rho_R, gamma_R, &
-                                            pi_inf_R, Re_R, &
+                                            pi_inf_R, &
                                              j + 1, k, l)
 
         E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*sum(vel_L**2d0)
@@ -1269,12 +1146,6 @@ contains
         H_R = (E_R + pres_R)/rho_R
 
         call s_compute_mixture_sound_speeds(j, k, l)
-
-        do i = 1, 2
-            if (Re_size(i) > 0) then
-                Re_avg_rs_vf(i)%sf(j, k, l) = 2d0/(1d0/Re_L(i) + 1d0/Re_R(i))
-            end if
-        end do
 
         ! Compute gamma-related constants
         G1_L = 1d0/(2d0*(gamma_L + 1d0))
@@ -1828,11 +1699,11 @@ contains
 
         call s_convert_to_mixture_variables(qL_prim_rs_vf, &
                                             rho_L, gamma_L, &
-                                            pi_inf_L, Re_L, &
+                                            pi_inf_L, &
                                             j, k, l)
         call s_convert_to_mixture_variables(qR_prim_rs_vf, &
                                             rho_R, gamma_R, &
-                                            pi_inf_R, Re_R, &
+                                            pi_inf_R, &
                                             j + 1, k, l)
 
         E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*sum(vel_L**2d0)
@@ -1866,12 +1737,6 @@ contains
         else
             c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
         end if
-
-        do i = 1, 2
-            if (Re_size(i) > 0) then
-                Re_avg_rs_vf(i)%sf(j, k, l) = 2d0/(1d0/Re_L(i) + 1d0/Re_R(i))
-            end if
-        end do
 
         ! ==================================================================
 
@@ -1909,11 +1774,11 @@ contains
 
         call s_convert_to_mixture_variables(qL_prim_rs_vf, &
                                             rho_L, gamma_L, &
-                                            pi_inf_L, Re_L, &
+                                            pi_inf_L, &
                                             j, k, l)
         call s_convert_to_mixture_variables(qR_prim_rs_vf, &
                                             rho_R, gamma_R, &
-                                            pi_inf_R, Re_R, &
+                                            pi_inf_R,  &
                                             j + 1, k, l)
 
         pres_L = qL_prim_rs_vf(E_idx)%sf(j, k, l)
@@ -2027,12 +1892,6 @@ contains
             c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
         end if
 
-        do i = 1, 2
-            if (Re_size(i) > 0) then
-                Re_avg_rs_vf(i)%sf(j, k, l) = 2d0/(1d0/Re_L(i) + 1d0/Re_R(i))
-            end if
-        end do
-
         ! ==================================================================
 
     end subroutine s_compute_arithmetic_average_state ! --------------------
@@ -2134,9 +1993,6 @@ contains
         allocate (alpha_L(1:num_fluids))
         allocate (alpha_R(1:num_fluids))
 
-        if (any(Re_size > 0)) allocate (Re_avg_rs_vf(1:2))
-
-
         if (riemann_solver == 3) then
             allocate (alpha_rho_IC(1:cont_idx%end), vel_IC(1:num_dims))
             allocate (alpha_IC(1:num_fluids))
@@ -2181,14 +2037,6 @@ contains
                 s_compute_wave_speeds => s_compute_pressure_velocity_wave_speeds
             end if
 
-        end if
-
-        ! Associating procedural pointer to the subroutine that will be
-        ! utilized to compute the viscous source flux
-        if (grid_geometry == 3) then
-            s_compute_viscous_source_flux => s_compute_cylindrical_viscous_source_flux
-        else
-            s_compute_viscous_source_flux => s_compute_cartesian_viscous_source_flux
         end if
 
         ! Associating the procedural pointer to the appropriate subroutine
@@ -2270,43 +2118,6 @@ contains
                         qR_prim_vf(i)%sf(0, iy%beg:iy%end, iz%beg:iz%end)
                 end do
 
-                if (any(Re_size > 0)) then
-
-                    do i = mom_idx%beg, mom_idx%end
-                        dqL_prim_dx_vf(i)%sf(-1, &
-                                             iy%beg:iy%end, &
-                                             iz%beg:iz%end) = &
-                            dqR_prim_dx_vf(i)%sf(0, &
-                                                 iy%beg:iy%end, &
-                                                 iz%beg:iz%end)
-                    end do
-
-                    if (n > 0) then
-
-                        do i = mom_idx%beg, mom_idx%end
-                            dqL_prim_dy_vf(i)%sf(-1, &
-                                                 iy%beg:iy%end, &
-                                                 iz%beg:iz%end) = &
-                                dqR_prim_dy_vf(i)%sf(0, &
-                                                     iy%beg:iy%end, &
-                                                     iz%beg:iz%end)
-                        end do
-
-                        if (p > 0) then
-                            do i = mom_idx%beg, mom_idx%end
-                                dqL_prim_dz_vf(i)%sf(-1, &
-                                                     iy%beg:iy%end, &
-                                                     iz%beg:iz%end) = &
-                                    dqR_prim_dz_vf(i)%sf(0, &
-                                                         iy%beg:iy%end, &
-                                                         iz%beg:iz%end)
-                            end do
-                        end if
-
-                    end if
-
-                end if
-
             end if
 
             if (bc_x%end == -4) then    ! Riemann state extrap. BC at end
@@ -2315,43 +2126,6 @@ contains
                     qR_prim_vf(i)%sf(m + 1, iy%beg:iy%end, iz%beg:iz%end) = &
                         qL_prim_vf(i)%sf(m, iy%beg:iy%end, iz%beg:iz%end)
                 end do
-
-                if (any(Re_size > 0)) then
-
-                    do i = mom_idx%beg, mom_idx%end
-                        dqR_prim_dx_vf(i)%sf(m + 1, &
-                                             iy%beg:iy%end, &
-                                             iz%beg:iz%end) = &
-                            dqL_prim_dx_vf(i)%sf(m, &
-                                                 iy%beg:iy%end, &
-                                                 iz%beg:iz%end)
-                    end do
-
-                    if (n > 0) then
-
-                        do i = mom_idx%beg, mom_idx%end
-                            dqR_prim_dy_vf(i)%sf(m + 1, &
-                                                 iy%beg:iy%end, &
-                                                 iz%beg:iz%end) = &
-                                dqL_prim_dy_vf(i)%sf(m, &
-                                                     iy%beg:iy%end, &
-                                                     iz%beg:iz%end)
-                        end do
-
-                        if (p > 0) then
-                            do i = mom_idx%beg, mom_idx%end
-                                dqR_prim_dz_vf(i)%sf(m + 1, &
-                                                     iy%beg:iy%end, &
-                                                     iz%beg:iz%end) = &
-                                    dqL_prim_dz_vf(i)%sf(m, &
-                                                         iy%beg:iy%end, &
-                                                         iz%beg:iz%end)
-                            end do
-                        end if
-
-                    end if
-
-                end if
 
             end if
             ! END: Population of Buffers in x-direction ========================
@@ -2366,37 +2140,6 @@ contains
                         qR_prim_vf(i)%sf(ix%beg:ix%end, 0, iz%beg:iz%end)
                 end do
 
-                if (any(Re_size > 0)) then
-
-                    do i = mom_idx%beg, mom_idx%end
-                        dqL_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                             -1, &
-                                             iz%beg:iz%end) = &
-                            dqR_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                                 0, &
-                                                 iz%beg:iz%end)
-                        if (n > 0) then
-                            dqL_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                                 -1, &
-                                                 iz%beg:iz%end) = &
-                                dqR_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                                     0, &
-                                                     iz%beg:iz%end)
-                        end if
-                    end do
-
-                    if (p > 0) then
-                        do i = mom_idx%beg, mom_idx%end
-                            dqL_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                                 -1, &
-                                                 iz%beg:iz%end) = &
-                                dqR_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                                     0, &
-                                                     iz%beg:iz%end)
-                        end do
-                    end if
-
-                end if
 
             end if
 
@@ -2406,38 +2149,6 @@ contains
                     qR_prim_vf(i)%sf(ix%beg:ix%end, n + 1, iz%beg:iz%end) = &
                         qL_prim_vf(i)%sf(ix%beg:ix%end, n, iz%beg:iz%end)
                 end do
-
-                if (any(Re_size > 0)) then
-
-                    do i = mom_idx%beg, mom_idx%end
-                        dqR_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                             n + 1, &
-                                             iz%beg:iz%end) = &
-                            dqL_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                                 n, &
-                                                 iz%beg:iz%end)
-                        if (n > 0) then
-                            dqR_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                                 n + 1, &
-                                                 iz%beg:iz%end) = &
-                                dqL_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                                     n, &
-                                                     iz%beg:iz%end)
-                        end if
-                    end do
-
-                    if (p > 0) then
-                        do i = mom_idx%beg, mom_idx%end
-                            dqR_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                                 n + 1, &
-                                                 iz%beg:iz%end) = &
-                                dqL_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                                     n, &
-                                                     iz%beg:iz%end)
-                        end do
-                    end if
-
-                end if
 
             end if
             ! END: Population of Buffers in y-direction ========================
@@ -2452,29 +2163,6 @@ contains
                         qR_prim_vf(i)%sf(ix%beg:ix%end, iy%beg:iy%end, 0)
                 end do
 
-                if (any(Re_size > 0)) then
-                    do i = mom_idx%beg, mom_idx%end
-                        dqL_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                             iy%beg:iy%end, &
-                                             -1) = &
-                            dqR_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                                 iy%beg:iy%end, &
-                                                 0)
-                        dqL_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                             iy%beg:iy%end, &
-                                             -1) = &
-                            dqR_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                                 iy%beg:iy%end, &
-                                                 0)
-                        dqL_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                             iy%beg:iy%end, &
-                                             -1) = &
-                            dqR_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                                 iy%beg:iy%end, &
-                                                 0)
-                    end do
-                end if
-
             end if
 
             if (bc_z%end == -4) then    ! Riemann state extrap. BC at end
@@ -2483,29 +2171,6 @@ contains
                     qR_prim_vf(i)%sf(ix%beg:ix%end, iy%beg:iy%end, p + 1) = &
                         qL_prim_vf(i)%sf(ix%beg:ix%end, iy%beg:iy%end, p)
                 end do
-
-                if (any(Re_size > 0)) then
-                    do i = mom_idx%beg, mom_idx%end
-                        dqR_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                             iy%beg:iy%end, &
-                                             p + 1) = &
-                            dqL_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                                 iy%beg:iy%end, &
-                                                 p)
-                        dqR_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                             iy%beg:iy%end, &
-                                             p + 1) = &
-                            dqL_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                                 iy%beg:iy%end, &
-                                                 p)
-                        dqR_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                             iy%beg:iy%end, &
-                                             p + 1) = &
-                            dqL_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                                 iy%beg:iy%end, &
-                                                 p)
-                    end do
-                end if
 
             end if
 
@@ -2591,15 +2256,6 @@ contains
                                           is2%beg:is2%end, &
                                           is3%beg:is3%end))
         end do
-
-
-        do i = 1, 2
-            if (Re_size(i) > 0) then
-                allocate (Re_avg_rs_vf(i)%sf(is1%beg:is1%end, &
-                                             is2%beg:is2%end, &
-                                             is3%beg:is3%end))
-            end if
-        end do
         ! ==================================================================
 
         ! Allocating Intercell Fluxes and Velocity =========================
@@ -2640,12 +2296,6 @@ contains
                 flux_gsrc_rs_vf(i)%sf => flux_gsrc_vf(i)%sf
             end do
 
-        end if
-
-        if (any(Re_size > 0)) then
-            do i = mom_idx%beg, E_idx
-                flux_src_vf(i)%sf = 0d0
-            end do
         end if
 
         if (riemann_solver == 1) then
@@ -2709,984 +2359,6 @@ contains
         ! ==================================================================
 
     end subroutine s_initialize_riemann_solver ! ---------------------------
-
-    !>  The goal of this subroutine is to evaluate and account
-        !!      for the contribution of viscous stresses in the source
-        !!      flux for the momentum and energy.
-        !!  @param velL_vf  Left, WENO reconstructed, cell-boundary values of the velocity
-        !!  @param velR_vf Right, WENO reconstructed, cell-boundary values of the velocity
-        !!  @param dvelL_dx_vf  Left, WENO reconstructed cell-avg. x-dir derivative of the velocity
-        !!  @param dvelL_dy_vf  Left, WENO reconstructed cell-avg. y-dir derivative of the velocity
-        !!  @param dvelL_dz_vf  Left, WENO reconstructed cell-avg. z-dir derivative of the velocity
-        !!  @param dvelR_dx_vf Right, WENO reconstructed cell-avg. x-dir derivative of the velocity
-        !!  @param dvelR_dy_vf Right, WENO reconstructed cell-avg. y-dir derivative of the velocity
-        !!  @param dvelR_dz_vf Right, WENO reconstructed cell-avg. z-dir derivative of the velocity
-        !!  @param flux_src_vf Intercell flux
-        !!  @param norm_dir Dimensional splitting coordinate direction
-        !!  @param ix Index bounds in  first coordinate direction
-        !!  @param iy Index bounds in second coordinate direction
-        !!  @param iz Index bounds in  third coordinate direction
-    subroutine s_compute_cylindrical_viscous_source_flux(velL_vf, & ! -------------
-                                                         dvelL_dx_vf, &
-                                                         dvelL_dy_vf, &
-                                                         dvelL_dz_vf, &
-                                                         velR_vf, &
-                                                         dvelR_dx_vf, &
-                                                         dvelR_dy_vf, &
-                                                         dvelR_dz_vf, &
-                                                         flux_src_vf, &
-                                                         norm_dir, &
-                                                         ix, iy, iz)
-
-        type(scalar_field), &
-            dimension(num_dims), &
-            intent(IN) ::         velL_vf, velR_vf, &
-                          dvelL_dx_vf, dvelR_dx_vf, &
-                          dvelL_dy_vf, dvelR_dy_vf, &
-                          dvelL_dz_vf, dvelR_dz_vf
-
-        type(scalar_field), &
-            dimension(sys_size), &
-            intent(INOUT) :: flux_src_vf
-
-        integer, intent(IN) :: norm_dir
-
-        type(bounds_info), intent(IN) :: ix, iy, iz
-
-        ! Arithmetic mean of the left and right, WENO-reconstructed, cell-
-        ! boundary values of cell-average first-order spatial derivatives
-        ! of velocity
-        real(kind(0d0)), dimension(num_dims) :: avg_vel
-        real(kind(0d0)), dimension(num_dims) :: dvel_avg_dx
-        real(kind(0d0)), dimension(num_dims) :: dvel_avg_dy
-        real(kind(0d0)), dimension(num_dims) :: dvel_avg_dz
-
-        ! Viscous stress tensor
-        real(kind(0d0)), dimension(num_dims, num_dims) :: tau_Re
-
-        ! Generic loop iterators
-        integer :: i, j, k, l
-
-        ! Viscous Stresses in z-direction ==================================
-        if (norm_dir == 1) then
-
-            if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            dvel_avg_dx(1) = 5d-1*(dvelL_dx_vf(1)%sf(j, k, l) &
-                                                   + dvelR_dx_vf(1)%sf(j + 1, k, l))
-
-                            tau_Re(1, 1) = (4d0/3d0)*dvel_avg_dx(1)/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
-
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
-                                tau_Re(1, 1)
-
-                            flux_src_vf(E_idx)%sf(j, k, l) = &
-                                flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
-                                tau_Re(1, 1)
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            dvel_avg_dx(1) = 5d-1*(dvelL_dx_vf(1)%sf(j, k, l) &
-                                                   + dvelR_dx_vf(1)%sf(j + 1, k, l))
-
-                            tau_Re(1, 1) = dvel_avg_dx(1)/ &
-                                           Re_avg_rs_vf(2)%sf(j, k, l)
-
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
-                                tau_Re(1, 1)
-
-                            flux_src_vf(E_idx)%sf(j, k, l) = &
-                                flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
-                                tau_Re(1, 1)
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (n == 0) return
-
-            if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            avg_vel(2) = 5d-1*(velL_vf(2)%sf(j, k, l) &
-                                               + velR_vf(2)%sf(j + 1, k, l))
-
-                            do i = 1, 2
-                                dvel_avg_dy(i) = &
-                                    5d-1*(dvelL_dy_vf(i)%sf(j, k, l) &
-                                          + dvelR_dy_vf(i)%sf(j + 1, k, l))
-                            end do
-
-                            dvel_avg_dx(2) = 5d-1*(dvelL_dx_vf(2)%sf(j, k, l) &
-                                                   + dvelR_dx_vf(2)%sf(j + 1, k, l))
-
-                            tau_Re(1, 1) = -(2d0/3d0)*(dvel_avg_dy(2) + &
-                                                       avg_vel(2)/y_cc(k))/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
-
-                            tau_Re(1, 2) = (dvel_avg_dy(1) + dvel_avg_dx(2))/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
-
-                            do i = 1, 2
-
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
-                                    tau_Re(1, i)
-
-                                flux_src_vf(E_idx)%sf(j, k, l) = &
-                                    flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(j, k, l)* &
-                                    tau_Re(1, i)
-
-                            end do
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            avg_vel(2) = 5d-1*(velL_vf(2)%sf(j, k, l) &
-                                               + velR_vf(2)%sf(j + 1, k, l))
-
-                            dvel_avg_dy(2) = 5d-1*(dvelL_dy_vf(2)%sf(j, k, l) &
-                                                   + dvelR_dy_vf(2)%sf(j + 1, k, l))
-
-                            tau_Re(1, 1) = (dvel_avg_dy(2) + &
-                                            avg_vel(2)/y_cc(k))/ &
-                                           Re_avg_rs_vf(2)%sf(j, k, l)
-
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
-                                tau_Re(1, 1)
-
-                            flux_src_vf(E_idx)%sf(j, k, l) = &
-                                flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
-                                tau_Re(1, 1)
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (p == 0) return
-
-            if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            do i = 1, 3, 2
-                                dvel_avg_dz(i) = &
-                                    5d-1*(dvelL_dz_vf(i)%sf(j, k, l) &
-                                          + dvelR_dz_vf(i)%sf(j + 1, k, l))
-                            end do
-
-                            dvel_avg_dx(3) = 5d-1*(dvelL_dx_vf(3)%sf(j, k, l) &
-                                                   + dvelR_dx_vf(3)%sf(j + 1, k, l))
-
-                            tau_Re(1, 1) = -(2d0/3d0)*dvel_avg_dz(3)/y_cc(k)/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
-
-                            tau_Re(1, 3) = (dvel_avg_dz(1)/y_cc(k) + dvel_avg_dx(3))/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
-
-                            do i = 1, 3, 2
-
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
-                                    tau_Re(1, i)
-
-                                flux_src_vf(E_idx)%sf(j, k, l) = &
-                                    flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(j, k, l)* &
-                                    tau_Re(1, i)
-
-                            end do
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            dvel_avg_dz(3) = 5d-1*(dvelL_dz_vf(3)%sf(j, k, l) &
-                                                   + dvelR_dz_vf(3)%sf(j + 1, k, l))
-
-                            tau_Re(1, 1) = dvel_avg_dz(3)/y_cc(k)/ &
-                                           Re_avg_rs_vf(2)%sf(j, k, l)
-
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
-                                tau_Re(1, 1)
-
-                            flux_src_vf(E_idx)%sf(j, k, l) = &
-                                flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
-                                tau_Re(1, 1)
-
-                        end do
-                    end do
-                end do
-            end if
-            ! END: Viscous Stresses in z-direction =============================
-
-            ! Viscous Stresses in r-direction ==================================
-        elseif (norm_dir == 2) then
-
-            if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            avg_vel(2) = 5d-1*(velL_vf(2)%sf(j, k, l) &
-                                               + velR_vf(2)%sf(j, k + 1, l))
-
-                            do i = 1, 2
-
-                                dvel_avg_dx(i) = &
-                                    5d-1*(dvelL_dx_vf(i)%sf(j, k, l) &
-                                          + dvelR_dx_vf(i)%sf(j, k + 1, l))
-
-                                dvel_avg_dy(i) = &
-                                    5d-1*(dvelL_dy_vf(i)%sf(j, k, l) &
-                                          + dvelR_dy_vf(i)%sf(j, k + 1, l))
-
-                            end do
-
-                            tau_Re(2, 1) = (dvel_avg_dy(1) + dvel_avg_dx(2))/ &
-                                           Re_avg_rs_vf(1)%sf(k, j, l)
-
-                            tau_Re(2, 2) = (4d0*dvel_avg_dy(2) &
-                                            - 2d0*dvel_avg_dx(1) &
-                                            - 2d0*avg_vel(2)/y_cb(k))/ &
-                                           (3d0*Re_avg_rs_vf(1)%sf(k, j, l))
-
-                            do i = 1, 2
-
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
-                                    tau_Re(2, i)
-
-                                flux_src_vf(E_idx)%sf(j, k, l) = &
-                                    flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(k, j, l)* &
-                                    tau_Re(2, i)
-
-                            end do
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            avg_vel(2) = 5d-1*(velL_vf(2)%sf(j, k, l) &
-                                               + velR_vf(2)%sf(j, k + 1, l))
-
-                            dvel_avg_dx(1) = 5d-1*(dvelL_dx_vf(1)%sf(j, k, l) &
-                                                   + dvelR_dx_vf(1)%sf(j, k + 1, l))
-
-                            dvel_avg_dy(2) = 5d-1*(dvelL_dy_vf(2)%sf(j, k, l) &
-                                                   + dvelR_dy_vf(2)%sf(j, k + 1, l))
-
-                            tau_Re(2, 2) = (dvel_avg_dx(1) + dvel_avg_dy(2) + &
-                                            avg_vel(2)/y_cb(k))/ &
-                                           Re_avg_rs_vf(2)%sf(k, j, l)
-
-                            flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) - &
-                                tau_Re(2, 2)
-
-                            flux_src_vf(E_idx)%sf(j, k, l) = &
-                                flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(2)%sf(k, j, l)* &
-                                tau_Re(2, 2)
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (p == 0) return
-
-            if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            avg_vel(3) = 5d-1*(velL_vf(3)%sf(j, k, l) &
-                                               + velR_vf(3)%sf(j, k + 1, l))
-
-                            do i = 2, 3
-                                dvel_avg_dz(i) = &
-                                    5d-1*(dvelL_dz_vf(i)%sf(j, k, l) &
-                                          + dvelR_dz_vf(i)%sf(j, k + 1, l))
-                            end do
-
-                            dvel_avg_dy(3) = 5d-1*(dvelL_dy_vf(3)%sf(j, k, l) &
-                                                   + dvelR_dy_vf(3)%sf(j, k + 1, l))
-
-                            tau_Re(2, 2) = -(2d0/3d0)*dvel_avg_dz(3)/y_cb(k)/ &
-                                           Re_avg_rs_vf(1)%sf(k, j, l)
-
-                            tau_Re(2, 3) = ((dvel_avg_dz(2) - avg_vel(3))/ &
-                                            y_cb(k) + dvel_avg_dy(3))/ &
-                                           Re_avg_rs_vf(1)%sf(k, j, l)
-
-                            do i = 2, 3
-
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
-                                    tau_Re(2, i)
-
-                                flux_src_vf(E_idx)%sf(j, k, l) = &
-                                    flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(k, j, l)* &
-                                    tau_Re(2, i)
-
-                            end do
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            dvel_avg_dz(3) = 5d-1*(dvelL_dz_vf(3)%sf(j, k, l) &
-                                                   + dvelR_dz_vf(3)%sf(j, k + 1, l))
-
-                            tau_Re(2, 2) = dvel_avg_dz(3)/y_cb(k)/ &
-                                           Re_avg_rs_vf(2)%sf(k, j, l)
-
-                            flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) - &
-                                tau_Re(2, 2)
-
-                            flux_src_vf(E_idx)%sf(j, k, l) = &
-                                flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(2)%sf(k, j, l)* &
-                                tau_Re(2, 2)
-
-                        end do
-                    end do
-                end do
-            end if
-            ! END: Viscous Stresses in r-direction =============================
-
-            ! Viscous Stresses in theta-direction ==================================
-        else
-
-            if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            do i = 2, 3
-                                avg_vel(i) = 5d-1*(velL_vf(i)%sf(j, k, l) &
-                                                   + velR_vf(i)%sf(j, k, l + 1))
-                            end do
-
-                            do i = 1, 3, 2
-                                dvel_avg_dx(i) = &
-                                    5d-1*(dvelL_dx_vf(i)%sf(j, k, l) &
-                                          + dvelR_dx_vf(i)%sf(j, k, l + 1))
-                            end do
-
-                            do i = 2, 3
-                                dvel_avg_dy(i) = &
-                                    5d-1*(dvelL_dy_vf(i)%sf(j, k, l) &
-                                          + dvelR_dy_vf(i)%sf(j, k, l + 1))
-                            end do
-
-                            do i = 1, 3
-                                dvel_avg_dz(i) = &
-                                    5d-1*(dvelL_dz_vf(i)%sf(j, k, l) &
-                                          + dvelR_dz_vf(i)%sf(j, k, l + 1))
-                            end do
-
-                            tau_Re(3, 1) = (dvel_avg_dz(1)/y_cc(k) + dvel_avg_dx(3))/ &
-                                           Re_avg_rs_vf(1)%sf(l, k, j)/ &
-                                           y_cc(k)
-
-                            tau_Re(3, 2) = ((dvel_avg_dz(2) - avg_vel(3))/ &
-                                            y_cc(k) + dvel_avg_dy(3))/ &
-                                           Re_avg_rs_vf(1)%sf(l, k, j)/ &
-                                           y_cc(k)
-
-                            tau_Re(3, 3) = (4d0*dvel_avg_dz(3)/y_cc(k) &
-                                            - 2d0*dvel_avg_dx(1) &
-                                            - 2d0*dvel_avg_dy(2) &
-                                            + 4d0*avg_vel(2)/y_cc(k))/ &
-                                           (3d0*Re_avg_rs_vf(1)%sf(l, k, j))/ &
-                                           y_cc(k)
-
-                            do i = 1, 3
-
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
-                                    tau_Re(3, i)
-
-                                flux_src_vf(E_idx)%sf(j, k, l) = &
-                                    flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(l, k, j)* &
-                                    tau_Re(3, i)
-
-                            end do
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            avg_vel(2) = 5d-1*(velL_vf(2)%sf(j, k, l) &
-                                               + velR_vf(2)%sf(j, k, l + 1))
-
-                            dvel_avg_dx(1) = 5d-1*(dvelL_dx_vf(1)%sf(j, k, l) &
-                                                   + dvelR_dx_vf(1)%sf(j, k, l + 1))
-
-                            dvel_avg_dy(2) = 5d-1*(dvelL_dy_vf(2)%sf(j, k, l) &
-                                                   + dvelR_dy_vf(2)%sf(j, k, l + 1))
-
-                            dvel_avg_dz(3) = 5d-1*(dvelL_dz_vf(3)%sf(j, k, l) &
-                                                   + dvelR_dz_vf(3)%sf(j, k, l + 1))
-
-                            tau_Re(3, 3) = (dvel_avg_dx(1) &
-                                            + dvel_avg_dy(2) &
-                                            + dvel_avg_dz(3)/y_cc(k) &
-                                            + avg_vel(2)/y_cc(k))/ &
-                                           Re_avg_rs_vf(2)%sf(l, k, j)/ &
-                                           y_cc(k)
-
-                            flux_src_vf(mom_idx%end)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%end)%sf(j, k, l) - &
-                                tau_Re(3, 3)
-
-                            flux_src_vf(E_idx)%sf(j, k, l) = &
-                                flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(3)%sf(l, k, j)* &
-                                tau_Re(3, 3)
-
-                        end do
-                    end do
-                end do
-            end if
-
-        end if
-        ! END: Viscous Stresses in theta-direction =============================
-
-    end subroutine s_compute_cylindrical_viscous_source_flux ! -------------------------
-
-    !>  The goal of this subroutine is to evaluate and account
-        !!      for the contribution of viscous stresses in the source
-        !!      flux for the momentum and energy.
-        !!  @param velL_vf  Left, WENO reconstructed, cell-boundary values of the velocity
-        !!  @param velR_vf Right, WENO reconstructed, cell-boundary values of the velocity
-        !!  @param dvelL_dx_vf  Left, WENO reconstructed cell-avg. x-dir derivative of the velocity
-        !!  @param dvelL_dy_vf  Left, WENO reconstructed cell-avg. y-dir derivative of the velocity
-        !!  @param dvelL_dz_vf  Left, WENO reconstructed cell-avg. z-dir derivative of the velocity
-        !!  @param dvelR_dx_vf Right, WENO reconstructed cell-avg. x-dir derivative of the velocity
-        !!  @param dvelR_dy_vf Right, WENO reconstructed cell-avg. y-dir derivative of the velocity
-        !!  @param dvelR_dz_vf Right, WENO reconstructed cell-avg. z-dir derivative of the velocity
-        !!  @param flux_src_vf Intercell flux
-        !!  @param norm_dir Dimensional splitting coordinate direction
-        !!  @param ix Index bounds in  first coordinate direction
-        !!  @param iy Index bounds in second coordinate direction
-        !!  @param iz Index bounds in  third coordinate direction
-    subroutine s_compute_cartesian_viscous_source_flux(velL_vf, & ! -------------
-                                                       dvelL_dx_vf, &
-                                                       dvelL_dy_vf, &
-                                                       dvelL_dz_vf, &
-                                                       velR_vf, &
-                                                       dvelR_dx_vf, &
-                                                       dvelR_dy_vf, &
-                                                       dvelR_dz_vf, &
-                                                       flux_src_vf, &
-                                                       norm_dir, &
-                                                       ix, iy, iz)
-
-        type(scalar_field), &
-            dimension(num_dims), &
-            intent(IN) ::         velL_vf, velR_vf, &
-                          dvelL_dx_vf, dvelR_dx_vf, &
-                          dvelL_dy_vf, dvelR_dy_vf, &
-                          dvelL_dz_vf, dvelR_dz_vf
-
-        type(scalar_field), &
-            dimension(sys_size), &
-            intent(INOUT) :: flux_src_vf
-
-        integer, intent(IN) :: norm_dir
-
-        type(bounds_info), intent(IN) :: ix, iy, iz
-
-        ! Arithmetic mean of the left and right, WENO-reconstructed, cell-
-        ! boundary values of cell-average first-order spatial derivatives
-        ! of velocity
-        real(kind(0d0)), dimension(num_dims) :: dvel_avg_dx
-        real(kind(0d0)), dimension(num_dims) :: dvel_avg_dy
-        real(kind(0d0)), dimension(num_dims) :: dvel_avg_dz
-
-        real(kind(0d0)), dimension(num_dims, num_dims) :: tau_Re !< Viscous stress tensor
-
-        integer :: i, j, k, l !< Generic loop iterators
-
-        ! Viscous Stresses in x-direction ==================================
-        if (norm_dir == 1) then
-
-            if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            dvel_avg_dx(1) = 5d-1*(dvelL_dx_vf(1)%sf(j, k, l) &
-                                                   + dvelR_dx_vf(1)%sf(j + 1, k, l))
-
-                            tau_Re(1, 1) = (4d0/3d0)*dvel_avg_dx(1)/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
-
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
-                                tau_Re(1, 1)
-
-                            flux_src_vf(E_idx)%sf(j, k, l) = &
-                                flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
-                                tau_Re(1, 1)
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            dvel_avg_dx(1) = 5d-1*(dvelL_dx_vf(1)%sf(j, k, l) &
-                                                   + dvelR_dx_vf(1)%sf(j + 1, k, l))
-
-                            tau_Re(1, 1) = dvel_avg_dx(1)/ &
-                                           Re_avg_rs_vf(2)%sf(j, k, l)
-
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
-                                tau_Re(1, 1)
-
-                            flux_src_vf(E_idx)%sf(j, k, l) = &
-                                flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
-                                tau_Re(1, 1)
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (n == 0) return
-
-            if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            do i = 1, 2
-                                dvel_avg_dy(i) = &
-                                    5d-1*(dvelL_dy_vf(i)%sf(j, k, l) &
-                                          + dvelR_dy_vf(i)%sf(j + 1, k, l))
-                            end do
-
-                            dvel_avg_dx(2) = 5d-1*(dvelL_dx_vf(2)%sf(j, k, l) &
-                                                   + dvelR_dx_vf(2)%sf(j + 1, k, l))
-
-                            tau_Re(1, 1) = -(2d0/3d0)*dvel_avg_dy(2)/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
-
-                            tau_Re(1, 2) = (dvel_avg_dy(1) + dvel_avg_dx(2))/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
-
-                            do i = 1, 2
-
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
-                                    tau_Re(1, i)
-
-                                flux_src_vf(E_idx)%sf(j, k, l) = &
-                                    flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(j, k, l)* &
-                                    tau_Re(1, i)
-
-                            end do
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            dvel_avg_dy(2) = 5d-1*(dvelL_dy_vf(2)%sf(j, k, l) &
-                                                   + dvelR_dy_vf(2)%sf(j + 1, k, l))
-
-                            tau_Re(1, 1) = dvel_avg_dy(2)/ &
-                                           Re_avg_rs_vf(2)%sf(j, k, l)
-
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
-                                tau_Re(1, 1)
-
-                            flux_src_vf(E_idx)%sf(j, k, l) = &
-                                flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
-                                tau_Re(1, 1)
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (p == 0) return
-
-            if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            do i = 1, 3, 2
-                                dvel_avg_dz(i) = &
-                                    5d-1*(dvelL_dz_vf(i)%sf(j, k, l) &
-                                          + dvelR_dz_vf(i)%sf(j + 1, k, l))
-                            end do
-
-                            dvel_avg_dx(3) = 5d-1*(dvelL_dx_vf(3)%sf(j, k, l) &
-                                                   + dvelR_dx_vf(3)%sf(j + 1, k, l))
-
-                            tau_Re(1, 1) = -(2d0/3d0)*dvel_avg_dz(3)/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
-
-                            tau_Re(1, 3) = (dvel_avg_dz(1) + dvel_avg_dx(3))/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
-
-                            do i = 1, 3, 2
-
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
-                                    tau_Re(1, i)
-
-                                flux_src_vf(E_idx)%sf(j, k, l) = &
-                                    flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(j, k, l)* &
-                                    tau_Re(1, i)
-
-                            end do
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            dvel_avg_dz(3) = 5d-1*(dvelL_dz_vf(3)%sf(j, k, l) &
-                                                   + dvelR_dz_vf(3)%sf(j + 1, k, l))
-
-                            tau_Re(1, 1) = dvel_avg_dz(3)/ &
-                                           Re_avg_rs_vf(2)%sf(j, k, l)
-
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
-                                tau_Re(1, 1)
-
-                            flux_src_vf(E_idx)%sf(j, k, l) = &
-                                flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
-                                tau_Re(1, 1)
-
-                        end do
-                    end do
-                end do
-            end if
-            ! END: Viscous Stresses in x-direction =============================
-
-            ! Viscous Stresses in y-direction ==================================
-        elseif (norm_dir == 2) then
-
-            if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            do i = 1, 2
-
-                                dvel_avg_dx(i) = &
-                                    5d-1*(dvelL_dx_vf(i)%sf(j, k, l) &
-                                          + dvelR_dx_vf(i)%sf(j, k + 1, l))
-
-                                dvel_avg_dy(i) = &
-                                    5d-1*(dvelL_dy_vf(i)%sf(j, k, l) &
-                                          + dvelR_dy_vf(i)%sf(j, k + 1, l))
-
-                            end do
-
-                            tau_Re(2, 1) = (dvel_avg_dy(1) + dvel_avg_dx(2))/ &
-                                           Re_avg_rs_vf(1)%sf(k, j, l)
-
-                            tau_Re(2, 2) = (4d0*dvel_avg_dy(2) &
-                                            - 2d0*dvel_avg_dx(1))/ &
-                                           (3d0*Re_avg_rs_vf(1)%sf(k, j, l))
-
-                            do i = 1, 2
-
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
-                                    tau_Re(2, i)
-
-                                flux_src_vf(E_idx)%sf(j, k, l) = &
-                                    flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(k, j, l)* &
-                                    tau_Re(2, i)
-
-                            end do
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            dvel_avg_dx(1) = 5d-1*(dvelL_dx_vf(1)%sf(j, k, l) &
-                                                   + dvelR_dx_vf(1)%sf(j, k + 1, l))
-
-                            dvel_avg_dy(2) = 5d-1*(dvelL_dy_vf(2)%sf(j, k, l) &
-                                                   + dvelR_dy_vf(2)%sf(j, k + 1, l))
-
-                            tau_Re(2, 2) = (dvel_avg_dx(1) + dvel_avg_dy(2))/ &
-                                           Re_avg_rs_vf(2)%sf(k, j, l)
-
-                            flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) - &
-                                tau_Re(2, 2)
-
-                            flux_src_vf(E_idx)%sf(j, k, l) = &
-                                flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(2)%sf(k, j, l)* &
-                                tau_Re(2, 2)
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (p == 0) return
-
-            if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            do i = 2, 3
-                                dvel_avg_dz(i) = &
-                                    5d-1*(dvelL_dz_vf(i)%sf(j, k, l) &
-                                          + dvelR_dz_vf(i)%sf(j, k + 1, l))
-                            end do
-
-                            dvel_avg_dy(3) = 5d-1*(dvelL_dy_vf(3)%sf(j, k, l) &
-                                                   + dvelR_dy_vf(3)%sf(j, k + 1, l))
-
-                            tau_Re(2, 2) = -(2d0/3d0)*dvel_avg_dz(3)/ &
-                                           Re_avg_rs_vf(1)%sf(k, j, l)
-
-                            tau_Re(2, 3) = (dvel_avg_dz(2) + dvel_avg_dy(3))/ &
-                                           Re_avg_rs_vf(1)%sf(k, j, l)
-
-                            do i = 2, 3
-
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
-                                    tau_Re(2, i)
-
-                                flux_src_vf(E_idx)%sf(j, k, l) = &
-                                    flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(k, j, l)* &
-                                    tau_Re(2, i)
-
-                            end do
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            dvel_avg_dz(3) = 5d-1*(dvelL_dz_vf(3)%sf(j, k, l) &
-                                                   + dvelR_dz_vf(3)%sf(j, k + 1, l))
-
-                            tau_Re(2, 2) = dvel_avg_dz(3)/ &
-                                           Re_avg_rs_vf(2)%sf(k, j, l)
-
-                            flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) - &
-                                tau_Re(2, 2)
-
-                            flux_src_vf(E_idx)%sf(j, k, l) = &
-                                flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(2)%sf(k, j, l)* &
-                                tau_Re(2, 2)
-
-                        end do
-                    end do
-                end do
-            end if
-            ! END: Viscous Stresses in y-direction =============================
-
-            ! Viscous Stresses in z-direction ==================================
-        else
-
-            if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            do i = 1, 3, 2
-                                dvel_avg_dx(i) = &
-                                    5d-1*(dvelL_dx_vf(i)%sf(j, k, l) &
-                                          + dvelR_dx_vf(i)%sf(j, k, l + 1))
-                            end do
-
-                            do i = 2, 3
-                                dvel_avg_dy(i) = &
-                                    5d-1*(dvelL_dy_vf(i)%sf(j, k, l) &
-                                          + dvelR_dy_vf(i)%sf(j, k, l + 1))
-                            end do
-
-                            do i = 1, 3
-                                dvel_avg_dz(i) = &
-                                    5d-1*(dvelL_dz_vf(i)%sf(j, k, l) &
-                                          + dvelR_dz_vf(i)%sf(j, k, l + 1))
-                            end do
-
-                            tau_Re(3, 1) = (dvel_avg_dz(1) + dvel_avg_dx(3))/ &
-                                           Re_avg_rs_vf(1)%sf(l, k, j)
-
-                            tau_Re(3, 2) = (dvel_avg_dz(2) + dvel_avg_dy(3))/ &
-                                           Re_avg_rs_vf(1)%sf(l, k, j)
-
-                            tau_Re(3, 3) = (4d0*dvel_avg_dz(3) &
-                                            - 2d0*dvel_avg_dx(1) &
-                                            - 2d0*dvel_avg_dy(2))/ &
-                                           (3d0*Re_avg_rs_vf(1)%sf(l, k, j))
-
-                            do i = 1, 3
-
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
-                                    tau_Re(3, i)
-
-                                flux_src_vf(E_idx)%sf(j, k, l) = &
-                                    flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(l, k, j)* &
-                                    tau_Re(3, i)
-
-                            end do
-
-                        end do
-                    end do
-                end do
-            end if
-
-            if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
-
-                            dvel_avg_dx(1) = 5d-1*(dvelL_dx_vf(1)%sf(j, k, l) &
-                                                   + dvelR_dx_vf(1)%sf(j, k, l + 1))
-
-                            dvel_avg_dy(2) = 5d-1*(dvelL_dy_vf(2)%sf(j, k, l) &
-                                                   + dvelR_dy_vf(2)%sf(j, k, l + 1))
-
-                            dvel_avg_dz(3) = 5d-1*(dvelL_dz_vf(3)%sf(j, k, l) &
-                                                   + dvelR_dz_vf(3)%sf(j, k, l + 1))
-
-                            tau_Re(3, 3) = (dvel_avg_dx(1) &
-                                            + dvel_avg_dy(2) &
-                                            + dvel_avg_dz(3))/ &
-                                           Re_avg_rs_vf(2)%sf(l, k, j)
-
-                            flux_src_vf(mom_idx%end)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%end)%sf(j, k, l) - &
-                                tau_Re(3, 3)
-
-                            flux_src_vf(E_idx)%sf(j, k, l) = &
-                                flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(3)%sf(l, k, j)* &
-                                tau_Re(3, 3)
-
-                        end do
-                    end do
-                end do
-            end if
-
-        end if
-        ! END: Viscous Stresses in z-direction =============================
-
-    end subroutine s_compute_cartesian_viscous_source_flux ! -------------------------
 
 
     !>  Deallocation and/or disassociation procedures that are
@@ -3789,13 +2461,6 @@ contains
             deallocate (qL_prim_rs_vf(i)%sf, qR_prim_rs_vf(i)%sf)
         end do
 
-
-        do i = 1, 2
-            if (Re_size(i) > 0) then
-                deallocate (Re_avg_rs_vf(i)%sf)
-            end if
-        end do
-
         ! ==================================================================
 
         ! Deallocating Intercell Fluxes and Velocity =======================
@@ -3856,8 +2521,6 @@ contains
 
         deallocate (alpha_L, alpha_R)
 
-        if (any(Re_size > 0)) deallocate (Re_avg_rs_vf)
-
         if (riemann_solver == 3) then
             deallocate (alpha_rho_IC, vel_IC)
             deallocate (alpha_IC)
@@ -3878,10 +2541,6 @@ contains
         ! Disassociating the procedural pointers to the procedures that were
         ! utilized to compute the average state and estimate the wave speeds
         s_compute_average_state => null(); s_compute_wave_speeds => null()
-
-        ! Disassociating procedural pointer to the subroutine which was
-        ! utilized to calculate the viscous source flux
-        s_compute_viscous_source_flux => null()
 
         ! Disassociating the pointer to the procedure that was utilized to
         ! to convert mixture or species variables to the mixture variables
