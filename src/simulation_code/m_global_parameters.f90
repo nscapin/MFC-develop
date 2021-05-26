@@ -61,6 +61,7 @@ module m_global_parameters
     character(LEN=path_len)  :: case_dir              !< Case folder location
     logical                    :: run_time_info         !< Run-time output flag
     logical                    :: debug                 !< Debug mode print statements
+    logical                    :: debug_weno            !< debug weno routines
     integer                    :: t_step_old            !< Existing IC/grid folder
     real(kind(0d0)), parameter :: small_alf = 1d-7 !< Small alf tolerance
     ! ==========================================================================
@@ -299,6 +300,7 @@ contains
         t_step_old = dflt_int
 
         debug = .false.
+        debug_weno = .false.
 
         ! Computational domain parameters
         m = dflt_int; n = dflt_int; p = dflt_int

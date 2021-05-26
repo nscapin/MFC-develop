@@ -221,6 +221,8 @@ contains
                        0, MPI_COMM_WORLD, ierr)
         call MPI_BCAST(time_stepper, 1, MPI_INTEGER, &
                        0, MPI_COMM_WORLD, ierr)
+        call MPI_BCAST(debug_weno, 1, MPI_LOGICAL, &
+                       0, MPI_COMM_WORLD, ierr)
         call MPI_BCAST(weno_vars, 1, MPI_INTEGER, &
                        0, MPI_COMM_WORLD, ierr)
         call MPI_BCAST(weno_order, 1, MPI_INTEGER, &

@@ -210,7 +210,12 @@ contains
             end do
         end if
 
-        call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
+        if (debug_weno) then
+            call s_alt_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
+        else
+            call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
+        end if
+
         if (DEBUG) print *, 'got rhs'
 
         if (run_time_info) then

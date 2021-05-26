@@ -70,6 +70,7 @@ module m_rhs
 
     private; public :: s_initialize_rhs_module, &
  s_compute_rhs, &
+ s_alt_rhs, &
  s_pressure_relaxation_procedure, &
  s_populate_variables_buffers, &
  s_finalize_rhs_module
@@ -517,6 +518,95 @@ contains
 
     end subroutine s_initialize_rhs_module ! -------------------------------
 
+
+    !> The purpose of this procedure is to exercise the WENO functionality of 
+      !! MFC in one spatial dimension (no RHS computation, just reconstruction)
+    subroutine s_alt_rhs(q_cons_vf, q_prim_vf, rhs_vf, t_step) ! -------
+
+        type(scalar_field), dimension(sys_size), intent(INOUT) :: q_cons_vf
+        type(scalar_field), dimension(sys_size), intent(INOUT) :: q_prim_vf
+        type(scalar_field), dimension(sys_size), intent(INOUT) :: rhs_vf
+        integer, intent(IN) :: t_step
+
+        integer :: i, j, k
+
+        ix%beg = -buff_size; ix%end = m - ix%beg; 
+        iv%beg = 1; iv%end = adv_idx%end
+
+        do i = 1, sys_size
+            q_cons_qp%vf(i)%sf => q_cons_vf(i)%sf
+            q_prim_qp%vf(i)%sf => q_prim_vf(i)%sf
+        end do
+
+        call s_populate_conservative_variables_buffers()
+
+        call s_convert_conservative_to_primitive_variables( &
+            q_cons_qp%vf, &
+            q_prim_qp%vf, &
+            gm_alpha_qp%vf, &
+            ix, iy, iz)
+
+        if (t_step == t_step_stop) return
+
+        i = 1 !Coordinate Index
+
+        call s_reconstruct_cell_boundary_values( &
+            q_prim_qp%vf(iv%beg:iv%end), &
+            qL_prim_ndqp(i), qR_prim_ndqp(i), i)
+
+        do k = iv%beg, iv%end
+            print*, 'Variable ', k 
+            do j = 0,m
+                print*, 'Prim, L, R: ', &
+                    q_prim_qp%vf(k)%sf(j,0,0), &
+                    qL_prim_ndqp(i)%vf(k)%sf(j,0,0) - q_prim_qp%vf(k)%sf(j,0,0), &
+                    qR_prim_ndqp(i)%vf(k)%sf(j,0,0) - q_prim_qp%vf(k)%sf(j,0,0)
+            end do
+        end do
+
+        call s_riemann_solver(qR_prim_ndqp(i)%vf, &
+                              dqR_prim_dx_ndqp(i)%vf, &
+                              dqR_prim_dy_ndqp(i)%vf, &
+                              dqR_prim_dz_ndqp(i)%vf, &
+                              gm_alphaR_ndqp(i)%vf, &
+                              qL_prim_ndqp(i)%vf, &
+                              dqL_prim_dx_ndqp(i)%vf, &
+                              dqL_prim_dy_ndqp(i)%vf, &
+                              dqL_prim_dz_ndqp(i)%vf, &
+                              gm_alphaL_ndqp(i)%vf, &
+                              q_prim_qp%vf, &
+                              flux_ndqp(i)%vf, &
+                              flux_src_ndqp(i)%vf, &
+                              flux_gsrc_ndqp(i)%vf, &
+                              i, ix, iy, iz)
+
+        ! Apply Riemann fluxes
+        do j = 1, sys_size
+            do k = 0, m
+                rhs_vf(j)%sf(k, :, :) = 1d0/dx(k)* &
+                    (flux_ndqp(i)%vf(j)%sf(k - 1, 0:n, 0:p) &
+                     - flux_ndqp(i)%vf(j)%sf(k, 0:n, 0:p))
+            end do
+        end do
+
+        ! Apply source terms to RHS of advection equations
+        do j = adv_idx%beg, adv_idx%end
+            do k = 0, m
+                rhs_vf(j)%sf(k, :, :) = &
+                    rhs_vf(j)%sf(k, :, :) + 1d0/dx(k) * &
+                    q_cons_qp%vf(j)%sf(k, 0:n, 0:p)   * &
+                     (flux_src_ndqp(i)%vf(j)%sf(k, 0:n, 0:p) &
+                    - flux_src_ndqp(i)%vf(j)%sf(k - 1, 0:n, 0:p))
+            end do
+        end do
+
+        do i = 1, sys_size
+            nullify (q_cons_qp%vf(i)%sf, q_prim_qp%vf(i)%sf)
+        end do
+
+    end subroutine s_alt_rhs
+
+
     !> The purpose of this procedure is to employ the inputted
         !!      cell-average conservative variables in order to compute
         !!      the cell-average RHS variables of the semidiscrete form
@@ -670,6 +760,19 @@ contains
                     qR_prim_ndqp(i), &
                     i)
             end if
+
+
+            do ii = iv%beg, iv%end-1
+                print*, 'Variable ', ii
+                do j = 0,m
+                    print*, 'Prim, L, R: ', &
+                        q_prim_qp%vf(ii)%sf(j,0,0), &
+                        qL_prim_ndqp(1)%vf(ii)%sf(j,0,0) - q_prim_qp%vf(ii)%sf(j,0,0), &
+                        qR_prim_ndqp(1)%vf(ii)%sf(j,0,0) - q_prim_qp%vf(ii)%sf(j,0,0)
+                end do
+            end do
+
+            ! call s_mpi_abort()
 
             if ((model_eqns == 2 .or. model_eqns == 3) .and. (adv_alphan .neqv. .true.)) then
                 qL_cons_ndqp(i)%vf(sys_size)%sf = 1d0

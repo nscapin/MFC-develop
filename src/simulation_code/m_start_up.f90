@@ -122,7 +122,7 @@ contains
             polytropic, thermal, &
             integral, integral_wrt, num_integrals, &
             polydisperse, poly_sigma, qbmm, nnode, &
-            R0_type, DEBUG, t_tol
+            R0_type, debug, debug_weno, t_tol
 
         ! Checking that an input file has been provided by the user. If it
         ! has, then the input file is read in, otherwise, simulation exits.
@@ -582,6 +582,11 @@ contains
                     'of values of num_fluids '// &
                     'and fluid_pp(', i, ')%'// &
                     'pi_inf. Exiting ...'
+                call s_mpi_abort()
+            end if
+
+            if (debug_weno .and. (time_stepper .ne. 1)) then
+                print*, 'Unsupported combination of debug_weno and time_stepper'
                 call s_mpi_abort()
             end if
 

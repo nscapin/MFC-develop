@@ -910,6 +910,7 @@ simulation_dict =                                                              \
                     't_step_old'                    : None,                    \
                     't_tol'                         : None,                    \
                     'debug'                         : None,                    \
+                    'debug_weno'                    : None,                    \
                     'm'                             : None,                    \
                     'n'                             : None,                    \
                     'p'                             : None,                    \
