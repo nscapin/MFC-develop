@@ -1642,9 +1642,11 @@ contains
 
                 call s_assign_patch_primitive_variables(patch_id, i, 0, 0)
 
-                !bump in density
-                q_prim_vf(1)%sf(i,0,0) = q_prim_vf(1)%sf(i,0,0) * &
-                    ( 1d0 + 0.2d0*exp(-1d0*((x_cb(i)-x_centroid)**2.d0)/(2.d0*0.005d0)) )
+                !bump in alpha density
+                do j = cont_idx%beg,cont_idx%end
+                    q_prim_vf(1)%sf(i,0,0) = q_prim_vf(1)%sf(i,0,0) * &
+                        ( 1d0 + 0.2d0*exp(-1d0*((x_cb(i)-x_centroid)**2.d0)/(2.d0*0.005d0)) )
+                end do
 
                 !bump in velocity
                 q_prim_vf(mom_idx%beg)%sf(i,0,0) = q_prim_vf(mom_idx%beg)%sf(i,0,0) * &
@@ -1654,6 +1656,12 @@ contains
                 q_prim_vf(E_idx)%sf(i, 0, 0) = q_prim_vf(E_idx)%sf(i,0,0) * &
                     (1d0 + 0.2d0*dexp(-1d0*((x_cb(i) - x_centroid)**2.d0)/(2.d0*0.005d0)))
 
+                if (num_fluids == 2) then
+                    !bump in alpha
+                    q_prim_vf(E_idx+1)%sf(i, 0, 0) = q_prim_vf(E_idx+1)%sf(i,0,0) * &
+                        (1d0 + 0.2d0*dexp(-1d0*((x_cb(i) - x_centroid)**2.d0)/(2.d0*0.005d0)))
+                    q_prim_vf(E_idx+2)%sf(i, 0, 0) = 1.d0 - q_prim_vf(E_idx+1)%sf(i, 0, 0)
+                end if 
             end if
         end do
 
