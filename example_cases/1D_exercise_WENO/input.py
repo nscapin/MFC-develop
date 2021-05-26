@@ -6,7 +6,7 @@ Nx      = 25
 dx      = 1./(1.*(Nx+1))
 
 Tend    = 0.03
-Nt      = 100
+Nt      = 10
 mydt    = Tend/(1.*Nt)
 
 # Command to navigate between directories
@@ -63,7 +63,7 @@ case_dict =                                                                     
                                                                                 \
                     # Simulation Algorithm Parameters ==========================
                     'debug_weno'                  : 'T',                        \
-                    'num_patches'                  : 2,                         \
+                    'num_patches'                  : 1,                         \
                     'model_eqns'                   : 2,                         \
                     'alt_soundspeed'               : 'F',                       \
                     'num_fluids'                   : 1,                         \
@@ -86,30 +86,41 @@ case_dict =                                                                     
                                                                                 \
                     # Formatted Database Files Structure Parameters ============
                     'format'                       : 1,                         \
-                    'precision'                    : 1,                         \
+                    'precision'                    : 2,                         \
                     'prim_vars_wrt'                :'T',                        \
                     'parallel_io'                  :'F',                        \
                     # ==========================================================
                                                                                 
                     # Patch 1 L ================================================
-                    'patch_icpp(1)%geometry'       : 1,                         \
-                    'patch_icpp(1)%x_centroid'     : 0.25,                      \
-                    'patch_icpp(1)%length_x'       : 0.5,                       \
-                    'patch_icpp(1)%vel(1)'         : 0.0,                       \
-                    'patch_icpp(1)%pres'           : 1.0,                       \
+                    # 'patch_icpp(1)%geometry'       : 1,                         \
+                    # 'patch_icpp(1)%x_centroid'     : 0.25,                      \
+                    # 'patch_icpp(1)%length_x'       : 0.5,                       \
+                    # 'patch_icpp(1)%vel(1)'         : 0.0,                       \
+                    # 'patch_icpp(1)%pres'           : 1.0,                       \
+                    # 'patch_icpp(1)%alpha_rho(1)'   : 1.E+00,                    \
+                    # 'patch_icpp(1)%alpha(1)'       : 1.,                        \
+                    # # ==========================================================
+
+                    # Patch 2 R ================================================
+                    # 'patch_icpp(2)%geometry'       : 1,                         \
+                    # 'patch_icpp(2)%x_centroid'     : 0.75,                      \
+                    # 'patch_icpp(2)%length_x'       : 0.5,                       \
+                    # 'patch_icpp(2)%vel(1)'         : 0.0,                       \
+                    # 'patch_icpp(2)%pres'           : 0.1,                       \
+                    # 'patch_icpp(2)%alpha_rho(1)'   : 0.125E+00,                 \
+                    # 'patch_icpp(2)%alpha(1)'       : 1.,                        \
+                    # ==========================================================
+
+                    # Patch 1D Analytical ======================================
+                    'patch_icpp(1)%geometry'       : 15,                        \
+                    'patch_icpp(1)%x_centroid'     : 0.5,                       \
+                    'patch_icpp(1)%length_x'       : 1.0,                       \
+                    'patch_icpp(1)%vel(1)'         : 0.05,                      \
+                    'patch_icpp(1)%pres'           : 1.1,                       \
                     'patch_icpp(1)%alpha_rho(1)'   : 1.E+00,                    \
                     'patch_icpp(1)%alpha(1)'       : 1.,                        \
                     # ==========================================================
 
-                    # Patch 2 R ================================================
-                    'patch_icpp(2)%geometry'       : 1,                         \
-                    'patch_icpp(2)%x_centroid'     : 0.75,                      \
-                    'patch_icpp(2)%length_x'       : 0.5,                       \
-                    'patch_icpp(2)%vel(1)'         : 0.0,                       \
-                    'patch_icpp(2)%pres'           : 0.1,                       \
-                    'patch_icpp(2)%alpha_rho(1)'   : 0.125E+00,                 \
-                    'patch_icpp(2)%alpha(1)'       : 1.,                        \
-                    # ==========================================================
 
                     # Fluids Physical Parameters ===============================
                     'fluid_pp(1)%gamma'            : 1.E+00/(1.4-1.E+00),       \

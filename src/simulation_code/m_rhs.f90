@@ -564,41 +564,40 @@ contains
             end do
         end do
 
-        call s_riemann_solver(qR_prim_ndqp(i)%vf, &
-                              dqR_prim_dx_ndqp(i)%vf, &
-                              dqR_prim_dy_ndqp(i)%vf, &
-                              dqR_prim_dz_ndqp(i)%vf, &
-                              gm_alphaR_ndqp(i)%vf, &
-                              qL_prim_ndqp(i)%vf, &
-                              dqL_prim_dx_ndqp(i)%vf, &
-                              dqL_prim_dy_ndqp(i)%vf, &
-                              dqL_prim_dz_ndqp(i)%vf, &
-                              gm_alphaL_ndqp(i)%vf, &
-                              q_prim_qp%vf, &
-                              flux_ndqp(i)%vf, &
-                              flux_src_ndqp(i)%vf, &
-                              flux_gsrc_ndqp(i)%vf, &
-                              i, ix, iy, iz)
+        ! call s_riemann_solver(qR_prim_ndqp(i)%vf, &
+        !                       dqR_prim_dx_ndqp(i)%vf, &
+        !                       dqR_prim_dy_ndqp(i)%vf, &
+        !                       dqR_prim_dz_ndqp(i)%vf, &
+        !                       gm_alphaR_ndqp(i)%vf, &
+        !                       qL_prim_ndqp(i)%vf, &
+        !                       dqL_prim_dx_ndqp(i)%vf, &
+        !                       dqL_prim_dy_ndqp(i)%vf, &
+        !                       dqL_prim_dz_ndqp(i)%vf, &
+        !                       gm_alphaL_ndqp(i)%vf, &
+        !                       q_prim_qp%vf, &
+        !                       flux_ndqp(i)%vf, &
+        !                       flux_src_ndqp(i)%vf, &
+        !                       flux_gsrc_ndqp(i)%vf, &
+        !                       i, ix, iy, iz)
 
-        ! Apply Riemann fluxes
-        do j = 1, sys_size
-            do k = 0, m
-                rhs_vf(j)%sf(k, :, :) = 1d0/dx(k)* &
-                    (flux_ndqp(i)%vf(j)%sf(k - 1, 0:n, 0:p) &
-                     - flux_ndqp(i)%vf(j)%sf(k, 0:n, 0:p))
-            end do
-        end do
+        ! do j = 1, sys_size
+        !     do k = 0, m
+        !         rhs_vf(j)%sf(k, :, :) = 1d0/dx(k)* &
+        !             (flux_ndqp(i)%vf(j)%sf(k - 1, 0:n, 0:p) &
+        !              - flux_ndqp(i)%vf(j)%sf(k, 0:n, 0:p))
+        !     end do
+        ! end do
 
-        ! Apply source terms to RHS of advection equations
-        do j = adv_idx%beg, adv_idx%end
-            do k = 0, m
-                rhs_vf(j)%sf(k, :, :) = &
-                    rhs_vf(j)%sf(k, :, :) + 1d0/dx(k) * &
-                    q_cons_qp%vf(j)%sf(k, 0:n, 0:p)   * &
-                     (flux_src_ndqp(i)%vf(j)%sf(k, 0:n, 0:p) &
-                    - flux_src_ndqp(i)%vf(j)%sf(k - 1, 0:n, 0:p))
-            end do
-        end do
+        ! ! Apply source terms to RHS of advection equations
+        ! do j = adv_idx%beg, adv_idx%end
+        !     do k = 0, m
+        !         rhs_vf(j)%sf(k,:,:) = &
+        !             rhs_vf(j)%sf(k,:,:) + 1d0/dx(k) * &
+        !             q_cons_qp%vf(j)%sf(k, 0:n, 0:p)   * &
+        !              (flux_src_ndqp(i)%vf(j)%sf(k,0:n,0:p) &
+        !             - flux_src_ndqp(i)%vf(j)%sf(k-1,0:n,0:p))
+        !     end do
+        ! end do
 
         do i = 1, sys_size
             nullify (q_cons_qp%vf(i)%sf, q_prim_qp%vf(i)%sf)
