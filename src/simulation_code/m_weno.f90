@@ -113,12 +113,9 @@ contains
         type(bounds_info), intent(IN) :: is
         real(kind(0d0)), pointer, dimension(:) :: s_cb => null()
         type(bounds_info) :: bc_s
-        integer :: i, s
+        integer :: i
 
-        ! Determining the number of cells, the cell-boundary locations and
-        ! the boundary conditions in the coordinate direction selected for
-        ! the WENO reconstruction
-        s = m; s_cb => x_cb; bc_s = bc_x
+        s_cb => x_cb; bc_s = bc_x
 
         do i = is%beg - 1, is%end - 1
 
@@ -276,69 +273,69 @@ contains
                         dvd(1) = v_rs_wsL(2)%vf(i)%sf(j, k, l) &
                                  - v_rs_wsL(1)%vf(i)%sf(j, k, l)
                         dvd(0) = v_rs_wsL(1)%vf(i)%sf(j, k, l) &
-                                 - v_rs_wsL(0)%vf(i)%sf(j, k, l)
+                                - v_rs_wsL(0)%vf(i)%sf(j, k, l)
                         dvd(-1) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-                                  - v_rs_wsL(-1)%vf(i)%sf(j, k, l)
+                                - v_rs_wsL(-1)%vf(i)%sf(j, k, l)
                         dvd(-2) = v_rs_wsL(-1)%vf(i)%sf(j, k, l) &
-                                  - v_rs_wsL(-2)%vf(i)%sf(j, k, l)
+                                - v_rs_wsL(-2)%vf(i)%sf(j, k, l)
 
                         poly_L(0) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-                                    + poly_coef_L(0, 0, j)*dvd(1) &
-                                    + poly_coef_L(0, 1, j)*dvd(0)
+                                  + poly_coef_L(0, 0, j)*dvd(1) &
+                                  + poly_coef_L(0, 1, j)*dvd(0)
                         poly_L(1) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-                                    + poly_coef_L(1, 0, j)*dvd(0) &
-                                    + poly_coef_L(1, 1, j)*dvd(-1)
+                                  + poly_coef_L(1, 0, j)*dvd(0) &
+                                  + poly_coef_L(1, 1, j)*dvd(-1)
                         poly_L(2) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-                                    + poly_coef_L(2, 0, j)*dvd(-1) &
-                                    + poly_coef_L(2, 1, j)*dvd(-2)
+                                  + poly_coef_L(2, 0, j)*dvd(-1) &
+                                  + poly_coef_L(2, 1, j)*dvd(-2)
 
                         beta(0) = beta_coef(0, 0, j)*dvd(1)*dvd(1) &
-                                  + beta_coef(0, 1, j)*dvd(1)*dvd(0) &
-                                  + beta_coef(0, 2, j)*dvd(0)*dvd(0) &
-                                  + weno_eps
+                                + beta_coef(0, 1, j)*dvd(1)*dvd(0) &
+                                + beta_coef(0, 2, j)*dvd(0)*dvd(0) &
+                                + weno_eps
                         beta(1) = beta_coef(1, 0, j)*dvd(0)*dvd(0) &
-                                  + beta_coef(1, 1, j)*dvd(0)*dvd(-1) &
-                                  + beta_coef(1, 2, j)*dvd(-1)*dvd(-1) &
-                                  + weno_eps
+                                + beta_coef(1, 1, j)*dvd(0)*dvd(-1) &
+                                + beta_coef(1, 2, j)*dvd(-1)*dvd(-1) &
+                                + weno_eps
                         beta(2) = beta_coef(2, 0, j)*dvd(-1)*dvd(-1) &
-                                  + beta_coef(2, 1, j)*dvd(-1)*dvd(-2) &
-                                  + beta_coef(2, 2, j)*dvd(-2)*dvd(-2) &
-                                  + weno_eps
+                                + beta_coef(2, 1, j)*dvd(-1)*dvd(-2) &
+                                + beta_coef(2, 2, j)*dvd(-2)*dvd(-2) &
+                                + weno_eps
 
                         alpha_L = d_L(:, j)/(beta*beta)
                         omega_L = alpha_L/sum(alpha_L)
 
                         dvd(1) = v_rs_wsL(2)%vf(i)%sf(j, k, l) &
-                                 - v_rs_wsL(1)%vf(i)%sf(j, k, l)
+                               - v_rs_wsL(1)%vf(i)%sf(j, k, l)
                         dvd(0) = v_rs_wsL(1)%vf(i)%sf(j, k, l) &
-                                 - v_rs_wsL(0)%vf(i)%sf(j, k, l)
+                               - v_rs_wsL(0)%vf(i)%sf(j, k, l)
                         dvd(-1) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-                                  - v_rs_wsL(-1)%vf(i)%sf(j, k, l)
+                                - v_rs_wsL(-1)%vf(i)%sf(j, k, l)
                         dvd(-2) = v_rs_wsL(-1)%vf(i)%sf(j, k, l) &
-                                  - v_rs_wsL(-2)%vf(i)%sf(j, k, l)
+                                - v_rs_wsL(-2)%vf(i)%sf(j, k, l)
 
                         poly_R(0) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-                                    + poly_coef_R(0, 0, j)*dvd(1) &
-                                    + poly_coef_R(0, 1, j)*dvd(0)
+                                  + poly_coef_R(0, 0, j)*dvd(1) &
+                                  + poly_coef_R(0, 1, j)*dvd(0)
                         poly_R(1) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-                                    + poly_coef_R(1, 0, j)*dvd(0) &
-                                    + poly_coef_R(1, 1, j)*dvd(-1)
+                                  + poly_coef_R(1, 0, j)*dvd(0) &
+                                  + poly_coef_R(1, 1, j)*dvd(-1)
                         poly_R(2) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-                                    + poly_coef_R(2, 0, j)*dvd(-1) &
-                                    + poly_coef_R(2, 1, j)*dvd(-2)
+                                  + poly_coef_R(2, 0, j)*dvd(-1) &
+                                  + poly_coef_R(2, 1, j)*dvd(-2)
 
                         beta(0) = beta_coef(0, 0, j)*dvd(1)*dvd(1) &
-                                  + beta_coef(0, 1, j)*dvd(1)*dvd(0) &
-                                  + beta_coef(0, 2, j)*dvd(0)*dvd(0) &
-                                  + weno_eps
+                                + beta_coef(0, 1, j)*dvd(1)*dvd(0) &
+                                + beta_coef(0, 2, j)*dvd(0)*dvd(0) &
+                                + weno_eps
                         beta(1) = beta_coef(1, 0, j)*dvd(0)*dvd(0) &
-                                  + beta_coef(1, 1, j)*dvd(0)*dvd(-1) &
-                                  + beta_coef(1, 2, j)*dvd(-1)*dvd(-1) &
-                                  + weno_eps
+                                + beta_coef(1, 1, j)*dvd(0)*dvd(-1) &
+                                + beta_coef(1, 2, j)*dvd(-1)*dvd(-1) &
+                                + weno_eps
                         beta(2) = beta_coef(2, 0, j)*dvd(-1)*dvd(-1) &
-                                  + beta_coef(2, 1, j)*dvd(-1)*dvd(-2) &
-                                  + beta_coef(2, 2, j)*dvd(-2)*dvd(-2) &
-                                  + weno_eps
+                                + beta_coef(2, 1, j)*dvd(-1)*dvd(-2) &
+                                + beta_coef(2, 2, j)*dvd(-2)*dvd(-2) &
+                                + weno_eps
 
                         alpha_R = d_R(:, j)/(beta*beta)
                         omega_R = alpha_R/sum(alpha_R)
