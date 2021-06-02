@@ -62,20 +62,13 @@ module m_weno
     type(vector_field), allocatable, dimension(:) :: v_rs_wsL, v_rs_wsR
     type(scalar_field), allocatable, dimension(:) :: vL_rs_vf, vR_rs_vf
 
-    real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_cbL_x
-    real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_cbR_x
+    real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_L
+    real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_R
 
-    real(kind(0d0)), pointer, dimension(:, :, :) :: poly_coef_L => null()
-    real(kind(0d0)), pointer, dimension(:, :, :) :: poly_coef_R => null()
+    real(kind(0d0)), target, allocatable, dimension(:, :) :: d_L
+    real(kind(0d0)), target, allocatable, dimension(:, :) :: d_R
 
-    real(kind(0d0)), target, allocatable, dimension(:, :) :: d_cbL_x
-    real(kind(0d0)), target, allocatable, dimension(:, :) :: d_cbR_x
-
-    real(kind(0d0)), pointer, dimension(:, :) :: d_L => null()
-    real(kind(0d0)), pointer, dimension(:, :) :: d_R => null()
-
-    real(kind(0d0)), target, allocatable, dimension(:, :, :) :: beta_coef_x
-    real(kind(0d0)), pointer, dimension(:, :, :) :: beta_coef => null()
+    real(kind(0d0)), target, allocatable, dimension(:, :, :) :: beta_coef
 
     integer :: v_size
     type(bounds_info) :: is1, is2, is3
@@ -89,8 +82,6 @@ contains
 
         type(bounds_info) :: ix, iy, iz !< Indical bounds in the x-, y- and z-directions
 
-        if (weno_order == 1) return
-
         ! Allocating WENO-stencil for the variables to be WENO-reconstructed
         allocate (v_rs_wsL(-weno_polyn:weno_polyn))
         allocate (v_rs_wsR(-weno_polyn:weno_polyn))
@@ -98,19 +89,19 @@ contains
         ! Allocating/Computing WENO Coefficients in x-direction ============
         ix%beg = -buff_size + weno_polyn; ix%end = m - ix%beg
 
-        allocate (poly_coef_cbL_x(0:weno_polyn, &
-                                  0:weno_polyn - 1, &
-                                  ix%beg:ix%end))
-        allocate (poly_coef_cbR_x(0:weno_polyn, &
-                                  0:weno_polyn - 1, &
-                                  ix%beg:ix%end))
-
-        allocate (d_cbL_x(0:weno_polyn, ix%beg:ix%end))
-        allocate (d_cbR_x(0:weno_polyn, ix%beg:ix%end))
-
-        allocate (beta_coef_x(0:weno_polyn, &
-                              0:2*(weno_polyn - 1), &
+        allocate (poly_coef_L(0:weno_polyn, &
+                              0:weno_polyn - 1, &
                               ix%beg:ix%end))
+        allocate (poly_coef_R(0:weno_polyn, &
+                              0:weno_polyn - 1, &
+                              ix%beg:ix%end))
+
+        allocate (d_L(0:weno_polyn, ix%beg:ix%end))
+        allocate (d_R(0:weno_polyn, ix%beg:ix%end))
+
+        allocate (beta_coef(0:weno_polyn, &
+                            0:2*(weno_polyn - 1), &
+                            ix%beg:ix%end))
 
         call s_compute_weno_coefficients(ix)
 
@@ -120,20 +111,14 @@ contains
     subroutine s_compute_weno_coefficients(is) ! -------
 
         type(bounds_info), intent(IN) :: is
-
         real(kind(0d0)), pointer, dimension(:) :: s_cb => null()
         type(bounds_info) :: bc_s
         integer :: i, s
-
-        ! Associating WENO coefficients pointers
-        call s_associate_weno_coefficients_pointers
 
         ! Determining the number of cells, the cell-boundary locations and
         ! the boundary conditions in the coordinate direction selected for
         ! the WENO reconstruction
         s = m; s_cb => x_cb; bc_s = bc_x
-
-
 
         do i = is%beg - 1, is%end - 1
 
@@ -261,36 +246,19 @@ contains
 
         end do
 
-        ! Nullifying WENO coefficients and cell-boundary locations pointers
-        nullify (poly_coef_L, poly_coef_R, d_L, d_R, beta_coef, s_cb)
+        nullify(s_cb)
 
     end subroutine s_compute_weno_coefficients ! ---------------------------
 
-    !>  The purpose of the procedure is to associate the WENO
-        !!      coefficients' pointers with their appropriate targets,
-        !!      based on the coordinate direction and the location of
-        !!      the WENO reconstruction.
-    subroutine s_associate_weno_coefficients_pointers
 
-        ! Associating WENO Coefficients in x-direction =====================
-        poly_coef_L => poly_coef_cbL_x
-        poly_coef_R => poly_coef_cbR_x
-        d_L => d_cbL_x
-        d_R => d_cbR_x
-        beta_coef => beta_coef_x
-        ! ==================================================================
-
-    end subroutine s_associate_weno_coefficients_pointers ! ----------------
-
-    subroutine s_weno(v_vf, vL_vf, vR_vf, & ! -------------------
-                      weno_dir_dummy, ix, iy, iz)
+    subroutine s_weno(v_vf, vL_vf, vR_vf, weno_dir_dummy, ix, iy, iz)
 
         type(scalar_field), dimension(:), intent(IN) :: v_vf
         type(scalar_field), dimension(:), intent(INOUT) :: vL_vf, vR_vf
         integer, intent(IN) :: weno_dir_dummy
         type(bounds_info), intent(IN) :: ix, iy, iz
 
-        real(kind(0d0)), dimension(-weno_polyn:weno_polyn - 1) :: dvd 
+        real(kind(0d0)), dimension(-weno_polyn:weno_polyn-1) :: dvd 
         real(kind(0d0)), dimension(0:weno_polyn) ::  poly_L, poly_R
         real(kind(0d0)), dimension(0:weno_polyn) :: alpha_L, alpha_R
         real(kind(0d0)), dimension(0:weno_polyn) :: omega_L, omega_R
@@ -298,10 +266,7 @@ contains
 
         integer :: i, j, k, l
 
-        ! Reshaping and/or projecting onto characteristic fields inputted
-        ! data and in addition associating the WENO coefficients pointers
         call s_initialize_weno(v_vf, vL_vf, vR_vf, ix, iy, iz)
-        call s_associate_weno_coefficients_pointers
 
         do i = 1, v_size
             do l = is3%beg, is3%end
@@ -341,8 +306,8 @@ contains
                                   + weno_eps
 
                         alpha_L = d_L(:, j)/(beta*beta)
-
                         omega_L = alpha_L/sum(alpha_L)
+
 
                         dvd(1) = v_rs_wsR(2)%vf(i)%sf(j, k, l) &
                                  - v_rs_wsR(1)%vf(i)%sf(j, k, l)
@@ -377,24 +342,10 @@ contains
                                   + weno_eps
 
                         alpha_R = d_R(:, j)/(beta*beta)
-
                         omega_R = alpha_R/sum(alpha_R)
-
-                        if (mapped_weno) then
-                            call s_map_nonlinear_weights(d_L(:, j), &
-                                                         alpha_L, &
-                                                         omega_L)
-                            call s_map_nonlinear_weights(d_R(:, j), &
-                                                         alpha_R, &
-                                                         omega_R)
-                        end if
 
                         vL_rs_vf(i)%sf(j, k, l) = sum(omega_L*poly_L)
                         vR_rs_vf(i)%sf(j, k, l) = sum(omega_R*poly_R)
-
-                        if (mp_weno) then
-                            call s_preserve_monotonicity(i, j, k, l)
-                        end if
 
                     end do
                 end do
@@ -402,8 +353,6 @@ contains
         end do
 
         call s_finalize_weno(vL_vf, vR_vf, ix, iy, iz)
-
-        nullify (poly_coef_L, poly_coef_R, d_L, d_R, beta_coef)
 
     end subroutine s_weno ! ------------------------------------------------
 
@@ -415,11 +364,13 @@ contains
         type(scalar_field), dimension(:), intent(INOUT) :: vL_vf, vR_vf
         type(bounds_info), intent(IN) :: ix, iy, iz
 
-        integer :: i, j, k, l !< Generic loop iterators
+        integer :: i, j, k, l
 
         v_size = ubound(v_vf, 1)
 
-        is1 = ix; is2 = iy; is3 = iz
+        is1 = ix
+        is2 = iy
+        is3 = iz
 
         do i = -weno_polyn, weno_polyn
             allocate (v_rs_wsL(i)%vf(1:v_size), v_rs_wsR(i)%vf(1:v_size))
@@ -450,184 +401,7 @@ contains
     end subroutine s_initialize_weno ! -------------------------------------
 
 
-    !>  The goal of this procedure is to map the nonlinear WENO
-        !!      weights to the more accurate nonlinear WENOM weights in
-        !!      order to reinstate the optimal order of accuracy of the
-        !!      reconstruction in the proximity of critical points, see
-        !!      Henrick et al. (2005).
-        !!  @param d_K Cell boundary pointer
-        !!  @param alpha_K ideal weights
-        !!  @param omega_K nonlinear weights
-    subroutine s_map_nonlinear_weights(d_K, alpha_K, omega_K) ! ------------
-
-        ! Ideal and nonlinear weights
-        real(kind(0d0)), dimension(0:weno_polyn), intent(IN)    ::     d_K
-        real(kind(0d0)), dimension(0:weno_polyn), intent(INOUT) :: alpha_K
-        real(kind(0d0)), dimension(0:weno_polyn), intent(INOUT) :: omega_K
-
-        ! Mapping the WENO nonlinear weights to the WENOM nonlinear weights
-        if (minval(d_K) == 0d0 .or. maxval(d_K) == 1d0) return
-
-        alpha_K = (d_K*(1d0 + d_K - 3d0*omega_K) + omega_K**2d0) &
-                  *(omega_K/(d_K**2d0 + omega_K*(1d0 - 2d0*d_K)))
-
-        omega_K = alpha_K/sum(alpha_K)
-
-    end subroutine s_map_nonlinear_weights ! -------------------------------
-
-    !>  The goal of this subroutine is to ensure that the WENO
-        !!      reconstruction is monotonic. The latter is achieved by
-        !!      enforcing monotonicity preserving bounds of Suresh and
-        !!      Huynh (1997). The resulting MPWENO reconstruction, see
-        !!      Balsara and Shu (2000), ensures that the reconstructed
-        !!      values do not reside outside the range spanned by WENO
-        !!      stencil.
-        !!  @param i Equation number
-        !!  @param j First-coordinate cell index
-        !!  @param k Second-coordinate cell index
-        !!  @param l Third-coordinate cell index
-    subroutine s_preserve_monotonicity(i, j, k, l) ! --------------------------
-
-        integer, intent(IN) :: i, j, k, l
-
-        real(kind(0d0)), dimension(-1:1) :: d 
-            !! Curvature measures at the zone centers
-
-        real(kind(0d0)) :: d_MD, d_LC
-            !! Median (md) curvature and large curvature (LC) measures
-
-        ! The left and right upper bounds (UL), medians, large curvatures,
-        ! minima, and maxima of the WENO-reconstructed values of the cell-
-        ! average variables.
-        real(kind(0d0)) :: vL_UL, vR_UL
-        real(kind(0d0)) :: vL_MD, vR_MD
-        real(kind(0d0)) :: vL_LC, vR_LC
-        real(kind(0d0)) :: vL_min, vR_min
-        real(kind(0d0)) :: vL_max, vR_max
-
-        real(kind(0d0)), parameter :: alpha = 2d0
-        real(kind(0d0)), parameter :: beta = 4d0/3d0 
-
-        ! Left Monotonicity Preserving Bound ===============================
-        d(-1) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-                + v_rs_wsL(-2)%vf(i)%sf(j, k, l) &
-                - v_rs_wsL(-1)%vf(i)%sf(j, k, l) &
-                *2d0
-        d(0) = v_rs_wsL(1)%vf(i)%sf(j, k, l) &
-               + v_rs_wsL(-1)%vf(i)%sf(j, k, l) &
-               - v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-               *2d0
-        d(1) = v_rs_wsL(2)%vf(i)%sf(j, k, l) &
-               + v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-               - v_rs_wsL(1)%vf(i)%sf(j, k, l) &
-               *2d0
-
-        d_MD = (sign(1d0, 4d0*d(-1) - d(0)) + sign(1d0, 4d0*d(0) - d(-1))) &
-               *abs((sign(1d0, 4d0*d(-1) - d(0)) + sign(1d0, d(-1))) &
-                    *(sign(1d0, 4d0*d(-1) - d(0)) + sign(1d0, d(0)))) &
-               *min(abs(4d0*d(-1) - d(0)), abs(d(-1)), &
-                    abs(4d0*d(0) - d(-1)), abs(d(0)))/8d0
-
-        d_LC = (sign(1d0, 4d0*d(0) - d(1)) + sign(1d0, 4d0*d(1) - d(0))) &
-               *abs((sign(1d0, 4d0*d(0) - d(1)) + sign(1d0, d(0))) &
-                    *(sign(1d0, 4d0*d(0) - d(1)) + sign(1d0, d(1)))) &
-               *min(abs(4d0*d(0) - d(1)), abs(d(0)), &
-                    abs(4d0*d(1) - d(0)), abs(d(1)))/8d0
-
-        vL_UL = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-                - (v_rs_wsL(1)%vf(i)%sf(j, k, l) &
-                   - v_rs_wsL(0)%vf(i)%sf(j, k, l))*alpha
-
-        vL_MD = (v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-                 + v_rs_wsL(-1)%vf(i)%sf(j, k, l) &
-                 - d_MD)*5d-1
-
-        vL_LC = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-                - (v_rs_wsL(1)%vf(i)%sf(j, k, l) &
-                   - v_rs_wsL(0)%vf(i)%sf(j, k, l))*5d-1 + beta*d_LC
-
-        vL_min = max(min(v_rs_wsL(0)%vf(i)%sf(j, k, l), &
-                         v_rs_wsL(-1)%vf(i)%sf(j, k, l), &
-                         vL_MD), &
-                     min(v_rs_wsL(0)%vf(i)%sf(j, k, l), &
-                         vL_UL, &
-                         vL_LC))
-
-        vL_max = min(max(v_rs_wsL(0)%vf(i)%sf(j, k, l), &
-                         v_rs_wsL(-1)%vf(i)%sf(j, k, l), &
-                         vL_MD), &
-                     max(v_rs_wsL(0)%vf(i)%sf(j, k, l), &
-                         vL_UL, &
-                         vL_LC))
-
-        vL_rs_vf(i)%sf(j, k, l) = vL_rs_vf(i)%sf(j, k, l) &
-                  + (sign(5d-1, vL_min - vL_rs_vf(i)%sf(j, k, l)) &
-                     + sign(5d-1, vL_max - vL_rs_vf(i)%sf(j, k, l))) &
-                  *min(abs(vL_min - vL_rs_vf(i)%sf(j, k, l)), &
-                       abs(vL_max - vL_rs_vf(i)%sf(j, k, l)))
-        ! END: Left Monotonicity Preserving Bound ==========================
-
-        ! Right Monotonicity Preserving Bound ==============================
-        d(-1) = v_rs_wsR(0)%vf(i)%sf(j, k, l) &
-                + v_rs_wsR(-2)%vf(i)%sf(j, k, l) &
-                - v_rs_wsR(-1)%vf(i)%sf(j, k, l)*2d0
-        d(0) = v_rs_wsR(1)%vf(i)%sf(j, k, l) &
-               + v_rs_wsR(-1)%vf(i)%sf(j, k, l) &
-               - v_rs_wsR(0)%vf(i)%sf(j, k, l)*2d0
-        d(1) = v_rs_wsR(2)%vf(i)%sf(j, k, l) &
-               + v_rs_wsR(0)%vf(i)%sf(j, k, l) &
-               - v_rs_wsR(1)%vf(i)%sf(j, k, l)*2d0
-
-        d_MD = (sign(1d0, 4d0*d(0) - d(1)) + sign(1d0, 4d0*d(1) - d(0))) &
-               *abs((sign(1d0, 4d0*d(0) - d(1)) + sign(1d0, d(0))) &
-                    *(sign(1d0, 4d0*d(0) - d(1)) + sign(1d0, d(1)))) &
-               *min(abs(4d0*d(0) - d(1)), abs(d(0)), &
-                    abs(4d0*d(1) - d(0)), abs(d(1)))/8d0
-
-        d_LC = (sign(1d0, 4d0*d(-1) - d(0)) + sign(1d0, 4d0*d(0) - d(-1))) &
-               *abs((sign(1d0, 4d0*d(-1) - d(0)) + sign(1d0, d(-1))) &
-                    *(sign(1d0, 4d0*d(-1) - d(0)) + sign(1d0, d(0)))) &
-               *min(abs(4d0*d(-1) - d(0)), abs(d(-1)), &
-                    abs(4d0*d(0) - d(-1)), abs(d(0)))/8d0
-
-        vR_UL = v_rs_wsR(0)%vf(i)%sf(j, k, l) &
-                + (v_rs_wsR(0)%vf(i)%sf(j, k, l) &
-                   - v_rs_wsR(-1)%vf(i)%sf(j, k, l))*alpha
-
-        vR_MD = (v_rs_wsR(0)%vf(i)%sf(j, k, l) &
-                 + v_rs_wsR(1)%vf(i)%sf(j, k, l) &
-                 - d_MD)*5d-1
-
-        vR_LC = v_rs_wsR(0)%vf(i)%sf(j, k, l) &
-                + (v_rs_wsR(0)%vf(i)%sf(j, k, l) &
-                   - v_rs_wsR(-1)%vf(i)%sf(j, k, l))*5d-1 + beta*d_LC
-
-        vR_min = max(min(v_rs_wsR(0)%vf(i)%sf(j, k, l), &
-                         v_rs_wsR(1)%vf(i)%sf(j, k, l), &
-                         vR_MD), &
-                     min(v_rs_wsR(0)%vf(i)%sf(j, k, l), &
-                         vR_UL, &
-                         vR_LC))
-
-        vR_max = min(max(v_rs_wsR(0)%vf(i)%sf(j, k, l), &
-                         v_rs_wsR(1)%vf(i)%sf(j, k, l), &
-                         vR_MD), &
-                     max(v_rs_wsR(0)%vf(i)%sf(j, k, l), &
-                         vR_UL, &
-                         vR_LC))
-
-        vR_rs_vf(i)%sf(j, k, l) = vR_rs_vf(i)%sf(j, k, l) &
-                    + (sign(5d-1, vR_min - vR_rs_vf(i)%sf(j, k, l)) &
-                    + sign(5d-1, vR_max - vR_rs_vf(i)%sf(j, k, l))) &
-                    * min(abs(vR_min - vR_rs_vf(i)%sf(j, k, l)), &
-                      abs(vR_max - vR_rs_vf(i)%sf(j, k, l)))
-        ! END: Right Monotonicity Preserving Bound =========================
-
-    end subroutine s_preserve_monotonicity ! -------------------------------
-
-
-    subroutine s_finalize_weno(vL_vf, vR_vf, & ! -----------------
-                               ix, iy, iz)
+    subroutine s_finalize_weno(vL_vf, vR_vf, ix, iy, iz)
 
         type(scalar_field), dimension(:), intent(INOUT) :: vL_vf, vR_vf
         type(bounds_info), intent(IN) :: ix, iy, iz
@@ -661,11 +435,9 @@ contains
     subroutine s_finalize_weno_module() ! ----------------------------------
 
         deallocate (v_rs_wsL, v_rs_wsR)
-
-        deallocate (poly_coef_cbL_x, poly_coef_cbR_x)
-        deallocate (d_cbL_x, d_cbR_x)
-
-        deallocate (beta_coef_x)
+        deallocate (poly_coef_L, poly_coef_R)
+        deallocate (d_L, d_R)
+        deallocate (beta_coef)
 
     end subroutine s_finalize_weno_module ! --------------------------------
 
