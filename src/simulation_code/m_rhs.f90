@@ -718,6 +718,7 @@ contains
         do i = 1, num_dims
 
             ! Configuring Coordinate Direction Indexes ======================
+            ! buff_size is nominally 2 for WENO5 or 1 for WENO3
             ix%beg = -buff_size; iy%beg = 0; iz%beg = 0
 
             if (n > 0) iy%beg = -buff_size; if (p > 0) iz%beg = -buff_size

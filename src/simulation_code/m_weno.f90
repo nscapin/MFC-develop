@@ -711,8 +711,12 @@ contains
         end do
 
 
+        ! populates buffer regions (v_rs_wsL) for WENO purposes?
+        ! weno_polyn -> 2 for WENO5, or 1 for WENO3
         do i = -weno_polyn, weno_polyn
+            ! these are the state/primitive variables
             do j = 1, v_size
+                ! this includes buffer regions
                 do k = ix%beg, ix%end
                     v_rs_wsL(i)%vf(j)%sf(k, :, :) = &
                         v_vf(j)%sf(i + k, iy%beg:iy%end, iz%beg:iz%end)
