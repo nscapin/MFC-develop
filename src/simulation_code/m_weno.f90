@@ -60,7 +60,7 @@ module m_weno
     private; public :: s_initialize_weno_module, s_weno, s_finalize_weno_module
 
     type(vector_field), allocatable, dimension(:) :: v_rs_wsL, v_rs_wsR
-    type(scalar_field), allocatable, dimension(:) :: vL_rs_vf, vR_rs_vf
+    ! type(scalar_field), allocatable, dimension(:) :: vL_rs_vf, vR_rs_vf
 
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_L
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_R
@@ -344,8 +344,11 @@ contains
                         alpha_R = d_R(:, j)/(beta*beta)
                         omega_R = alpha_R/sum(alpha_R)
 
-                        vL_rs_vf(i)%sf(j, k, l) = sum(omega_L*poly_L)
-                        vR_rs_vf(i)%sf(j, k, l) = sum(omega_R*poly_R)
+                        ! vL_rs_vf(i)%sf(j, k, l) = sum(omega_L*poly_L)
+                        ! vR_rs_vf(i)%sf(j, k, l) = sum(omega_R*poly_R)
+
+                        vL_vf(i)%sf(j, k, l) = sum(omega_L*poly_L)
+                        vR_vf(i)%sf(j, k, l) = sum(omega_R*poly_R)
 
                     end do
                 end do
@@ -354,11 +357,10 @@ contains
 
         call s_finalize_weno(vL_vf, vR_vf, ix, iy, iz)
 
-    end subroutine s_weno ! ------------------------------------------------
+    end subroutine s_weno 
 
 
-    subroutine s_initialize_weno(v_vf, vL_vf, vR_vf, & ! ---------
-                                 ix, iy, iz)
+    subroutine s_initialize_weno(v_vf, vL_vf, vR_vf, ix, iy, iz)
 
         type(scalar_field), dimension(:), intent(IN) :: v_vf
         type(scalar_field), dimension(:), intent(INOUT) :: vL_vf, vR_vf
@@ -382,11 +384,20 @@ contains
             end do
         end do
 
-        allocate (vL_rs_vf(1:v_size), vR_rs_vf(1:v_size))
+        ! allocate (vL_rs_vf(1:v_size), vR_rs_vf(1:v_size))
 
-        do i = 1, v_size
-            vL_rs_vf(i)%sf => vL_vf(i)%sf
-            vR_rs_vf(i)%sf => vR_vf(i)%sf
+        ! do i = 1, v_size
+        !     vL_rs_vf(i)%sf => vL_vf(i)%sf
+        !     vR_rs_vf(i)%sf => vR_vf(i)%sf
+        ! end do
+
+        do i = -weno_polyn, weno_polyn
+            do j = 1, v_size
+                do k = ix%beg, ix%end
+                    v_rs_wsL(i)%vf(j)%sf(k, :, :) = &
+                        v_vf(j)%sf(i + k, iy%beg:iy%end, iz%beg:iz%end)
+                end do
+            end do
         end do
 
         do i = -weno_polyn, weno_polyn
@@ -422,12 +433,12 @@ contains
 
         end do
 
-        do i = 1, v_size
-            vL_rs_vf(i)%sf => null()
-            vR_rs_vf(i)%sf => null()
-        end do
+        ! do i = 1, v_size
+        !     vL_rs_vf(i)%sf => null()
+        !     vR_rs_vf(i)%sf => null()
+        ! end do
 
-        deallocate (vL_rs_vf, vR_rs_vf)
+        ! deallocate (vL_rs_vf, vR_rs_vf)
 
     end subroutine s_finalize_weno ! ---------------------------------------
 

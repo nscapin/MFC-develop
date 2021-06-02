@@ -762,15 +762,15 @@ contains
             end if
 
 
-            do ii = iv%beg, iv%end-1
-                print*, 'Variable ', ii
-                do j = 0,m
-                    print*, 'Prim, L, R: ', &
-                        q_prim_qp%vf(ii)%sf(j,0,0), &
-                        qL_prim_ndqp(1)%vf(ii)%sf(j,0,0) - q_prim_qp%vf(ii)%sf(j,0,0), &
-                        qR_prim_ndqp(1)%vf(ii)%sf(j,0,0) - q_prim_qp%vf(ii)%sf(j,0,0)
-                end do
-            end do
+            ! do ii = iv%beg, iv%end-1
+            !     print*, 'Variable ', ii
+            !     do j = 0,m
+            !         print*, 'Prim, L, R: ', &
+            !             q_prim_qp%vf(ii)%sf(j,0,0), &
+            !             qL_prim_ndqp(1)%vf(ii)%sf(j,0,0) - q_prim_qp%vf(ii)%sf(j,0,0), &
+            !             qR_prim_ndqp(1)%vf(ii)%sf(j,0,0) - q_prim_qp%vf(ii)%sf(j,0,0)
+            !     end do
+            ! end do
 
             ! call s_mpi_abort()
 
