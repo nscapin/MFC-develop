@@ -59,7 +59,7 @@ module m_weno
 
     private; public :: s_initialize_weno_module, s_weno, s_finalize_weno_module
 
-    type(vector_field), allocatable, dimension(:) :: v_rs_wsL, v_rs_wsR
+    type(vector_field), allocatable, dimension(:) :: v_rs_wsL
 
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_L
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_R
@@ -83,7 +83,6 @@ contains
 
         ! Allocating WENO-stencil for the variables to be WENO-reconstructed
         allocate (v_rs_wsL(-weno_polyn:weno_polyn))
-        allocate (v_rs_wsR(-weno_polyn:weno_polyn))
 
         ! Allocating/Computing WENO Coefficients in x-direction ============
         ix%beg = -buff_size + weno_polyn; ix%end = m - ix%beg
@@ -307,23 +306,22 @@ contains
                         alpha_L = d_L(:, j)/(beta*beta)
                         omega_L = alpha_L/sum(alpha_L)
 
+                        dvd(1) = v_rs_wsL(2)%vf(i)%sf(j, k, l) &
+                                 - v_rs_wsL(1)%vf(i)%sf(j, k, l)
+                        dvd(0) = v_rs_wsL(1)%vf(i)%sf(j, k, l) &
+                                 - v_rs_wsL(0)%vf(i)%sf(j, k, l)
+                        dvd(-1) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
+                                  - v_rs_wsL(-1)%vf(i)%sf(j, k, l)
+                        dvd(-2) = v_rs_wsL(-1)%vf(i)%sf(j, k, l) &
+                                  - v_rs_wsL(-2)%vf(i)%sf(j, k, l)
 
-                        dvd(1) = v_rs_wsR(2)%vf(i)%sf(j, k, l) &
-                                 - v_rs_wsR(1)%vf(i)%sf(j, k, l)
-                        dvd(0) = v_rs_wsR(1)%vf(i)%sf(j, k, l) &
-                                 - v_rs_wsR(0)%vf(i)%sf(j, k, l)
-                        dvd(-1) = v_rs_wsR(0)%vf(i)%sf(j, k, l) &
-                                  - v_rs_wsR(-1)%vf(i)%sf(j, k, l)
-                        dvd(-2) = v_rs_wsR(-1)%vf(i)%sf(j, k, l) &
-                                  - v_rs_wsR(-2)%vf(i)%sf(j, k, l)
-
-                        poly_R(0) = v_rs_wsR(0)%vf(i)%sf(j, k, l) &
+                        poly_R(0) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
                                     + poly_coef_R(0, 0, j)*dvd(1) &
                                     + poly_coef_R(0, 1, j)*dvd(0)
-                        poly_R(1) = v_rs_wsR(0)%vf(i)%sf(j, k, l) &
+                        poly_R(1) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
                                     + poly_coef_R(1, 0, j)*dvd(0) &
                                     + poly_coef_R(1, 1, j)*dvd(-1)
-                        poly_R(2) = v_rs_wsR(0)%vf(i)%sf(j, k, l) &
+                        poly_R(2) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
                                     + poly_coef_R(2, 0, j)*dvd(-1) &
                                     + poly_coef_R(2, 1, j)*dvd(-2)
 
@@ -371,12 +369,11 @@ contains
         is3 = iz
 
         do i = -weno_polyn, weno_polyn
-            allocate (v_rs_wsL(i)%vf(1:v_size), v_rs_wsR(i)%vf(1:v_size))
+            allocate (v_rs_wsL(i)%vf(1:v_size) )
             do j = 1, v_size
                 allocate (v_rs_wsL(i)%vf(j)%sf(is1%beg:is1%end, &
                                                is2%beg:is2%end, &
                                                is3%beg:is3%end))
-                v_rs_wsR(i)%vf(j)%sf => v_rs_wsL(i)%vf(j)%sf
             end do
         end do
 
@@ -414,11 +411,9 @@ contains
 
                 deallocate (v_rs_wsL(i)%vf(j)%sf)
 
-                v_rs_wsR(i)%vf(j)%sf => null()
-
             end do
 
-            deallocate (v_rs_wsL(i)%vf, v_rs_wsR(i)%vf)
+            deallocate (v_rs_wsL(i)%vf )
 
         end do
 
@@ -427,7 +422,7 @@ contains
 
     subroutine s_finalize_weno_module() ! ----------------------------------
 
-        deallocate (v_rs_wsL, v_rs_wsR)
+        deallocate (v_rs_wsL)
         deallocate (poly_coef_L, poly_coef_R)
         deallocate (d_L, d_R)
         deallocate (beta_coef)
