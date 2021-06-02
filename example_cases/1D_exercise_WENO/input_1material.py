@@ -2,11 +2,11 @@
 import math
 
 #Numerical setup
-Nx      = 2500
+Nx      = 250000
 dx      = 1./(1.*(Nx+1))
 
 Tend    = 0.03
-Nt      = 50
+Nt      = 10
 mydt    = Tend/(1.*Nt)
 
 # Command to navigate between directories

@@ -59,29 +59,29 @@ case_dict =                                                                     
                     't_step_start'                 : 0,                         \
                     't_step_stop'                  : int(Nt),                        \
                     't_step_save'                  : int(math.ceil(Nt/10.)),    \
-		    # ==========================================================
+                    # ==========================================================
                                                                                 \
                     # Simulation Algorithm Parameters ==========================
                     'num_patches'                  : 2,                        \
                     'model_eqns'                   : 2,                        \
                     'alt_soundspeed'               : 'F',                      \
                     'num_fluids'                   : 1,                        \
-		    'adv_alphan'                   : 'T',                      \
-		    'mpp_lim'                      : 'F',                      \
-		    'mixture_err'                  : 'F',                      \
-		    'time_stepper'                 : 3,                        \
+                    'adv_alphan'                   : 'T',                      \
+                    'mpp_lim'                      : 'F',                      \
+                    'mixture_err'                  : 'F',                      \
+                    'time_stepper'                 : 3,                        \
                     'weno_vars'                    : 2,                        \
                     'weno_order'                   : 5,                        \
                     'weno_eps'                     : 1.E-16,                   \
-                    'char_decomp'                  : 'F',                      \
-                    'mapped_weno'                  : 'T',                      \
+                    # 'char_decomp'                  : 'F',                      \
+                    'mapped_weno'                  : 'F',                      \
                     'null_weights'                 : 'F',                      \
                     'mp_weno'                      : 'F',                      \
-		    'riemann_solver'               : 2,                        \
+                    'riemann_solver'               : 2,                        \
                     'wave_speeds'                  : 1,                        \
                     'avg_state'                    : 2,                        \
-                    'commute_err'                  : 'F',                      \
-                    'split_err'                    : 'F',                      \
+                    # 'commute_err'                  : 'F',                      \
+                    # 'split_err'                    : 'F',                      \
                     'bc_x%beg'                     : -3,                       \
                     'bc_x%end'                     : -3,                       \
                     # ==========================================================
@@ -90,10 +90,10 @@ case_dict =                                                                     
                     'format'                       : 1,                        \
                     'precision'                    : 2,                        \
                     'prim_vars_wrt'                :'T',                       \
-		    'parallel_io'                  :'F',                       \
-		    # ==========================================================
+                    'parallel_io'                  :'F',                       \
+                    # ==========================================================
                                                                                 
-		    # Patch 1 L ================================================
+                    # Patch 1 L ================================================
                     'patch_icpp(1)%geometry'       : 1,                     \
                     'patch_icpp(1)%x_centroid'     : 0.25,                   \
                     'patch_icpp(1)%length_x'       : 0.5,                    \
@@ -116,7 +116,7 @@ case_dict =                                                                     
                     # Fluids Physical Parameters ===============================
                     'fluid_pp(1)%gamma'            : 1.E+00/(1.4-1.E+00),  \
                     'fluid_pp(1)%pi_inf'           : 0.0, \
-	            # ==========================================================
+                    # ==========================================================
     }
 
 # Executing MFC component
