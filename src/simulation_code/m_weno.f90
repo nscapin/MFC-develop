@@ -69,9 +69,6 @@ module m_weno
 
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: beta_coef
 
-    integer :: v_size
-    type(bounds_info) :: is1, is2, is3
-
 contains
 
     !>  The computation of parameters, the allocation of memory,
@@ -80,9 +77,14 @@ contains
     subroutine s_initialize_weno_module() ! --------------------------------
 
         type(bounds_info) :: ix, iy, iz !< Indical bounds in the x-, y- and z-directions
+        integer :: i
 
         ! Allocating WENO-stencil for the variables to be WENO-reconstructed
         allocate (v_rs_wsL(-weno_polyn:weno_polyn))
+
+        do i = -weno_polyn, weno_polyn
+            allocate (v_rs_wsL(i)%vf(1:sys_size) )
+        end do
 
         ! Allocating/Computing WENO Coefficients in x-direction ============
         ix%beg = -buff_size + weno_polyn; ix%end = m - ix%beg
@@ -264,12 +266,12 @@ contains
 
         integer :: i, j, k, l
 
-        call s_initialize_weno(v_vf, vL_vf, vR_vf, ix, iy, iz)
+        call s_initialize_weno(v_vf, ix, iy, iz)
 
-        do i = 1, v_size
-            do l = is3%beg, is3%end
-                do k = is2%beg, is2%end
-                    do j = is1%beg, is1%end
+        do i = 1, sys_size
+            do l = iz%beg, iz%end
+                do k = iy%beg, iy%end
+                    do j = ix%beg, ix%end
 
                         dvd(1) = v_rs_wsL(2)%vf(i)%sf(j, k, l) &
                                  - v_rs_wsL(1)%vf(i)%sf(j, k, l)
@@ -349,45 +351,30 @@ contains
             end do
         end do
 
-        call s_finalize_weno(vL_vf, vR_vf, ix, iy, iz)
+        call s_finalize_weno()
 
     end subroutine s_weno 
 
 
-    subroutine s_initialize_weno(v_vf, vL_vf, vR_vf, ix, iy, iz)
+    subroutine s_initialize_weno(v_vf, ix, iy, iz)
 
         type(scalar_field), dimension(:), intent(IN) :: v_vf
-        type(scalar_field), dimension(:), intent(INOUT) :: vL_vf, vR_vf
         type(bounds_info), intent(IN) :: ix, iy, iz
 
-        integer :: i, j, k, l
+        integer :: i, j, k
 
-        v_size = ubound(v_vf, 1)
-
-        is1 = ix
-        is2 = iy
-        is3 = iz
-
+        ! Allocate space for full stencil variables
         do i = -weno_polyn, weno_polyn
-            allocate (v_rs_wsL(i)%vf(1:v_size) )
-            do j = 1, v_size
-                allocate (v_rs_wsL(i)%vf(j)%sf(is1%beg:is1%end, &
-                                               is2%beg:is2%end, &
-                                               is3%beg:is3%end))
+            do j = 1, sys_size
+                allocate (v_rs_wsL(i)%vf(j)%sf(ix%beg:ix%end, &
+                                               iy%beg:iy%end, &
+                                               iz%beg:iz%end))
             end do
         end do
 
+        ! Populate variable buffers at each point (for full stencil)
         do i = -weno_polyn, weno_polyn
-            do j = 1, v_size
-                do k = ix%beg, ix%end
-                    v_rs_wsL(i)%vf(j)%sf(k, :, :) = &
-                        v_vf(j)%sf(i + k, iy%beg:iy%end, iz%beg:iz%end)
-                end do
-            end do
-        end do
-
-        do i = -weno_polyn, weno_polyn
-            do j = 1, v_size
+            do j = 1, sys_size
                 do k = ix%beg, ix%end
                     v_rs_wsL(i)%vf(j)%sf(k, :, :) = &
                         v_vf(j)%sf(i + k, iy%beg:iy%end, iz%beg:iz%end)
@@ -398,23 +385,14 @@ contains
     end subroutine s_initialize_weno ! -------------------------------------
 
 
-    subroutine s_finalize_weno(vL_vf, vR_vf, ix, iy, iz)
+    subroutine s_finalize_weno()
 
-        type(scalar_field), dimension(:), intent(INOUT) :: vL_vf, vR_vf
-        type(bounds_info), intent(IN) :: ix, iy, iz
-
-        integer :: i, j, k !< Generic loop iterators
+        integer :: i, j
 
         do i = -weno_polyn, weno_polyn
-
-            do j = 1, v_size
-
+            do j = 1, sys_size
                 deallocate (v_rs_wsL(i)%vf(j)%sf)
-
             end do
-
-            deallocate (v_rs_wsL(i)%vf )
-
         end do
 
     end subroutine s_finalize_weno ! ---------------------------------------
