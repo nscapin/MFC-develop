@@ -265,26 +265,111 @@ contains
         real(kind(0d0)), dimension(0:weno_polyn) :: beta 
         real(kind(0d0)), pointer :: beta_p(:)
 
-        integer :: i, j, k, l
+        real(kind(0d0)), allocatable, dimension(:,:,:,:) :: vL_vf_flat, vR_vf_flat
+        real(kind(0d0)), allocatable, dimension(:,:,:,:,:) :: v_rs_wsL_flat
 
-        ! Allocate space for full stencil variables
-        do i = -weno_polyn, weno_polyn
-            do j = 1, sys_size
-                allocate (v_rs_wsL(i)%vf(j)%sf(ix%beg:ix%end, &
-                                               iy%beg:iy%end, &
-                                               iz%beg:iz%end))
-            end do
-        end do
+        integer :: i, j, k, l
+        integer :: ixb, ixe
+
+        if (proc_rank == 0) print*, 'using alt weno'
+
+        allocate(v_rs_wsL_flat( -weno_polyn:weno_polyn, 1:sys_size, ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end) )
+        allocate(vL_vf_flat(1:sys_size, ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end))
+        allocate(vR_vf_flat(1:sys_size, ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end))
 
         ! Populate variable buffers at each point (for full stencil)
         do i = -weno_polyn, weno_polyn
             do j = 1, sys_size
                 do k = ix%beg, ix%end
-                    v_rs_wsL(i)%vf(j)%sf(k, :, :) = &
+                    v_rs_wsL_flat(i, j, k, :, :) = &
                         v_vf(j)%sf(i + k, iy%beg:iy%end, iz%beg:iz%end)
                 end do
             end do
         end do
+
+        ixb = ix%beg
+        ixe = ix%end
+
+        k = 0; l = 0
+        !$acc parallel loop
+        do i = 1, sys_size
+            do j = ixb, ixe
+                dvd(1) = v_rs_wsL_flat(2, i, j, k, l) &
+                         - v_rs_wsL_flat(1, i, j, k, l)
+                dvd(0) = v_rs_wsL_flat(1, i, j, k, l) &
+                        - v_rs_wsL_flat(0, i, j, k, l)
+                dvd(-1) = v_rs_wsL_flat(0, i, j, k, l) &
+                        - v_rs_wsL_flat(-1, i, j, k, l)
+                dvd(-2) = v_rs_wsL_flat(-1, i, j, k, l) &
+                        - v_rs_wsL_flat(-2, i, j, k, l)
+
+                poly_L(0) = v_rs_wsL_flat(0, i, j, k, l) &
+                          + poly_coef_L(0, 0, j)*dvd(1) &
+                          + poly_coef_L(0, 1, j)*dvd(0)
+                poly_L(1) = v_rs_wsL_flat(0, i, j, k, l) &
+                          + poly_coef_L(1, 0, j)*dvd(0) &
+                          + poly_coef_L(1, 1, j)*dvd(-1)
+                poly_L(2) = v_rs_wsL_flat(0, i, j, k, l) &
+                          + poly_coef_L(2, 0, j)*dvd(-1) &
+                          + poly_coef_L(2, 1, j)*dvd(-2)
+
+                beta(0) = beta_coef(0, 0, j)*dvd(1)*dvd(1) &
+                        + beta_coef(0, 1, j)*dvd(1)*dvd(0) &
+                        + beta_coef(0, 2, j)*dvd(0)*dvd(0) &
+                        + weno_eps
+                beta(1) = beta_coef(1, 0, j)*dvd(0)*dvd(0) &
+                        + beta_coef(1, 1, j)*dvd(0)*dvd(-1) &
+                        + beta_coef(1, 2, j)*dvd(-1)*dvd(-1) &
+                        + weno_eps
+                beta(2) = beta_coef(2, 0, j)*dvd(-1)*dvd(-1) &
+                        + beta_coef(2, 1, j)*dvd(-1)*dvd(-2) &
+                        + beta_coef(2, 2, j)*dvd(-2)*dvd(-2) &
+                        + weno_eps
+
+                alpha_L = d_L(:, j)/(beta*beta)
+                omega_L = alpha_L/sum(alpha_L)
+
+                dvd(1) = v_rs_wsL_flat(2, i, j, k, l) &
+                       - v_rs_wsL_flat(1, i, j, k, l)
+                dvd(0) = v_rs_wsL_flat(1, i, j, k, l) &
+                       - v_rs_wsL_flat(0, i, j, k, l)
+                dvd(-1) = v_rs_wsL_flat(0, i, j, k, l) &
+                        - v_rs_wsL_flat(-1, i, j, k, l)
+                dvd(-2) = v_rs_wsL_flat(-1, i, j, k, l) &
+                        - v_rs_wsL_flat(-2, i, j, k, l)
+
+                poly_R(0) = v_rs_wsL_flat(0, i, j, k, l) &
+                          + poly_coef_R(0, 0, j)*dvd(1) &
+                          + poly_coef_R(0, 1, j)*dvd(0)
+                poly_R(1) = v_rs_wsL_flat(0, i, j, k, l) &
+                          + poly_coef_R(1, 0, j)*dvd(0) &
+                          + poly_coef_R(1, 1, j)*dvd(-1)
+                poly_R(2) = v_rs_wsL_flat(0, i, j, k, l) &
+                          + poly_coef_R(2, 0, j)*dvd(-1) &
+                          + poly_coef_R(2, 1, j)*dvd(-2)
+
+                beta(0) = beta_coef(0, 0, j)*dvd(1)*dvd(1) &
+                        + beta_coef(0, 1, j)*dvd(1)*dvd(0) &
+                        + beta_coef(0, 2, j)*dvd(0)*dvd(0) &
+                        + weno_eps
+                beta(1) = beta_coef(1, 0, j)*dvd(0)*dvd(0) &
+                        + beta_coef(1, 1, j)*dvd(0)*dvd(-1) &
+                        + beta_coef(1, 2, j)*dvd(-1)*dvd(-1) &
+                        + weno_eps
+                beta(2) = beta_coef(2, 0, j)*dvd(-1)*dvd(-1) &
+                        + beta_coef(2, 1, j)*dvd(-1)*dvd(-2) &
+                        + beta_coef(2, 2, j)*dvd(-2)*dvd(-2) &
+                        + weno_eps
+
+                alpha_R = d_R(:, j)/(beta*beta)
+                omega_R = alpha_R/sum(alpha_R)
+
+                vL_vf_flat(i, j, k, l) = sum(omega_L*poly_L)
+                vR_vf_flat(i, j, k, l) = sum(omega_R*poly_R)
+            end do
+        end do
+
+        deallocate(v_rs_wsL_flat, vL_vf_flat, vR_vf_flat)
 
 !!!@acc ngpus = acc_get_num_devices(acc_device_nvidia)
 !!!@acc if (proc_rank == 0) then
@@ -295,20 +380,7 @@ contains
 !!!$acc update device(beta)
 !!beta_p => beta
 !!!$acc enter data attach(p)
-
-        do j = ix%beg, ix%end
-            k = k + 1
-        end do
 !!$acc update host(a)
-
-
-        vR_vf(i)%sf(j, k, l) = 1.0
-
-        do i = -weno_polyn, weno_polyn
-            do j = 1, sys_size
-                deallocate (v_rs_wsL(i)%vf(j)%sf)
-            end do
-        end do
 
     end subroutine s_weno_alt
 
