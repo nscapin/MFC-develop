@@ -267,7 +267,24 @@ contains
 
         integer :: i, j, k, l
 
-        call s_initialize_weno(v_vf, ix, iy, iz)
+        ! Allocate space for full stencil variables
+        do i = -weno_polyn, weno_polyn
+            do j = 1, sys_size
+                allocate (v_rs_wsL(i)%vf(j)%sf(ix%beg:ix%end, &
+                                               iy%beg:iy%end, &
+                                               iz%beg:iz%end))
+            end do
+        end do
+
+        ! Populate variable buffers at each point (for full stencil)
+        do i = -weno_polyn, weno_polyn
+            do j = 1, sys_size
+                do k = ix%beg, ix%end
+                    v_rs_wsL(i)%vf(j)%sf(k, :, :) = &
+                        v_vf(j)%sf(i + k, iy%beg:iy%end, iz%beg:iz%end)
+                end do
+            end do
+        end do
 
 !!!@acc ngpus = acc_get_num_devices(acc_device_nvidia)
 !!!@acc if (proc_rank == 0) then
@@ -287,7 +304,11 @@ contains
 
         vR_vf(i)%sf(j, k, l) = 1.0
 
-        call s_finalize_weno()
+        do i = -weno_polyn, weno_polyn
+            do j = 1, sys_size
+                deallocate (v_rs_wsL(i)%vf(j)%sf)
+            end do
+        end do
 
     end subroutine s_weno_alt
 
@@ -308,7 +329,24 @@ contains
 
         integer :: i, j, k, l
 
-        call s_initialize_weno(v_vf, ix, iy, iz)
+        ! Allocate space for full stencil variables
+        do i = -weno_polyn, weno_polyn
+            do j = 1, sys_size
+                allocate (v_rs_wsL(i)%vf(j)%sf(ix%beg:ix%end, &
+                                               iy%beg:iy%end, &
+                                               iz%beg:iz%end))
+            end do
+        end do
+
+        ! Populate variable buffers at each point (for full stencil)
+        do i = -weno_polyn, weno_polyn
+            do j = 1, sys_size
+                do k = ix%beg, ix%end
+                    v_rs_wsL(i)%vf(j)%sf(k, :, :) = &
+                        v_vf(j)%sf(i + k, iy%beg:iy%end, iz%beg:iz%end)
+                end do
+            end do
+        end do
 
         !$acc parallel loop
         do i = 1, sys_size
@@ -394,52 +432,13 @@ contains
             end do
         end do
 
-        call s_finalize_weno()
-
-    end subroutine s_weno 
-
-
-    subroutine s_initialize_weno(v_vf, ix, iy, iz)
-
-        type(scalar_field), dimension(:), intent(IN) :: v_vf
-        type(bounds_info), intent(IN) :: ix, iy, iz
-
-        integer :: i, j, k
-
-        ! Allocate space for full stencil variables
-        do i = -weno_polyn, weno_polyn
-            do j = 1, sys_size
-                allocate (v_rs_wsL(i)%vf(j)%sf(ix%beg:ix%end, &
-                                               iy%beg:iy%end, &
-                                               iz%beg:iz%end))
-            end do
-        end do
-
-        ! Populate variable buffers at each point (for full stencil)
-        do i = -weno_polyn, weno_polyn
-            do j = 1, sys_size
-                do k = ix%beg, ix%end
-                    v_rs_wsL(i)%vf(j)%sf(k, :, :) = &
-                        v_vf(j)%sf(i + k, iy%beg:iy%end, iz%beg:iz%end)
-                end do
-            end do
-        end do
-
-    end subroutine s_initialize_weno ! -------------------------------------
-
-
-    subroutine s_finalize_weno()
-
-        integer :: i, j
-
         do i = -weno_polyn, weno_polyn
             do j = 1, sys_size
                 deallocate (v_rs_wsL(i)%vf(j)%sf)
             end do
         end do
 
-    end subroutine s_finalize_weno ! ---------------------------------------
-
+    end subroutine s_weno 
 
     subroutine s_finalize_weno_module() ! ----------------------------------
 
