@@ -53,11 +53,14 @@ module m_weno
     use m_global_parameters    !< Definitions of the global parameters
 
     use m_variables_conversion !< State variables type conversion procedures
+
+    use openacc
     ! ==========================================================================
 
-    implicit none
+    ! implicit none
 
-    private; public :: s_initialize_weno_module, s_weno, s_finalize_weno_module
+    private; public :: s_initialize_weno_module, s_weno, &
+                       s_finalize_weno_module, s_weno_alt
 
     type(vector_field), allocatable, dimension(:) :: v_rs_wsL
 
@@ -248,6 +251,47 @@ contains
     end subroutine s_compute_weno_coefficients ! ---------------------------
 
 
+    subroutine s_weno_alt(v_vf, vL_vf, vR_vf, weno_dir_dummy, ix, iy, iz)
+
+        type(scalar_field), dimension(:), intent(IN) :: v_vf
+        type(scalar_field), dimension(:), intent(INOUT) :: vL_vf, vR_vf
+        integer, intent(IN) :: weno_dir_dummy
+        type(bounds_info), intent(IN) :: ix, iy, iz
+
+        real(kind(0d0)), dimension(-weno_polyn:weno_polyn-1) :: dvd 
+        real(kind(0d0)), dimension(0:weno_polyn) ::  poly_L, poly_R
+        real(kind(0d0)), dimension(0:weno_polyn) :: alpha_L, alpha_R
+        real(kind(0d0)), dimension(0:weno_polyn) :: omega_L, omega_R
+        real(kind(0d0)), dimension(0:weno_polyn) :: beta 
+        real(kind(0d0)), pointer :: beta_p(:)
+
+        integer :: i, j, k, l
+
+        call s_initialize_weno(v_vf, ix, iy, iz)
+
+!!!@acc ngpus = acc_get_num_devices(acc_device_nvidia)
+!!!@acc if (proc_rank == 0) then
+!!!@acc   print *,"number of devices: ",ngpus
+!!!@acc   print *,"number of ranks: ", num_procs
+!!!@acc end if
+!!!@acc call acc_set_device_num(0, acc_device_nvidia)
+!!!$acc update device(beta)
+!!beta_p => beta
+!!!$acc enter data attach(p)
+
+        do j = ix%beg, ix%end
+            k = k + 1
+        end do
+!!$acc update host(a)
+
+
+        vR_vf(i)%sf(j, k, l) = 1.0
+
+        call s_finalize_weno()
+
+    end subroutine s_weno_alt
+
+
     subroutine s_weno(v_vf, vL_vf, vR_vf, weno_dir_dummy, ix, iy, iz)
 
         type(scalar_field), dimension(:), intent(IN) :: v_vf
@@ -261,10 +305,12 @@ contains
         real(kind(0d0)), dimension(0:weno_polyn) :: omega_L, omega_R
         real(kind(0d0)), dimension(0:weno_polyn) :: beta 
 
+
         integer :: i, j, k, l
 
         call s_initialize_weno(v_vf, ix, iy, iz)
 
+        !$acc parallel loop
         do i = 1, sys_size
             do l = iz%beg, iz%end
                 do k = iy%beg, iy%end

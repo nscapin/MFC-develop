@@ -2,7 +2,7 @@
 import math
 
 #Numerical setup
-Nx      = 250000
+Nx      = 2500
 dx      = 1./(1.*(Nx+1))
 
 Tend    = 0.03

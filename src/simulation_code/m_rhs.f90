@@ -2856,6 +2856,13 @@ contains
             is3%end = is3%end - weno_polyn
         end if
 
+
+        ! call s_weno_alt(v_vf(iv%beg:iv%end), &
+        !             vL_qp%vf(iv%beg:iv%end), &
+        !             vR_qp%vf(iv%beg:iv%end), &
+        !             weno_dir,  &
+        !             is1, is2, is3)
+
         call s_weno(v_vf(iv%beg:iv%end), &
                     vL_qp%vf(iv%beg:iv%end), &
                     vR_qp%vf(iv%beg:iv%end), &
