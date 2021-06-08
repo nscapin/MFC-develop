@@ -34,6 +34,7 @@ example_cases/*/*.o*
 example_cases/*/silo*
 example_cases/*/restart*
 example_cases/*/*.out
+example_cases/*/simulation.*
 example_cases/*/binary
 lib/fftw-3.3.8
 lib/lapack-3.4.2
