@@ -300,11 +300,14 @@ contains
 
 
 
-
-
         !$acc data copyin(v_rs_wsl_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef)
 
         !$acc parallel loop collapse(2) private(dvd, poly_L, beta, alpha_L, omega_L, poly_R, alpha_R, omega_R)
+
+        !! SHB: Transfer data to GPU [copyin] (to_device): beta_coef, v_rs_wsL_flat, poly_coef_L/R, weno_eps
+        !! SHB: Transfer data to CPU [copyout]  (to_host): vL_vf_flat, vR_vf_flat
+        !!! e.g. !$ acc data copyin(beta_coef(1:10,1:100,1:m),weno_eps,k,l) copyout(vL_vf_flat(.....),vR_vf_flat(.....))
+        !!$acc parallel loop
 
         do i = 1, sys_size
             do j = ixb, ixe
@@ -382,6 +385,7 @@ contains
                 vR_vf_flat(i, j, k, l) = sum(omega_R*poly_R)
             end do
         end do
+
         !$acc end parallel loop 
         !$acc end data 
         call system_clock(t2)
