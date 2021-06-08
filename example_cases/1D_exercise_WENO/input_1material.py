@@ -2,7 +2,7 @@
 import math
 
 #Numerical setup
-Nx      = 2500
+Nx      = 250
 dx      = 1./(1.*(Nx+1))
 
 Tend    = 0.03
@@ -43,7 +43,7 @@ case_dict =                                                                     
                     'case_dir'                     : '\'.\'',                   \
                     'run_time_info'                : 'F',                       \
                     'nodes'                        : 1,                         \
-                    'ppn'                          : 4,                         \
+                    'ppn'                          : 1,                         \
                     'queue'                        : 'normal',                  \
                     'walltime'                     : '24:00:00',                \
                     'mail_list'                    : '',                        \

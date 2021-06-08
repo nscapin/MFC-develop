@@ -258,11 +258,17 @@ contains
         integer, intent(IN) :: weno_dir_dummy
         type(bounds_info), intent(IN) :: ix, iy, iz
 
-        real(kind(0d0)), dimension(-weno_polyn:weno_polyn-1) :: dvd 
-        real(kind(0d0)), dimension(0:weno_polyn) ::  poly_L, poly_R
-        real(kind(0d0)), dimension(0:weno_polyn) :: alpha_L, alpha_R
-        real(kind(0d0)), dimension(0:weno_polyn) :: omega_L, omega_R
-        real(kind(0d0)), dimension(0:weno_polyn) :: beta 
+        ! real(kind(0d0)), dimension(-weno_polyn:weno_polyn-1) :: dvd 
+        ! real(kind(0d0)), dimension(0:weno_polyn) ::  poly_L, poly_R
+        ! real(kind(0d0)), dimension(0:weno_polyn) :: alpha_L, alpha_R
+        ! real(kind(0d0)), dimension(0:weno_polyn) :: omega_L, omega_R
+        ! real(kind(0d0)), dimension(0:weno_polyn) :: beta 
+
+        real(kind(0d0)), dimension(-2:1) :: dvd 
+        real(kind(0d0)), dimension(0:2) ::  poly
+        real(kind(0d0)), dimension(0:2) :: alpha
+        real(kind(0d0)), dimension(0:2) :: omega
+        real(kind(0d0)), dimension(0:2) :: beta 
         real(kind(0d0)), pointer :: beta_p(:)
  
         real(kind(0d0)), allocatable, dimension(:,:,:,:) :: vL_vf_flat, vR_vf_flat
@@ -292,19 +298,15 @@ contains
         ixb = ix%beg
         ixe = ix%end
 
+        !!!$acc parallel loop gang vector collapse(2) private(dvd, poly_L, beta, alpha_L, omega_L, poly_R, alpha_R, omega_R)
 
         call system_clock(t1, c_rate, c_max)
 
         k = 0; l = 0
-
-        !! SHB: Transfer data to GPU [copyin] (to_device): beta_coef, v_rs_wsL_flat, poly_coef_L/R, weno_eps
-        !! SHB: Transfer data to CPU [copyout]  (to_host): vL_vf_flat, vR_vf_flat
-        !!! e.g. !$ acc data copyin(beta_coef(1:10,1:100,1:m),weno_eps,k,l) copyout(vL_vf_flat(.....),vR_vf_flat(.....))
-        !!!$acc data copyin(v_rs_wsl_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef)
-
-        !$acc parallel loop collapse(2) private(dvd, poly_L, beta, alpha_L, omega_L, poly_R, alpha_R, omega_R)
-        do i = 1, sys_size
-            do j = ixb, ixe
+        !$acc data copyin(v_rs_wsl_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef) copyout(vL_vf_flat,vR_vf_flat)
+        !$acc parallel loop gang vector private(dvd, poly, beta, alpha, omega)
+        do j = ixb, ixe
+            do i = 1, sys_size
                 dvd(1) = v_rs_wsL_flat(j, k, l, 2, i) &
                          - v_rs_wsL_flat(j, k, l, 1, i)
                 dvd(0) = v_rs_wsL_flat(j, k, l, 1, i) &
@@ -314,13 +316,13 @@ contains
                 dvd(-2) = v_rs_wsL_flat(j, k, l, -1, i) &
                         - v_rs_wsL_flat(j, k, l, -2, i)
 
-                poly_L(0) = v_rs_wsL_flat(j, k, l, 0, i) &
+                poly(0) = v_rs_wsL_flat(j, k, l, 0, i) &
                           + poly_coef_L(0, 0, j)*dvd(1) &
                           + poly_coef_L(0, 1, j)*dvd(0)
-                poly_L(1) = v_rs_wsL_flat(j, k, l, 0, i) &
+                poly(1) = v_rs_wsL_flat(j, k, l, 0, i) &
                           + poly_coef_L(1, 0, j)*dvd(0) &
                           + poly_coef_L(1, 1, j)*dvd(-1)
-                poly_L(2) = v_rs_wsL_flat(j, k, l, 0, i) &
+                poly(2) = v_rs_wsL_flat(j, k, l, 0, i) &
                           + poly_coef_L(2, 0, j)*dvd(-1) &
                           + poly_coef_L(2, 1, j)*dvd(-2)
 
@@ -337,8 +339,9 @@ contains
                         + beta_coef(2, 2, j)*dvd(-2)*dvd(-2) &
                         + weno_eps
 
-                alpha_L = d_L(:, j)/(beta*beta)
-                omega_L = alpha_L/sum(alpha_L)
+                alpha = d_L(:, j)/(beta*beta)
+                omega = alpha/sum(alpha)
+                vL_vf_flat(j, k, l, i) = sum(omega*poly)
 
                 dvd(1) = v_rs_wsL_flat(j, k, l, 2, i) &
                        - v_rs_wsL_flat(j, k, l, 1, i)
@@ -349,13 +352,13 @@ contains
                 dvd(-2) = v_rs_wsL_flat(j, k, l, -1, i) &
                         - v_rs_wsL_flat(j, k, l, -2, i)
 
-                poly_R(0) = v_rs_wsL_flat(j, k, l, 0, i) &
+                poly(0) = v_rs_wsL_flat(j, k, l, 0, i) &
                           + poly_coef_R(0, 0, j)*dvd(1) &
                           + poly_coef_R(0, 1, j)*dvd(0)
-                poly_R(1) = v_rs_wsL_flat(j, k, l, 0, i) &
+                poly(1) = v_rs_wsL_flat(j, k, l, 0, i) &
                           + poly_coef_R(1, 0, j)*dvd(0) &
                           + poly_coef_R(1, 1, j)*dvd(-1)
-                poly_R(2) = v_rs_wsL_flat(j, k, l, 0, i) &
+                poly(2) = v_rs_wsL_flat(j, k, l, 0, i) &
                           + poly_coef_R(2, 0, j)*dvd(-1) &
                           + poly_coef_R(2, 1, j)*dvd(-2)
 
@@ -372,16 +375,15 @@ contains
                         + beta_coef(2, 2, j)*dvd(-2)*dvd(-2) &
                         + weno_eps
 
-                alpha_R = d_R(:, j)/(beta*beta)
-                omega_R = alpha_R/sum(alpha_R)
+                alpha = d_R(:, j)/(beta*beta)
+                omega = alpha/sum(alpha)
 
-                vL_vf_flat(j, k, l, i) = sum(omega_L*poly_L)
-                vR_vf_flat(j, k, l, i) = sum(omega_R*poly_R)
+
+                vR_vf_flat(j, k, l, i) = sum(omega*poly)
             end do
         end do
         !$acc end parallel loop 
-
-        !!!$acc end data 
+        !$acc end data 
 
         call system_clock(t2)
         print *, "Took: ", real(t2 - t1) / real(c_rate)
@@ -437,7 +439,7 @@ contains
             end do
         end do
 
-        !$acc parallel loop
+        !!!!$acc parallel loop
         do i = 1, sys_size
             do l = iz%beg, iz%end
                 do k = iy%beg, iy%end
