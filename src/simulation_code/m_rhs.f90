@@ -1822,11 +1822,11 @@ contains
                         if (p > 0) then
                             var%sf(j, k, l) = Lheaviside(j, k, l)*U0_glb* &
                                               (un_alpha_x%sf(j, k, l)*(grad_x%sf(j, k, l) - &
-                                                                       (1d0 - 2d0*q_prim_vf(adv_idx%beg)%sf(j, k, l))*alpharho_grad_x%sf(j, k, l)) + &
+                                               (1d0 - 2d0*q_prim_vf(adv_idx%beg)%sf(j, k, l))*alpharho_grad_x%sf(j, k, l)) + &
                                                un_alpha_y%sf(j, k, l)*(grad_y%sf(j, k, l) - &
-                                                                       (1d0 - 2d0*q_prim_vf(adv_idx%beg)%sf(j, k, l))*alpharho_grad_y%sf(j, k, l)) + &
+                                               (1d0 - 2d0*q_prim_vf(adv_idx%beg)%sf(j, k, l))*alpharho_grad_y%sf(j, k, l)) + &
                                                un_alpha_z%sf(j, k, l)*(grad_z%sf(j, k, l) - &
-                                                                       (1d0 - 2d0*q_prim_vf(adv_idx%beg)%sf(j, k, l))*alpharho_grad_z%sf(j, k, l)))
+                                               (1d0 - 2d0*q_prim_vf(adv_idx%beg)%sf(j, k, l))*alpharho_grad_z%sf(j, k, l)))
                         else
                             var%sf(j, k, l) = Lheaviside(j, k, l)*U0_glb* &
                                               (un_alpha_x%sf(j, k, l)*(grad_x%sf(j, k, l) - &

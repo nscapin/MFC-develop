@@ -1566,6 +1566,7 @@ pbs_dict =                                                                     \
                     'queue'                         : None,                    \
                     'nodes'                         : None,                    \
                     'ppn'                           : None,                    \
+                    'gpn'                           : None,                    \
                     'walltime'                      : None,                    \
                     'mail_list'                     : None                     \
     }
@@ -1781,15 +1782,18 @@ def f_execute_mfc_component(comp_name, case_dict, mfc_dir, engine): # ----------
         print( comp_name + '>> Serial job completed!' + '\n')
         #cmd_status = Popen('rm -f '+ comp_name +'.inp', shell=True, stdout=PIPE)
         #output, errors = cmd_status.communicate()
-    else:
+    else :
         f_create_batch_file(comp_name, case_dict, mfc_dir)
         # Submit job to queue (qsub)
         # cmd_status = Popen('qsub ' + comp_name + '.sh', shell=True, stdout=PIPE)
         # submit job to queue (sbatch)
-        cmd_status = Popen('sbatch ' + comp_name + '.sh', shell=True, stdout=PIPE)
+        # cmd_status = Popen('sbatch ' + comp_name + '.sh', shell=True, stdout=PIPE)
+        # submit job to queue (bsub)
+        cmd_status = Popen('bsub ' + comp_name + '.lsf', shell=True, stdout=PIPE)
         output, errors = cmd_status.communicate()
         print( '\n' + output)
         print( comp_name + '>> Parallel job submitted to queue!' + '\n')
+
 # END: def f_execute_mfc_component ---------------------------------------------
 
 
@@ -2066,8 +2070,10 @@ def f_create_batch_file(comp_name, case_dict, mfc_dir): # ----------------------
     
     
     # Setting the location of the batch file
-    file_loc = comp_name + '.sh'
-    
+    # (PBS) or (Slurm)
+    #file_loc = comp_name + '.sh'
+    # (LSF)
+    file_loc = comp_name + '.lsf'
     
     # Opening and obtaining a handle for it
     file_id = open(file_loc, 'w')
@@ -2077,39 +2083,48 @@ def f_create_batch_file(comp_name, case_dict, mfc_dir): # ----------------------
     file_id.write(                                                             \
                                                                                \
         # Script interpreter
-        '#!/bin/sh'                                                     + '\n' \
+        #'#!/bin/sh'                                                     + '\n' \
+        '#!/bin/bash'                                                     + '\n' \
                                                                                \
         # Account to be charged for the job:
         # (PBS)
         # '#PBS -A xxx'                                          + '\n' \
         # (Slurm)
         # '#SBATCH -A xxx'                                       + '\n' \
+        # (LSF)
+        '#BSUB -P GEN159'					 + '\n' \
                                                                                \
         # Name of the queue to which the job should be submitted:
         # (PBS)
         # '#PBS -q ' + str(pbs_dict['queue'])                             + '\n' \
         # (Slurm)
-        '#SBATCH -p ' + str(pbs_dict['queue'])                          + '\n' \
+        #'#SBATCH -p ' + str(pbs_dict['queue'])                          + '\n' \
                                                                                \
         # Name of the job to be submitted to the scheduler:
         # (PBS)
         # '#PBS -N ' + comp_name                                          + '\n' \
         # (Slurm)
-        '#SBATCH -J ' + comp_name                                       + '\n' \
+        #'#SBATCH -J ' + comp_name                                       + '\n' \
+        # (LSF)
+        '#BSUB -J ' + comp_name						+ '\n' \
                                                                                \
         # Node(s) and processor(s) per node (ppn) for job:
         # (PBS)
         # '#PBS -l nodes=0' + str(pbs_dict['nodes'])                             \
         #        + ':ppn=' + str(pbs_dict[ 'ppn' ])                       + '\n' \
         # (Slurm)
-        '#SBATCH --nodes=' + str(pbs_dict['nodes'])                     + '\n' \
-        '#SBATCH --ntasks-per-node=' + str(pbs_dict['ppn'])             + '\n' \
+        #'#SBATCH --nodes=' + str(pbs_dict['nodes'])                     + '\n' \
+        #'#SBATCH --ntasks-per-node=' + str(pbs_dict['ppn'])             + '\n' \
+        # (LSF)
+        '#BSUB -nnodes ' + str(pbs_dict['nodes'])			+ '\n' \
                                                                                \
         # Maximum amount of time to commit to the execution of the job:
         # (PBS)
         # '#PBS -l walltime=' + str(pbs_dict['walltime'])                 + '\n' \
         # (Slurm)
-        '#SBATCH -t ' + str(pbs_dict['walltime'])                       + '\n' \
+        #'#SBATCH -t ' + str(pbs_dict['walltime'])                       + '\n' \
+        # (LSF)
+        '#BSUB -W ' + str(pbs_dict['walltime']) 			+ '\n' \
                                                                                \
         # Declare the job rerunable (y) or non-rerunable (n)
         # (PBS)
@@ -2119,16 +2134,31 @@ def f_create_batch_file(comp_name, case_dict, mfc_dir): # ----------------------
         # (PBS)
         # '#PBS -j oe'                                                    + '\n' \
         # (Slurm)
-        '#SBATCH -o ' + comp_name + '.o%j'                              + '\n' \
-        '#SBATCH -e ' + comp_name + '.o%j'                              + '\n' \
-                                                                               \
+        #'#SBATCH -o ' + comp_name + '.o%j'                              + '\n' \
+        #'#SBATCH -e ' + comp_name + '.o%j'                              + '\n' \
+        # (LSF)
+        '#BSUB -o ' + comp_name + '.%J'                                  + '\n' \
+        '#BSUB -e ' + comp_name + '.%J'                                  + '\n' \
+        '#BSUB -alloc_flags "gpumps smt1"'                               + '\n' \
+										\
+	'export TAU_METRICS=TIME'              				 + '\n' \
+	'export TAU_PROFILE=1'						 + '\n' \
+	'export TAU_TRACK_MESSAGE=1'					 + '\n' \
+	'export TAU_COMM_MATRIX=1'					 + '\n' \
+	'export TAU_TRACE=1'	                                         + '\n' \
+	'export TAU_CALLPATH=1'	                                         + '\n' \
+	'export TAU_CALLDEPTH=10'					 + '\n' \
+
+        # Allocation flags (LSF)
+        #'#BSUB '					 + '\n' \
+                                                                                \
         # Notify by email when job begins (b), aborts (a), and/or ends (e):
         # (PBS)
         # '#PBS -m bae'                                                   + '\n' \
         # '#PBS -M ' + str(pbs_dict['mail_list'])                         + '\n' \
         # (Slurm)
-        '#SBATCH --mail-type=all'                                       + '\n' \
-        '#SBATCH --mail-user=' + str(pbs_dict['mail_list'])             + '\n' \
+        #'#SBATCH --mail-type=all'                                       + '\n' \
+        #'#SBATCH --mail-user=' + str(pbs_dict['mail_list'])             + '\n' \
                                                                                \
         #'sleep 30s'                                                     + '\n' \
         # Total number of processor(s) allocated for job execution
@@ -2154,13 +2184,13 @@ def f_create_batch_file(comp_name, case_dict, mfc_dir): # ----------------------
         #                            + ': $PBS_JOBNAME.o${PBS_JOBID:0:7}' + '\n' \
         # 'echo Description: $PBS_JOBID executed on $num_procs '                 \
         # (Slurm)
-        'echo MFC - Cases - ' + basename(getcwd())                        \
-                              + ': $SLURM_JOB_NAME.o$SLURM_JOB_ID'      + '\n' \
-        'echo Description: $SLURM_JOB_ID executed on $SLURM_NTASKS '           \
+        #'echo MFC - Cases - ' + basename(getcwd())                        \
+        #                      + ': $SLURM_JOB_NAME.o$SLURM_JOB_ID'      + '\n' \
+        #'echo Description: $SLURM_JOB_ID executed on $SLURM_NTASKS '           \
 
-                         + 'processor\'(s)\'. The' + '\n' + 'echo '            \
-                         + '\'            \' command-line output '             \
-                         + 'information may be found below.'            + '\n' \
+        #                 + 'processor\'(s)\'. The' + '\n' + 'echo '            \
+        #                 + '\'            \' command-line output '             \
+        #                 + 'information may be found below.'            + '\n' \
         'echo Start-date: `date +%D`'                                   + '\n' \
         'echo Start-time: `date +%T`'                                   + '\n' \
         'echo' + '\n' + 'echo'                                          + '\n' \
@@ -2171,9 +2201,19 @@ def f_create_batch_file(comp_name, case_dict, mfc_dir): # ----------------------
          't_start=$(date +%s)'                                          + '\n' \
                                                                                \
         # Executing job:
-        'mpirun '                                                               \
+    	# (Slurm) and (PBS)
+        #'mpirun '                                                               \
+        #                               + mfc_dir + '/' + comp_name             \
+        #                               + '_code' + '/' + comp_name      + '\n' \
+	# (LSF)
+        'jsrun -n 1 -a '+str(pbs_dict[ 'ppn' ]) + ' -c '+str(pbs_dict[ 'ppn' ])\
+	                               + ' -g'+str(pbs_dict[ 'gpn' ]) 	       \
+				       #+ ' -l GPU-CPU '                        \
+				       + ' tau_exec -ebs '	       \
+				       #+ ' tau_exec -T mpi,pgi,pdt -ebs '      \
                                        + mfc_dir + '/' + comp_name             \
                                        + '_code' + '/' + comp_name      + '\n' \
+
         # Stopping the timer for the job
         't_stop=$(date +%s)' + '\n' + 'echo'                            + '\n' \
                                                                                \
@@ -2189,7 +2229,11 @@ def f_create_batch_file(comp_name, case_dict, mfc_dir): # ----------------------
         'rm -f ' + comp_name + '.inp'                                   + '\n' \
                                                                                \
         # Removing the batch file
-        'rm -f ' + comp_name + '.sh'                                           )
+	# (Slurm) or (PBS)
+        #'rm -f ' + comp_name + '.sh'                                           )
+      	# (LSF)
+        'rm -f ' + comp_name + '.lsf'                                           )
+
     # END: Populating Batch File ===============================================
     
     
@@ -2198,7 +2242,8 @@ def f_create_batch_file(comp_name, case_dict, mfc_dir): # ----------------------
     
     
     # Giving the batch file the permission to be executed
-    cmd_status = Popen('chmod +x ' + comp_name + '.sh', shell=True, stdout=PIPE)
+    #cmd_status = Popen('chmod +x ' + comp_name + '.sh', shell=True, stdout=PIPE)
+    cmd_status = Popen('chmod +x ' + comp_name + '.lsf', shell=True, stdout=PIPE)
     output, errors = cmd_status.communicate()
 # END: def f_create_batch_file -------------------------------------------------
 
