@@ -138,7 +138,6 @@ module m_global_parameters
     !> @name Boundary conditions (BC) in the x-, y- and z-directions, respectively
     !> @{
     type(bounds_info) :: bc_x, bc_y, bc_z
-    type(bounds_info) :: bc_x_glb, bc_y_glb, bc_z_glb
     !> @}
 
     logical :: parallel_io !< Format of the data files

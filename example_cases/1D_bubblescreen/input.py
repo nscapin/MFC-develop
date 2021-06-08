@@ -124,29 +124,26 @@ case_dict =                                                                     
                     't_step_start'                 : 0,                         \
                     't_step_stop'                  : Nt,                        \
                     't_step_save'                  : Nout,   \
-		    # ==========================================================
+		            # ==========================================================
                                                                                 \
                     # Simulation Algorithm Parameters ==========================
                     'num_patches'                  : 2,                        \
                     'model_eqns'                   : 2,                        \
                     'alt_soundspeed'               : 'F',                      \
                     'num_fluids'                   : 1,                        \
-		    'adv_alphan'                   : 'T',                      \
-		    'mpp_lim'                      : 'F',                      \
-		    'mixture_err'                  : 'F',                      \
-		    'time_stepper'                 : 3,                        \
+                    'adv_alphan'                   : 'T',                      \
+                    'mpp_lim'                      : 'F',                      \
+                    'mixture_err'                  : 'F',                      \
+                    'time_stepper'                 : 3,                        \
                     'weno_vars'                    : 2,                        \
                     'weno_order'                   : 5,                        \
                     'weno_eps'                     : 1.E-16,                   \
-                    'char_decomp'                  : 'F',                      \
-                    'mapped_weno'                  : 'T',                      \
+                    'mapped_weno'                  : 'F',                      \
                     'null_weights'                 : 'F',                      \
-                    'mp_weno'                      : 'T',                      \
-		    'riemann_solver'               : 2,                        \
+                    'mp_weno'                      : 'F',                      \
+		            'riemann_solver'               : 2,                        \
                     'wave_speeds'                  : 1,                        \
                     'avg_state'                    : 2,                        \
-                    'commute_err'                  : 'F',                      \
-                    'split_err'                    : 'F',                      \
                     'bc_x%beg'                     : -8,                       \
                     'bc_x%end'                     : -8,                       \
                     # ==========================================================

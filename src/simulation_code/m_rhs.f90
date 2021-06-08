@@ -69,11 +69,11 @@ module m_rhs
     implicit none
 
     private; public :: s_initialize_rhs_module, &
- s_compute_rhs, &
- s_alt_rhs, &
- s_pressure_relaxation_procedure, &
- s_populate_variables_buffers, &
- s_finalize_rhs_module
+         s_compute_rhs, &
+         s_alt_rhs, &
+         s_pressure_relaxation_procedure, &
+         s_populate_variables_buffers, &
+         s_finalize_rhs_module
 
     type(vector_field) :: q_cons_qp !<
     !! This variable contains the WENO-reconstructed values of the cell-average
@@ -718,6 +718,7 @@ contains
         do i = 1, num_dims
 
             ! Configuring Coordinate Direction Indexes ======================
+            ! buff_size is nominally 2 for WENO5 or 1 for WENO3
             ix%beg = -buff_size; iy%beg = 0; iz%beg = 0
 
             if (n > 0) iy%beg = -buff_size; if (p > 0) iz%beg = -buff_size
@@ -761,15 +762,15 @@ contains
             end if
 
 
-            do ii = iv%beg, iv%end-1
-                print*, 'Variable ', ii
-                do j = 0,m
-                    print*, 'Prim, L, R: ', &
-                        q_prim_qp%vf(ii)%sf(j,0,0), &
-                        qL_prim_ndqp(1)%vf(ii)%sf(j,0,0) - q_prim_qp%vf(ii)%sf(j,0,0), &
-                        qR_prim_ndqp(1)%vf(ii)%sf(j,0,0) - q_prim_qp%vf(ii)%sf(j,0,0)
-                end do
-            end do
+            ! do ii = iv%beg, iv%end-1
+            !     print*, 'Variable ', ii
+            !     do j = 0,m
+            !         print*, 'Prim, L, R: ', &
+            !             q_prim_qp%vf(ii)%sf(j,0,0), &
+            !             qL_prim_ndqp(1)%vf(ii)%sf(j,0,0) - q_prim_qp%vf(ii)%sf(j,0,0), &
+            !             qR_prim_ndqp(1)%vf(ii)%sf(j,0,0) - q_prim_qp%vf(ii)%sf(j,0,0)
+            !     end do
+            ! end do
 
             ! call s_mpi_abort()
 
@@ -2855,11 +2856,18 @@ contains
             is3%end = is3%end - weno_polyn
         end if
 
-        call s_weno(v_vf(iv%beg:iv%end), &
+
+        call s_weno_alt(v_vf(iv%beg:iv%end), &
                     vL_qp%vf(iv%beg:iv%end), &
                     vR_qp%vf(iv%beg:iv%end), &
                     weno_dir,  &
                     is1, is2, is3)
+
+        ! call s_weno(v_vf(iv%beg:iv%end), &
+        !             vL_qp%vf(iv%beg:iv%end), &
+        !             vR_qp%vf(iv%beg:iv%end), &
+        !             weno_dir,  &
+        !             is1, is2, is3)
         ! ==================================================================
 
     end subroutine s_reconstruct_cell_boundary_values ! --------------------

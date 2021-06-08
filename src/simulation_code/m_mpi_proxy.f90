@@ -261,13 +261,6 @@ contains
         call MPI_BCAST(bc_z%beg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
         call MPI_BCAST(bc_z%end, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
 
-        call MPI_BCAST(bc_x_glb%beg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-        call MPI_BCAST(bc_x_glb%end, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-        call MPI_BCAST(bc_y_glb%beg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-        call MPI_BCAST(bc_y_glb%end, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-        call MPI_BCAST(bc_z_glb%beg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-        call MPI_BCAST(bc_z_glb%end, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-
         ! Fluids physical parameters
         do i = 1, num_fluids_max
             call MPI_BCAST(fluid_pp(i)%gamma, 1, &

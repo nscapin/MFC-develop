@@ -6,7 +6,7 @@ Nx      = 2500
 dx      = 1./(1.*(Nx+1))
 
 Tend    = 0.03
-Nt      = 50
+Nt      = 10
 mydt    = Tend/(1.*Nt)
 
 # Command to navigate between directories
@@ -43,7 +43,7 @@ case_dict =                                                                     
                     'case_dir'                     : '\'.\'',                   \
                     'run_time_info'                : 'F',                       \
                     'nodes'                        : 1,                         \
-                    'ppn'                          : 1,                         \
+                    'ppn'                          : 4,                         \
                     'queue'                        : 'normal',                  \
                     'walltime'                     : '24:00:00',                \
                     'mail_list'                    : '',                        \
