@@ -26,4 +26,4 @@ jsrun -r1 -a1 -c1 -g1 ../../src/pre_process_code/pre_process
 
 # jsrun -r1 -a1 -c1 -g1 nsys profile -o output-sys.prof --stats=true -t openacc  ../../src/simulation_code/simulation
 
-jsrun -r1 -a1 -c1 -g1 ../../src/simulation_code/simulation
+# jsrun -r1 -a1 -c1 -g1 ../../src/simulation_code/simulation
