@@ -11,10 +11,9 @@
 ## 42/6 = 7 where 42 = number of total cores (c)
 ## (a == c) usually
 
-jsrun -r6 -a7 -c7 -g1 ../../src/pre_process_code/pre_process
-jsrun -r6 -a7 -c7 -g1 ../../src/simulation_code/simulation
+# jsrun -r6 -a7 -c7 -g1 ../../src/pre_process_code/pre_process
+# jsrun -r6 -a7 -c7 -g1 ../../src/simulation_code/simulation
 
-
-# jsrun -r1 -a1 -c1 -g1 ../../src/pre_process_code/pre_process
-# jsrun -r1 -a1 -c1 -g1 nvprof ../../src/simulation_code/simulation
+jsrun -r1 -a1 -c1 -g1 ../../src/pre_process_code/pre_process
+jsrun -r1 -a1 -c1 -g1 ../../src/simulation_code/simulation
 # jsrun -r1 -a1 -c1 -g1 nvprof ../../src/simulation_code/simulation
