@@ -2207,7 +2207,7 @@ def f_create_batch_file(comp_name, case_dict, mfc_dir): # ----------------------
         #                               + '_code' + '/' + comp_name      + '\n' \
 	# (LSF)
         'jsrun -n 1 -a '+str(pbs_dict[ 'ppn' ]) + ' -c '+str(pbs_dict[ 'ppn' ])\
-	                               + ' -g'+str(pbs_dict[ 'gpn' ]) 	       \
+	                               + ' -g'+str(pbs_dict[ 'gpn' ]) +  ' '   \
 				       #+ ' -l GPU-CPU '                        \
 				       #+ ' tau_exec -ebs '	       \
 				       #+ ' tau_exec -T mpi,pgi,pdt -ebs '      \
