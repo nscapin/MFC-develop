@@ -13,7 +13,17 @@
 
 # jsrun -r6 -a7 -c7 -g1 ../../src/pre_process_code/pre_process
 # jsrun -r6 -a7 -c7 -g1 ../../src/simulation_code/simulation
+export PGI_ACC_NOTIFY=1
 
 jsrun -r1 -a1 -c1 -g1 ../../src/pre_process_code/pre_process
+
+# jsrun -r1 -a1 -c1 -g1 ../../src/simulation_code/simulation
+# jsrun -r1 -a1 -c1 -g1 ../../src/simulation_code/simulation
+# jsrun -r1 -a1 -c1 -g1 nvprof --analysis-metrics -o output.nvvp  -f ../../src/simulation_code/simulation
+
+# jsrun -r1 -a1 -c1 -g1 ncu --kernel-regex s_weno_alt_307_gpu --launch-skip 3 --launch-count 1 --set full -o output.prof -f  ../../src/simulation_code/simulation
+
+
+# jsrun -r1 -a1 -c1 -g1 nsys profile -o output-sys.prof --stats=true -t openacc  ../../src/simulation_code/simulation
+
 jsrun -r1 -a1 -c1 -g1 ../../src/simulation_code/simulation
-# jsrun -r1 -a1 -c1 -g1 nvprof ../../src/simulation_code/simulation

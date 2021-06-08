@@ -43,3 +43,4 @@ lib/hdf5
 lib/hdf5-1.8.20.tar
 lib/silo-4.10.2.tar.gz
 stashed_cases/
+*prof*
