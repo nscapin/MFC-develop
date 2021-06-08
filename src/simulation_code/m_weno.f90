@@ -292,6 +292,8 @@ contains
 
         k = 0; l = 0
         !$acc parallel loop
+        !! SHB: Transfer data to GPU (to_device): beta_coef, v_rs_wsL_flat, poly_coef_L/R, weno_eps
+        !! SHB: Transfer data to CPU (to_host):   vL_vf_flat, vR_vf_flat
         do i = 1, sys_size
             do j = ixb, ixe
                 dvd(1) = v_rs_wsL_flat(2, i, j, k, l) &
