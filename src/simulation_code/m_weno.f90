@@ -264,12 +264,14 @@ contains
         real(kind(0d0)), dimension(0:weno_polyn) :: omega_L, omega_R
         real(kind(0d0)), dimension(0:weno_polyn) :: beta 
         real(kind(0d0)), pointer :: beta_p(:)
-
+ 
         real(kind(0d0)), allocatable, dimension(:,:,:,:) :: vL_vf_flat, vR_vf_flat
         real(kind(0d0)), allocatable, dimension(:,:,:,:,:) :: v_rs_wsL_flat
 
         integer :: i, j, k, l
         integer :: ixb, ixe
+        
+        integer :: t1, t2, c_rate, c_max
 
         if (proc_rank == 0) print*, 'using alt weno'
 
@@ -290,8 +292,20 @@ contains
         ixb = ix%beg
         ixe = ix%end
 
+
+
+        call system_clock(t1, c_rate, c_max)
+
         k = 0; l = 0
-        !$acc parallel loop
+
+
+
+
+
+        !$acc data copyin(v_rs_wsl_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef)
+
+        !$acc parallel loop collapse(2) private(dvd, poly_L, beta, alpha_L, omega_L, poly_R, alpha_R, omega_R)
+
         do i = 1, sys_size
             do j = ixb, ixe
                 dvd(1) = v_rs_wsL_flat(2, i, j, k, l) &
@@ -368,6 +382,10 @@ contains
                 vR_vf_flat(i, j, k, l) = sum(omega_R*poly_R)
             end do
         end do
+        !$acc end parallel loop 
+        !$acc end data 
+        call system_clock(t2)
+        print *, "Took: ", real(t2 - t1) / real(c_rate)
 
         deallocate(v_rs_wsL_flat, vL_vf_flat, vR_vf_flat)
 
