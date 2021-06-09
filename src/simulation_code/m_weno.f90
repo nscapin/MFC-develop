@@ -177,6 +177,8 @@ contains
         !$acc parallel loop gang vector private(dvd, poly, beta, alpha, omega)
         do j = ixb, ixe
             do i = 1, sys_size
+
+                !!! L Reconstruction
                 dvd(1) = v_rs_wsL_flat(j, k, l, 2, i) &
                          - v_rs_wsL_flat(j, k, l, 1, i)
                 dvd(0) = v_rs_wsL_flat(j, k, l, 1, i) &
@@ -211,8 +213,14 @@ contains
 
                 alpha = d_L(:, j)/(beta*beta)
                 omega = alpha/sum(alpha)
+
+                if (mapped_weno) then
+                    call s_map_nonlinear_weights(d_L(:, j), alpha, omega)
+                end if
+
                 vL_vf_flat(j, k, l, i) = sum(omega*poly)
 
+                !!! R Reconstruction
                 dvd(1) = v_rs_wsL_flat(j, k, l, 2, i) &
                        - v_rs_wsL_flat(j, k, l, 1, i)
                 dvd(0) = v_rs_wsL_flat(j, k, l, 1, i) &
@@ -248,9 +256,11 @@ contains
                 alpha = d_R(:, j)/(beta*beta)
                 omega = alpha/sum(alpha)
 
-                vR_vf_flat(j, k, l, i) = sum(omega*poly)
+                if (mapped_weno) then
+                    call s_map_nonlinear_weights(d_R(:, j), alpha, omega)
+                end if
 
-                call blah(a)
+                vR_vf_flat(j, k, l, i) = sum(omega*poly)
             end do
         end do
         !$acc end parallel loop 
@@ -266,11 +276,22 @@ contains
 
     end subroutine s_weno_alt
 
-
-    subroutine blah(a)
+    subroutine s_map_nonlinear_weights(d_K, alpha_K, omega_K) ! ------------
     !$acc routine seq 
 
-    end subroutine blah
+        real(kind(0d0)), dimension(0:2), intent(IN)    ::     d_K
+        real(kind(0d0)), dimension(0:2), intent(INOUT) :: alpha_K
+        real(kind(0d0)), dimension(0:2), intent(INOUT) :: omega_K
+
+        ! Mapping the WENO nonlinear weights to the WENOM nonlinear weights
+        if (minval(d_K) == 0d0 .or. maxval(d_K) == 1d0) return
+
+        alpha_K = (d_K*(1d0 + d_K - 3d0*omega_K) + omega_K**2d0) &
+                  *(omega_K/(d_K**2d0 + omega_K*(1d0 - 2d0*d_K)))
+
+        omega_K = alpha_K/sum(alpha_K)
+
+    end subroutine s_map_nonlinear_weights ! -------------------------------
 
 
     subroutine s_weno(v_vf, vL_vf, vR_vf, weno_dir_dummy, ix, iy, iz)
