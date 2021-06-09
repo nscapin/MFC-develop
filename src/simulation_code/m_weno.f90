@@ -63,6 +63,11 @@ module m_weno
                        s_finalize_weno_module, s_weno_alt
 
     type(vector_field), allocatable, dimension(:) :: v_rs_wsL
+    !$acc declare create(v_rs_wsL)
+
+    type(scalar_field), allocatable, dimension(:) :: v_vf
+    type(scalar_field), allocatable, dimension(:) :: vL_vf, vR_vf
+    !$acc declare create(v_vf, vL_vf, vR_vf)
 
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_L
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_R
@@ -448,19 +453,24 @@ contains
         real(kind(0d0)), dimension(0:weno_polyn) :: omega_L, omega_R
         real(kind(0d0)), dimension(0:weno_polyn) :: beta 
 
-
+        
         integer :: i, j, k, l
 
         ! Allocate space for full stencil variables
-        do i = -weno_polyn, weno_polyn
-            do j = 1, sys_size
-                allocate (v_rs_wsL(i)%vf(j)%sf(ix%beg:ix%end, &
-                                               iy%beg:iy%end, &
-                                               iz%beg:iz%end))
-            end do
-        end do
+!        do i = -weno_polyn, weno_polyn
+!            do j = 1, sys_size
+!                allocate (v_rs_wsL(i)%vf(j)%sf(ix%beg:ix%end, &
+!                                               iy%beg:iy%end, &
+!                                              iz%beg:iz%end))
+!           end do
+!        end do
 
         ! Populate variable buffers at each point (for full stencil)
+
+        !$acc data copyin(v_flat) copyout(vL_vf
+
+        !$acc parallel loop collapse(3)
+        !present(v_rs_wsL(:),v_rs_wsL(:)%vf(:),v_rs_wsL(:)%vf(:)%sf(:,:,:))
         do i = -weno_polyn, weno_polyn
             do j = 1, sys_size
                 do k = ix%beg, ix%end
@@ -469,6 +479,7 @@ contains
                 end do
             end do
         end do
+        !$acc end parallel loop
 
         do i = 1, sys_size
             do l = iz%beg, iz%end
@@ -553,11 +564,11 @@ contains
             end do
         end do
 
-        do i = -weno_polyn, weno_polyn
-            do j = 1, sys_size
-                deallocate (v_rs_wsL(i)%vf(j)%sf)
-            end do
-        end do
+!        do i = -weno_polyn, weno_polyn
+!            do j = 1, sys_size
+!                deallocate (v_rs_wsL(i)%vf(j)%sf)
+!            end do
+!        end do
 
     end subroutine s_weno 
 
