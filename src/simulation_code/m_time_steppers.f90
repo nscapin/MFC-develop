@@ -210,11 +210,7 @@ contains
             end do
         end if
 
-        if (debug_weno) then
-            call s_alt_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
-        else
-            call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
-        end if
+        call s_alt_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
         if (DEBUG) print *, 'got rhs'
 
         if (run_time_info) then
@@ -271,7 +267,7 @@ contains
             q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
         end do
 
-        call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
 
         if (run_time_info) then
             call s_write_run_time_information(q_prim_vf, t_step)
@@ -302,7 +298,7 @@ contains
             q_prim_vf(i)%sf => q_cons_ts(2)%vf(i)%sf
         end do
 
-        call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
 
         do i = 1, sys_size
             q_cons_ts(1)%vf(i)%sf(0:m, 0:n, 0:p) = &
@@ -342,7 +338,7 @@ contains
             q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
         end do
 
-        call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
 
         if (run_time_info) then
             call s_write_run_time_information(q_prim_vf, t_step)
@@ -374,7 +370,7 @@ contains
             q_prim_vf(i)%sf => q_cons_ts(2)%vf(i)%sf
         end do
 
-        call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
 
         do i = 1, sys_size
             q_cons_ts(2)%vf(i)%sf(0:m, 0:n, 0:p) = &
@@ -389,7 +385,7 @@ contains
         ! ==================================================================
 
         ! Stage 3 of 3 =====================================================
-        call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
 
         do i = 1, sys_size
             q_cons_ts(1)%vf(i)%sf(0:m, 0:n, 0:p) = &
@@ -430,7 +426,7 @@ contains
             q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
         end do
 
-        call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
 
         if (run_time_info) call s_write_run_time_information(q_prim_vf, t_step)
         if (any(com_wrt) .or. any(cb_wrt) .or. probe_wrt) &
@@ -456,7 +452,7 @@ contains
             q_prim_vf(i)%sf => q_cons_ts(2)%vf(i)%sf
         end do
 
-        call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
 
         ! RK2 estimate
         do i = 1, sys_size
@@ -481,7 +477,7 @@ contains
         ! ==================================================================
 
         ! Stage 3 of 3 =====================================================
-        call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
 
         do i = 1, sys_size
             q_cons_ts(1)%vf(i)%sf(0:m, 0:n, 0:p) = &
@@ -565,7 +561,7 @@ contains
             q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
         end do
 
-        call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
 
         if (run_time_info) then
             call s_write_run_time_information(q_prim_vf, t_step)
@@ -601,7 +597,7 @@ contains
             q_prim_vf(i)%sf => q_cons_ts(2)%vf(i)%sf
         end do
 
-        call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
 
         do i = 1, sys_size
             q_cons_ts(2)%vf(i)%sf(0:m, 0:n, 0:p) = &
@@ -619,7 +615,7 @@ contains
         ! ==================================================================
 
         ! Stage 3 of 4 =====================================================
-        call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
 
         do i = 1, sys_size
             q_cons_ts(2)%vf(i)%sf(0:m, 0:n, 0:p) = &
@@ -637,7 +633,7 @@ contains
         ! ==================================================================
 
         ! Stage 4 of 4 =====================================================
-        call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
 
         do i = 1, sys_size
             q_cons_ts(1)%vf(i)%sf(0:m, 0:n, 0:p) = &
@@ -676,7 +672,7 @@ contains
             q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
         end do
 
-        call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
 
         if (run_time_info) then
             call s_write_run_time_information(q_prim_vf, t_step)
@@ -729,7 +725,7 @@ contains
             q_prim_vf(i)%sf => q_cons_ts(2)%vf(i)%sf
         end do
 
-        call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
 
         do i = 1, sys_size
             q_cons_ts(3)%vf(i)%sf(0:m, 0:n, 0:p) = &
@@ -764,7 +760,7 @@ contains
             q_prim_vf(i)%sf => q_cons_ts(3)%vf(i)%sf
         end do
 
-        call s_compute_rhs(q_cons_ts(3)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(3)%vf, q_prim_vf, rhs_vf, t_step)
 
         do i = 1, sys_size
             q_cons_ts(4)%vf(i)%sf(0:m, 0:n, 0:p) = &
@@ -799,7 +795,7 @@ contains
             q_prim_vf(i)%sf => q_cons_ts(4)%vf(i)%sf
         end do
 
-        call s_compute_rhs(q_cons_ts(4)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(4)%vf, q_prim_vf, rhs_vf, t_step)
 
         do i = 1, sys_size
             q_cons_ts(5)%vf(i)%sf(0:m, 0:n, 0:p) = &
@@ -830,7 +826,7 @@ contains
             q_prim_vf(i)%sf => q_cons_ts(5)%vf(i)%sf
         end do
 
-        call s_compute_rhs(q_cons_ts(5)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(5)%vf, q_prim_vf, rhs_vf, t_step)
 
         do i = 1, sys_size
             q_cons_ts(6)%vf(i)%sf(0:m, 0:n, 0:p) = &
@@ -851,7 +847,7 @@ contains
             q_prim_vf(i)%sf => q_cons_ts(6)%vf(i)%sf
         end do
 
-        call s_compute_rhs(q_cons_ts(6)%vf, q_prim_vf, rhs_vf, t_step)
+        ! call s_compute_rhs(q_cons_ts(6)%vf, q_prim_vf, rhs_vf, t_step)
 
         do i = 1, sys_size
             q_cons_ts(1)%vf(i)%sf(0:m, 0:n, 0:p) = &
