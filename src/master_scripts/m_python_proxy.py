@@ -2146,8 +2146,8 @@ def f_create_batch_file(comp_name, case_dict, mfc_dir): # ----------------------
 	#'export TAU_TRACK_MESSAGE=1'					 + '\n' \
 	#'export TAU_COMM_MATRIX=1'					 + '\n' \
 	#'export TAU_TRACE=1'	                                         + '\n' \
-	'export TAU_CALLPATH=1'	                                         + '\n' \
-	'export TAU_CALLDEPTH=10'					 + '\n' \
+	#'export TAU_CALLPATH=1'	                                         + '\n' \
+	#'export TAU_CALLDEPTH=10'					 + '\n' \
 
         # Allocation flags (LSF)
         #'#BSUB '					 + '\n' \
@@ -2207,9 +2207,11 @@ def f_create_batch_file(comp_name, case_dict, mfc_dir): # ----------------------
         #                               + '_code' + '/' + comp_name      + '\n' \
 	# (LSF)
         'jsrun -n 1 -a '+str(pbs_dict[ 'ppn' ]) + ' -c '+str(pbs_dict[ 'ppn' ])\
-	                               + ' -g'+str(pbs_dict[ 'gpn' ]) +  ' '   \
+				       + ' --smpiargs="-gpu" '	               \
+	                               + ' -g '+str(pbs_dict[ 'gpn' ]) +  ' '   \
 				       #+ ' -l GPU-CPU '                        \
-				       + ' tau_exec -ebs '	       \
+				       + ' tau_exec -ebs '	               \
+				       + ' -openacc '			       \
 				       #+ ' tau_exec -T mpi,pgi,pdt -ebs '      \
                                        + mfc_dir + '/' + comp_name             \
                                        + '_code' + '/' + comp_name      + '\n' \
