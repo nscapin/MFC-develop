@@ -64,12 +64,13 @@ module m_rhs
     use m_bubbles              !< Bubble dynamic routines
 
     use m_qbmm                 !< Moment inversion
+
+    use nvtx
     ! ==========================================================================
 
     implicit none
 
     private; public :: s_initialize_rhs_module, &
-         s_compute_rhs, &
          s_alt_rhs, &
          s_pressure_relaxation_procedure, &
          s_populate_variables_buffers, &
@@ -461,21 +462,11 @@ contains
                           ix%beg:ix%end, &
                           iy%beg:iy%end, &
                           iz%beg:iz%end))
-                if (riemann_solver == 1) then
-                    do l = adv_idx%beg + 1, adv_idx%end
-                        allocate (flux_src_ndqp(i)%vf(l)%sf( &
-                                  ix%beg:ix%end, &
-                                  iy%beg:iy%end, &
-                                  iz%beg:iz%end))
-                    end do
-                else
-                    !IF ( (num_fluids > 1) .AND. (bubbles .NEQV. .TRUE.)) THEN
-                    do l = adv_idx%beg + 1, adv_idx%end
-                        flux_src_ndqp(i)%vf(l)%sf => &
-                            flux_src_ndqp(i)%vf(adv_idx%beg)%sf
-                    end do
-                    !END IF
-                end if
+
+                do l = adv_idx%beg + 1, adv_idx%end
+                    flux_src_ndqp(i)%vf(l)%sf => &
+                        flux_src_ndqp(i)%vf(adv_idx%beg)%sf
+                end do
 
             else
 
@@ -492,16 +483,6 @@ contains
         end do
 
         ! END: Allocation/Association of flux_ndqp, flux_src_ndqp, and flux_gsrc_ndqp ===
-
-        ! Associating procedural pointer to the subroutine that will be
-        ! utilized to calculate the solution of a given Riemann problem
-        if (riemann_solver == 1) then
-            s_riemann_solver => s_hll_riemann_solver
-        elseif (riemann_solver == 2) then
-            s_riemann_solver => s_hllc_riemann_solver
-        else
-            s_riemann_solver => s_exact_riemann_solver
-        end if
 
         ! Associating the procedural pointer to the appropriate subroutine
         ! that will be utilized in the conversion to the mixture variables
@@ -540,11 +521,13 @@ contains
 
         call s_populate_conservative_variables_buffers()
 
+        call nvtxStartRange("RHS-Convert-to-Primitive")
         call s_convert_conservative_to_primitive_variables( &
             q_cons_qp%vf, &
             q_prim_qp%vf, &
             gm_alpha_qp%vf, &
             ix, iy, iz)
+        call nvtxEndRange
 
         if (t_step == t_step_stop) return
 
@@ -554,31 +537,44 @@ contains
             q_prim_qp%vf(iv%beg:iv%end), &
             qL_prim_ndqp(i), qR_prim_ndqp(i), i)
 
-        ! do k = iv%beg, iv%end
+        print*, 'finished weno'
+
+        ! ! do k = iv%beg, iv%end
+
+        ! do k = 1,1
         !     print*, 'Variable ', k 
         !     do j = 0,m
         !         print*, 'Prim, L, R: ', &
         !             q_prim_qp%vf(k)%sf(j,0,0), &
-        !             qL_prim_ndqp(i)%vf(k)%sf(j,0,0) - q_prim_qp%vf(k)%sf(j,0,0), &
-        !             qR_prim_ndqp(i)%vf(k)%sf(j,0,0) - q_prim_qp%vf(k)%sf(j,0,0)
+        !             qL_prim_ndqp(1)%vf(k)%sf(j,0,0),  &
+        !             qR_prim_ndqp(1)%vf(k)%sf(j,0,0)
         !     end do
         ! end do
 
-        ! call s_riemann_solver(qR_prim_ndqp(i)%vf, &
-        !                       dqR_prim_dx_ndqp(i)%vf, &
-        !                       dqR_prim_dy_ndqp(i)%vf, &
-        !                       dqR_prim_dz_ndqp(i)%vf, &
-        !                       gm_alphaR_ndqp(i)%vf, &
-        !                       qL_prim_ndqp(i)%vf, &
-        !                       dqL_prim_dx_ndqp(i)%vf, &
-        !                       dqL_prim_dy_ndqp(i)%vf, &
-        !                       dqL_prim_dz_ndqp(i)%vf, &
-        !                       gm_alphaL_ndqp(i)%vf, &
-        !                       q_prim_qp%vf, &
-        !                       flux_ndqp(i)%vf, &
-        !                       flux_src_ndqp(i)%vf, &
-        !                       flux_gsrc_ndqp(i)%vf, &
-        !                       i, ix, iy, iz)
+        ! stop
+
+        ! Configuring Coordinate Direction Indexes ======================
+        IF(i == 1) THEN
+            ix%beg = -1; iy%beg =  0; iz%beg =  0
+        ELSEIF(i == 2) THEN
+            ix%beg =  0; iy%beg = -1; iz%beg =  0
+        ELSE
+            ix%beg =  0; iy%beg =  0; iz%beg = -1
+        END IF
+        ix%end = m; iy%end = n; iz%end = p
+
+        call s_hllc_riemann_solver(qR_prim_ndqp(i)%vf, &
+                              dqR_prim_dx_ndqp(i)%vf, &
+                              gm_alphaR_ndqp(i)%vf, &
+                              qL_prim_ndqp(i)%vf, &
+                              dqL_prim_dx_ndqp(i)%vf, &
+                              gm_alphaL_ndqp(i)%vf, &
+                              q_prim_qp%vf, &
+                              flux_ndqp(i)%vf, &
+                              flux_src_ndqp(i)%vf, &
+                              flux_gsrc_ndqp(i)%vf, &
+                              i, ix, iy, iz)
+
 
         ! do j = 1, sys_size
         !     do k = 0, m
@@ -604,834 +600,6 @@ contains
         end do
 
     end subroutine s_alt_rhs
-
-
-    !> The purpose of this procedure is to employ the inputted
-        !!      cell-average conservative variables in order to compute
-        !!      the cell-average RHS variables of the semidiscrete form
-        !!      of the governing equations by utilizing the appropriate
-        !!      Riemann solver.
-        !!  @param q_cons_vf Cell-average conservative variables
-        !!  @param q_prim_vf Cell-average primitive variables
-        !!  @param rhs_vf Cell-average RHS variables
-        !!  @param t_step Current time-step
-    subroutine s_compute_rhs(q_cons_vf, q_prim_vf, rhs_vf, t_step) ! -------
-
-        type(scalar_field), dimension(sys_size), intent(INOUT) :: q_cons_vf
-        type(scalar_field), dimension(sys_size), intent(INOUT) :: q_prim_vf
-        type(scalar_field), dimension(sys_size), intent(INOUT) :: rhs_vf
-        integer, intent(IN) :: t_step
-
-        real(kind(0d0)) :: top, bottom  !< Numerator and denominator when evaluating flux limiter function
-
-        real(kind(0d0)), dimension(0:m, 0:n, 0:p) :: blkmod1, blkmod2, alpha1, alpha2, Kterm
-
-        real(kind(0d0)), dimension(num_fluids) :: alpha_K, alpha_rho_K
-        real(kind(0d0)) :: rho_K
-        real(kind(0d0)), dimension(0:m, 0:n, 0:p) :: rho_K_field
-        real(kind(0d0)) :: gamma_K, pi_inf_K
-
-        integer :: i, j, k, l, r, ii !< Generic loop iterators
-
-        ! Configuring Coordinate Direction Indexes =========================
-        ix%beg = -buff_size; iy%beg = 0; iz%beg = 0
-
-        if (n > 0) iy%beg = -buff_size; if (p > 0) iz%beg = -buff_size
-
-        ix%end = m - ix%beg; iy%end = n - iy%beg; iz%end = p - iz%beg
-        ! ==================================================================
-
-        if (DEBUG) print *, 'Start rhs'
-
-        ! Association/Population of Working Variables ======================
-        do i = 1, sys_size
-            q_cons_qp%vf(i)%sf => q_cons_vf(i)%sf
-            q_prim_qp%vf(i)%sf => q_prim_vf(i)%sf
-        end do
-
-        call s_populate_conservative_variables_buffers()
-
-        if (DEBUG) print *, 'pop cons vars'
-        if ((model_eqns == 2 .or. model_eqns == 3) .and. (adv_alphan .neqv. .true.)) then
-            q_cons_qp%vf(sys_size)%sf = 1d0
-
-            do i = adv_idx%beg, adv_idx%end
-                q_cons_qp%vf(sys_size)%sf = &
-                    q_cons_qp%vf(sys_size)%sf - &
-                    q_cons_qp%vf(i)%sf
-            end do
-        end if
-
-        if (mpp_lim .and. bubbles) then
-            !adjust volume fractions, according to modeled gas void fraction
-            alf_sum%sf = 0d0
-            do i = adv_idx%beg, adv_idx%end - 1
-                alf_sum%sf = alf_sum%sf + q_cons_vf(i)%sf
-            end do
-
-            do i = adv_idx%beg, adv_idx%end - 1
-                q_cons_vf(i)%sf = q_cons_vf(i)%sf*(1.d0 - q_cons_vf(alf_idx)%sf) &
-                                  /alf_sum%sf
-            end do
-        end if
-
-        ! ==================================================================
-
-        ! Converting Conservative to Primitive Variables ===================
-        iv%beg = 1; iv%end = adv_idx%end
-
-        if ((model_eqns == 2 .or. model_eqns == 3) &
-            .and. &
-            (adv_alphan .neqv. .true.) &
-            ) then
-            q_cons_qp%vf(adv_idx%end)%sf = 1d0
-
-            do l = adv_idx%beg, adv_idx%end
-                q_cons_qp%vf(adv_idx%end)%sf = &
-                    q_cons_qp%vf(adv_idx%end)%sf - &
-                    q_cons_qp%vf(l)%sf
-            end do
-        end if
-
-        !convert conservative variables to primitive
-        !   (except first and last, \alpha \rho and \alpha)
-        call s_convert_conservative_to_primitive_variables( &
-            q_cons_qp%vf, &
-            q_prim_qp%vf, &
-            gm_alpha_qp%vf, &
-            ix, iy, iz)
-
-        if (DEBUG) print *, 'conv to prim vars'
-
-        iv%beg = mom_idx%beg; iv%end = E_idx
-
-        if (DEBUG) print *, 'got cell interior values'
-        if (t_step == t_step_stop) return
-        ! ==================================================================
-
-        if (DEBUG) print *, 'Before qbmm'
-
-        ! compute required moments
-        if (qbmm) call s_mom_inv(q_prim_vf, mom_sp, mom_3d, ix, iy, iz)
-
-        ! Dimensional Splitting Loop =======================================
-        do i = 1, num_dims
-
-            ! Configuring Coordinate Direction Indexes ======================
-            ! buff_size is nominally 2 for WENO5 or 1 for WENO3
-            ix%beg = -buff_size; iy%beg = 0; iz%beg = 0
-
-            if (n > 0) iy%beg = -buff_size; if (p > 0) iz%beg = -buff_size
-
-            ix%end = m - ix%beg; iy%end = n - iy%beg; iz%end = p - iz%beg
-            ! ===============================================================
-
-            ! Reconstructing Primitive/Conservative Variables ===============
-
-            iv%beg = 1; 
-            if (adv_alphan) then
-                iv%end = adv_idx%end
-                if (bubbles) iv%end = sys_size
-            else
-                iv%end = adv_idx%end + 1
-            end if
-
-            !reconstruct either primitive or conservative vars
-            if (DEBUG) then
-                do j = 1,sys_size
-                    print*, 'j', j
-                    print*, 'q', q_cons_qp%vf(j)%sf(:,:,:)
-                    print*, 'qL', qL_prim_ndqp(i)%vf(j)%sf(:,:,:)
-                    print*, 'qR', qR_prim_ndqp(i)%vf(j)%sf(:,:,:)
-                end do
-            end if
-            if (DEBUG) print*, 'get reconstruction'
-
-            if (weno_vars == 1) then
-                call s_reconstruct_cell_boundary_values( &
-                    q_cons_qp%vf(iv%beg:iv%end), &
-                    qL_cons_ndqp(i), &
-                    qR_cons_ndqp(i), &
-                    i)
-            else
-                call s_reconstruct_cell_boundary_values( &
-                    q_prim_qp%vf(iv%beg:iv%end), &
-                    qL_prim_ndqp(i), &
-                    qR_prim_ndqp(i), &
-                    i)
-            end if
-
-
-            ! do ii = iv%beg, iv%end-1
-            !     print*, 'Variable ', ii
-            !     do j = 0,m
-            !         print*, 'Prim, L, R: ', &
-            !             q_prim_qp%vf(ii)%sf(j,0,0), &
-            !             qL_prim_ndqp(1)%vf(ii)%sf(j,0,0) - q_prim_qp%vf(ii)%sf(j,0,0), &
-            !             qR_prim_ndqp(1)%vf(ii)%sf(j,0,0) - q_prim_qp%vf(ii)%sf(j,0,0)
-            !     end do
-            ! end do
-
-            ! call s_mpi_abort()
-
-            if ((model_eqns == 2 .or. model_eqns == 3) .and. (adv_alphan .neqv. .true.)) then
-                qL_cons_ndqp(i)%vf(sys_size)%sf = 1d0
-                qR_cons_ndqp(i)%vf(sys_size)%sf = 1d0
-
-                do l = adv_idx%beg, adv_idx%end
-                    qL_cons_ndqp(i)%vf(sys_size)%sf = &
-                        qL_cons_ndqp(i)%vf(sys_size)%sf - &
-                        qL_cons_ndqp(i)%vf(l)%sf
-
-                    qR_cons_ndqp(i)%vf(sys_size)%sf = &
-                        qR_cons_ndqp(i)%vf(sys_size)%sf - &
-                        qR_cons_ndqp(i)%vf(l)%sf
-                end do
-            end if
-            ! END: Reconstructing Volume Fraction Variables =================
-
-            ! Converting Conservative to Primitive Variables ================
-            if (weno_vars == 1) then
-                call s_convert_conservative_to_primitive_variables( &
-                    qL_cons_ndqp(i)%vf, &
-                    qL_prim_ndqp(i)%vf, &
-                    gm_alphaL_ndqp(i)%vf, &
-                    ix, iy, iz)
-                call s_convert_conservative_to_primitive_variables( &
-                    qR_cons_ndqp(i)%vf, &
-                    qR_prim_ndqp(i)%vf, &
-                    gm_alphaR_ndqp(i)%vf, &
-                    ix, iy, iz)
-            end if
-            ! ===============================================================
-
-
-            ! Configuring Coordinate Direction Indexes ======================
-            if (i == 1) then
-                ix%beg = -1; iy%beg = 0; iz%beg = 0
-            elseif (i == 2) then
-                ix%beg = 0; iy%beg = -1; iz%beg = 0
-            else
-                ix%beg = 0; iy%beg = 0; iz%beg = -1
-            end if
-
-            ix%end = m; iy%end = n; iz%end = p
-            ! ===============================================================
-
-            ! Computing Riemann Solver Flux and Source Flux =================
-            if (DEBUG) print *, 'about to call s_riemann_solver'
-            call s_riemann_solver(qR_prim_ndqp(i)%vf, &
-                                  dqR_prim_dx_ndqp(i)%vf, &
-                                  dqR_prim_dy_ndqp(i)%vf, &
-                                  dqR_prim_dz_ndqp(i)%vf, &
-                                  gm_alphaR_ndqp(i)%vf, &
-                                  qL_prim_ndqp(i)%vf, &
-                                  dqL_prim_dx_ndqp(i)%vf, &
-                                  dqL_prim_dy_ndqp(i)%vf, &
-                                  dqL_prim_dz_ndqp(i)%vf, &
-                                  gm_alphaL_ndqp(i)%vf, &
-                                  q_prim_qp%vf, &
-                                  flux_ndqp(i)%vf, &
-                                  flux_src_ndqp(i)%vf, &
-                                  flux_gsrc_ndqp(i)%vf, &
-                                  i, ix, iy, iz)
-
-            iv%beg = 1; iv%end = adv_idx%end
-            iv%beg = adv_idx%beg
-
-            if (riemann_solver /= 1) iv%end = adv_idx%beg
-
-            ! ===============================================================
-
-            if (alt_soundspeed .or. regularization) then
-                do j = 0, m
-                    do k = 0, n
-                        do l = 0, p
-                            blkmod1(j, k, l) = ((fluid_pp(1)%gamma + 1d0)*q_prim_qp%vf(E_idx)%sf(j, k, l) + &
-                                                fluid_pp(1)%pi_inf)/fluid_pp(1)%gamma
-                            blkmod2(j, k, l) = ((fluid_pp(2)%gamma + 1d0)*q_prim_qp%vf(E_idx)%sf(j, k, l) + &
-                                                fluid_pp(2)%pi_inf)/fluid_pp(2)%gamma
-                            alpha1(j, k, l) = q_cons_qp%vf(adv_idx%beg)%sf(j, k, l)
-
-                            if (bubbles) then
-                                alpha2(j, k, l) = q_cons_qp%vf(alf_idx - 1)%sf(j, k, l)
-                            else
-                                alpha2(j, k, l) = q_cons_qp%vf(adv_idx%end)%sf(j, k, l)
-                            end if
-
-                            Kterm(j, k, l) = alpha1(j, k, l)*alpha2(j, k, l)*(blkmod2(j, k, l) - blkmod1(j, k, l))/ &
-                                             (alpha1(j, k, l)*blkmod2(j, k, l) + alpha2(j, k, l)*blkmod1(j, k, l))
-                        end do
-                    end do
-                end do
-            end if
-
-            ! RHS Contribution in x-direction ===============================
-            if (i == 1) then
-
-                ! Compute upwind slope and flux limiter function value if TVD
-                ! flux limiter is chosen
-
-                ! Applying characteristic boundary conditions
-                if (bc_x%beg <= -5) then
-                    call s_cbc(q_prim_qp%vf, flux_ndqp(i)%vf, &
-                               flux_src_ndqp(i)%vf, i, -1, ix, iy, iz)
-                end if
-
-                if (bc_x%end <= -5) then
-                    call s_cbc(q_prim_qp%vf, flux_ndqp(i)%vf, &
-                               flux_src_ndqp(i)%vf, i, 1, ix, iy, iz)
-                end if
-
-                ! Applying the Riemann fluxes
-                do j = 1, sys_size
-                    do k = 0, m
-                        rhs_vf(j)%sf(k, :, :) = 1d0/dx(k)* &
-                                                (flux_ndqp(i)%vf(j)%sf(k - 1, 0:n, 0:p) &
-                                                 - flux_ndqp(i)%vf(j)%sf(k, 0:n, 0:p))
-                    end do
-                end do
-
-                ! Applying source terms to the RHS of the advection equations
-                if (riemann_solver == 1) then
-                    do j = adv_idx%beg, adv_idx%end
-                        do k = 0, m
-                            rhs_vf(j)%sf(k, :, :) = &
-                                rhs_vf(j)%sf(k, :, :) + 1d0/dx(k)* &
-                                q_prim_qp%vf(cont_idx%end + i)%sf(k, 0:n, 0:p)* &
-                                (flux_src_ndqp(i)%vf(j)%sf(k - 1, 0:n, 0:p) &
-                                 - flux_src_ndqp(i)%vf(j)%sf(k, 0:n, 0:p))
-                        end do
-                    end do
-                else
-                    do j = adv_idx%beg, adv_idx%end
-                        if (alt_soundspeed .or. regularization) then
-                            if (adv_alphan .and. (j == adv_idx%end) .and. (bubbles .neqv. .true.)) then
-                                !adv_idx%end, -k div(u)
-                                do k = 0, m
-                                    rhs_vf(j)%sf(k, :, :) = &
-                                        rhs_vf(j)%sf(k, :, :) + 1d0/dx(k)* &
-                                        (q_cons_qp%vf(j)%sf(k, 0:n, 0:p) - Kterm(k, :, :))* &
-                                        (flux_src_ndqp(i)%vf(j)%sf(k, 0:n, 0:p) &
-                                         - flux_src_ndqp(i)%vf(j)%sf(k - 1, 0:n, 0:p))
-                                end do
-                            else if (adv_alphan .and. (j == adv_idx%beg) .and. (bubbles .neqv. .true.)) then
-                                !adv_idx%beg, +k div(u)
-                                do k = 0, m
-                                    rhs_vf(j)%sf(k, :, :) = &
-                                        rhs_vf(j)%sf(k, :, :) + 1d0/dx(k)* &
-                                        (q_cons_qp%vf(j)%sf(k, 0:n, 0:p) + Kterm(k, :, :))* &
-                                        (flux_src_ndqp(i)%vf(j)%sf(k, 0:n, 0:p) &
-                                         - flux_src_ndqp(i)%vf(j)%sf(k - 1, 0:n, 0:p))
-                                end do
-                            else if (adv_alphan .and. (j == adv_idx%beg) .and. bubbles) then
-                                !liquid part, +k div(u)
-                                do k = 0, m
-                                    rhs_vf(j)%sf(k, :, :) = &
-                                        rhs_vf(j)%sf(k, :, :) + 1d0/dx(k)* &
-                                        (q_cons_qp%vf(j)%sf(k, 0:n, 0:p) + Kterm(k, :, :))* &
-                                        (flux_src_ndqp(i)%vf(j)%sf(k, 0:n, 0:p) &
-                                         - flux_src_ndqp(i)%vf(j)%sf(k - 1, 0:n, 0:p))
-                                end do
-                            else if (adv_alphan .and. (j == alf_idx - 1) .and. bubbles) then
-                                !resolved gas, -k div(u)
-                                do k = 0, m
-                                    rhs_vf(j)%sf(k, :, :) = &
-                                        rhs_vf(j)%sf(k, :, :) + 1d0/dx(k)* &
-                                        (q_cons_qp%vf(j)%sf(k, 0:n, 0:p) - Kterm(k, :, :))* &
-                                        (flux_src_ndqp(i)%vf(j)%sf(k, 0:n, 0:p) &
-                                         - flux_src_ndqp(i)%vf(j)%sf(k - 1, 0:n, 0:p))
-                                end do
-                            else if (adv_alphan .and. (j == alf_idx) .and. bubbles) then
-                                !bubble part, no k div(u)
-                                do k = 0, m
-                                    rhs_vf(j)%sf(k, :, :) = &
-                                        rhs_vf(j)%sf(k, :, :) + 1d0/dx(k)* &
-                                        q_cons_qp%vf(j)%sf(k, 0:n, 0:p)* &
-                                        (flux_src_ndqp(i)%vf(j)%sf(k, 0:n, 0:p) &
-                                         - flux_src_ndqp(i)%vf(j)%sf(k - 1, 0:n, 0:p))
-                                end do
-                            end if
-                        else
-                            !no k \div u, just adds other part of the transport equation
-                            do k = 0, m
-                                rhs_vf(j)%sf(k, :, :) = &
-                                    rhs_vf(j)%sf(k, :, :) + 1d0/dx(k)* &
-                                    q_cons_qp%vf(j)%sf(k, 0:n, 0:p)* &
-                                    (flux_src_ndqp(i)%vf(j)%sf(k, 0:n, 0:p) &
-                                     - flux_src_ndqp(i)%vf(j)%sf(k - 1, 0:n, 0:p))
-                            end do
-                        end if
-                    end do
-                end if
-
-                if (DEBUG) print *, 'pre-QBMM rhs'
-
-                if (bubbles) then
-                    if (qbmm) then
-                        ! advection source
-                        rhs_vf(alf_idx)%sf(0:m, 0:n, 0:p) = rhs_vf(alf_idx)%sf(0:m, 0:n, 0:p) + mom_sp(2)%sf(0:m, 0:n, 0:p)
-                        ! bubble sources
-                        j = bub_idx%beg
-                        do k = 1, nb
-                            rhs_vf(j)%sf(0:m, 0:n, 0:p) = rhs_vf(j)%sf(0:m, 0:n, 0:p) + mom_3d(0, 0, k)%sf(0:m, 0:n, 0:p)
-                            rhs_vf(j + 1)%sf(0:m, 0:n, 0:p) = rhs_vf(j + 1)%sf(0:m, 0:n, 0:p) + mom_3d(1, 0, k)%sf(0:m, 0:n, 0:p)
-                            rhs_vf(j + 2)%sf(0:m, 0:n, 0:p) = rhs_vf(j + 2)%sf(0:m, 0:n, 0:p) + mom_3d(0, 1, k)%sf(0:m, 0:n, 0:p)
-                            rhs_vf(j + 3)%sf(0:m, 0:n, 0:p) = rhs_vf(j + 3)%sf(0:m, 0:n, 0:p) + mom_3d(2, 0, k)%sf(0:m, 0:n, 0:p)
-                            rhs_vf(j + 4)%sf(0:m, 0:n, 0:p) = rhs_vf(j + 4)%sf(0:m, 0:n, 0:p) + mom_3d(1, 1, k)%sf(0:m, 0:n, 0:p)
-                            rhs_vf(j + 5)%sf(0:m, 0:n, 0:p) = rhs_vf(j + 5)%sf(0:m, 0:n, 0:p) + mom_3d(0, 2, k)%sf(0:m, 0:n, 0:p)
-                            j = j + 6
-                        end do
-                    else
-                        call s_get_divergence(i, q_prim_vf, divu)
-                        call s_compute_bubble_source(i, q_prim_vf, q_cons_vf, divu, &
-                                                     bub_adv_src, bub_r_src, bub_v_src, bub_p_src, bub_m_src)
-
-                        rhs_vf(alf_idx)%sf(:, :, :) = rhs_vf(alf_idx)%sf(:, :, :) + bub_adv_src(:, :, :)
-                        if (num_fluids > 1) rhs_vf(adv_idx%beg)%sf(:, :, :) = rhs_vf(adv_idx%beg)%sf(:, :, :) - bub_adv_src(:, :, :)
-
-                        do k = 1, nb
-                            rhs_vf(bub_idx%rs(k))%sf(:, :, :) = rhs_vf(bub_idx%rs(k))%sf(:, :, :) + bub_r_src(k, :, :, :)
-                            rhs_vf(bub_idx%vs(k))%sf(:, :, :) = rhs_vf(bub_idx%vs(k))%sf(:, :, :) + bub_v_src(k, :, :, :)
-                            if (polytropic .neqv. .true.) then
-                                rhs_vf(bub_idx%ps(k))%sf(:, :, :) = rhs_vf(bub_idx%ps(k))%sf(:, :, :) + bub_p_src(k, :, :, :)
-                                rhs_vf(bub_idx%ms(k))%sf(:, :, :) = rhs_vf(bub_idx%ms(k))%sf(:, :, :) + bub_m_src(k, :, :, :)
-                            end if
-                        end do
-                    end if
-                end if
-
-                if (DEBUG) print *, 'after bub sources'
-
-                if (monopole) then
-                    mono_mass_src = 0d0; mono_mom_src = 0d0; mono_e_src = 0d0; 
-                    do j = 1, num_mono
-                        call s_get_monopole(i, q_prim_vf, t_step, mono(j))
-                    end do
-                    do k = cont_idx%beg, cont_idx%end
-                        rhs_vf(k)%sf(:, :, :) = rhs_vf(k)%sf(:, :, :) + mono_mass_src(:, :, :)
-                    end do
-                    do k = mom_idx%beg, mom_idx%end
-                        rhs_vf(k)%sf(:, :, :) = rhs_vf(k)%sf(:, :, :) + mono_mom_src(k - cont_idx%end, :, :, :)
-                    end do
-                    rhs_vf(E_idx)%sf(:, :, :) = rhs_vf(E_idx)%sf(:, :, :) + mono_e_src(:, :, :)
-                end if
-
-                ! Applying source terms to the RHS of the internal energy equations
-                if (model_eqns == 3) then
-                    do j = 1, num_fluids
-                        do k = 0, m
-                            rhs_vf(j + internalEnergies_idx%beg - 1)%sf(k, :, :) = &
-                                rhs_vf(j + internalEnergies_idx%beg - 1)%sf(k, :, :) - 1d0/dx(k)* &
-                                q_cons_qp%vf(j + adv_idx%beg - 1)%sf(k, 0:n, 0:p)* &
-                                q_prim_qp%vf(E_idx)%sf(k, 0:n, 0:p)* &
-                                (flux_src_ndqp(i)%vf(adv_idx%beg)%sf(k, 0:n, 0:p) - &
-                                 flux_src_ndqp(i)%vf(adv_idx%beg)%sf(k - 1, 0:n, 0:p))
-                        end do
-                    end do
-                end if
-
-                ! ===============================================================
-
-                ! RHS Contribution in y-direction ===============================
-            elseif (i == 2) then
-                if (DEBUG) print *, 'get dir 2'
-
-                ! Applying characteristic boundary conditions
-                if (bc_y%beg <= -5 .and. bc_y%beg /= -13) then
-                    call s_cbc(q_prim_qp%vf, flux_ndqp(i)%vf, &
-                               flux_src_ndqp(i)%vf, i, -1, ix, iy, iz)
-                end if
-
-                if (bc_y%end <= -5) then
-                    call s_cbc(q_prim_qp%vf, flux_ndqp(i)%vf, &
-                               flux_src_ndqp(i)%vf, i, 1, ix, iy, iz)
-                end if
-
-                ! Applying the Riemann fluxes
-                do j = 1, sys_size
-                    do k = 0, n
-                        rhs_vf(j)%sf(:, k, :) = &
-                            rhs_vf(j)%sf(:, k, :) + 1d0/dy(k)* &
-                            (flux_ndqp(i)%vf(j)%sf(0:m, k - 1, 0:p) &
-                             - flux_ndqp(i)%vf(j)%sf(0:m, k, 0:p))
-                    end do
-                end do
-
-                ! Applying source terms to the RHS of the advection equations
-                if (riemann_solver == 1) then
-                    do j = adv_idx%beg, adv_idx%end
-                        do k = 0, n
-                            rhs_vf(j)%sf(:, k, :) = &
-                                rhs_vf(j)%sf(:, k, :) + 1d0/dy(k)* &
-                                q_prim_qp%vf(cont_idx%end + i)%sf(0:m, k, 0:p)* &
-                                (flux_src_ndqp(i)%vf(j)%sf(0:m, k - 1, 0:p) &
-                                 - flux_src_ndqp(i)%vf(j)%sf(0:m, k, 0:p))
-                        end do
-                    end do
-                else
-                    do j = adv_idx%beg, adv_idx%end
-                        do k = 0, n
-                            if (alt_soundspeed .or. regularization) then
-                                if (adv_alphan .and. (j == adv_idx%beg) .and. bubbles) then
-                                    !liquid part, +k div(u)
-                                    rhs_vf(j)%sf(:, k, :) = &
-                                        rhs_vf(j)%sf(:, k, :) + 1d0/dy(k)* &
-                                        (q_cons_qp%vf(j)%sf(0:m, k, 0:p) + Kterm(:, k, :))* &
-                                        (flux_src_ndqp(i)%vf(j)%sf(0:m, k, 0:p) &
-                                         - flux_src_ndqp(i)%vf(j)%sf(0:m, k - 1, 0:p))
-                                else if (adv_alphan .and. (j == alf_idx - 1) .and. bubbles) then
-                                    !resolved gas, -k div(u)
-                                    rhs_vf(j)%sf(:, k, :) = &
-                                        rhs_vf(j)%sf(:, k, :) + 1d0/dy(k)* &
-                                        (q_cons_qp%vf(j)%sf(0:m, k, 0:p) - Kterm(:, k, :))* &
-                                        (flux_src_ndqp(i)%vf(j)%sf(0:m, k, 0:p) &
-                                         - flux_src_ndqp(i)%vf(j)%sf(0:m, k - 1, 0:p))
-                                else if (adv_alphan .and. (j == alf_idx) .and. bubbles) then
-                                    !bubble part, no k div(u)
-                                    rhs_vf(j)%sf(:, k, :) = &
-                                        rhs_vf(j)%sf(:, k, :) + 1d0/dy(k)* &
-                                        q_cons_qp%vf(j)%sf(0:m, k, 0:p)* &
-                                        (flux_src_ndqp(i)%vf(j)%sf(0:m, k, 0:p) &
-                                         - flux_src_ndqp(i)%vf(j)%sf(0:m, k - 1, 0:p))
-                                else if (adv_alphan .and. (j == adv_idx%end)) then
-                                    rhs_vf(j)%sf(:, k, :) = &
-                                        rhs_vf(j)%sf(:, k, :) + 1d0/dy(k)* &
-                                        (q_cons_qp%vf(j)%sf(0:m, k, 0:p) - Kterm(:, k, :))* &
-                                        (flux_src_ndqp(i)%vf(j)%sf(0:m, k, 0:p) &
-                                         - flux_src_ndqp(i)%vf(j)%sf(0:m, k - 1, 0:p))
-                                    if (cyl_coord) then
-                                        rhs_vf(j)%sf(:, k, :) = &
-                                            rhs_vf(j)%sf(:, k, :) - Kterm(:, k, :)/2d0/y_cc(k)* &
-                                            (flux_src_ndqp(i)%vf(j)%sf(0:m, k, 0:p) &
-                                             + flux_src_ndqp(i)%vf(j)%sf(0:m, k - 1, 0:p))
-                                    end if
-                                else
-                                    rhs_vf(j)%sf(:, k, :) = &
-                                        rhs_vf(j)%sf(:, k, :) + 1d0/dy(k)* &
-                                        (q_cons_qp%vf(j)%sf(0:m, k, 0:p) + Kterm(:, k, :))* &
-                                        (flux_src_ndqp(i)%vf(j)%sf(0:m, k, 0:p) &
-                                         - flux_src_ndqp(i)%vf(j)%sf(0:m, k - 1, 0:p))
-                                    if (cyl_coord) then
-                                        rhs_vf(j)%sf(:, k, :) = &
-                                            rhs_vf(j)%sf(:, k, :) + Kterm(:, k, :)/2d0/y_cc(k)* &
-                                            (flux_src_ndqp(i)%vf(j)%sf(0:m, k, 0:p) &
-                                             + flux_src_ndqp(i)%vf(j)%sf(0:m, k - 1, 0:p))
-                                    end if
-                                end if
-                            else
-                                rhs_vf(j)%sf(:, k, :) = &
-                                    rhs_vf(j)%sf(:, k, :) + 1d0/dy(k)* &
-                                    q_cons_qp%vf(j)%sf(0:m, k, 0:p)* &
-                                    (flux_src_ndqp(i)%vf(j)%sf(0:m, k, 0:p) &
-                                     - flux_src_ndqp(i)%vf(j)%sf(0:m, k - 1, 0:p))
-                            end if
-                        end do
-                    end do
-                end if
-
-                if (bubbles) then
-                    call s_get_divergence(i, q_prim_vf, divu)
-                    call s_compute_bubble_source(i, q_prim_vf, q_cons_vf, divu, &
-                                                 bub_adv_src, bub_r_src, bub_v_src, bub_p_src, bub_m_src)
-
-                    rhs_vf(alf_idx)%sf(:, :, :) = rhs_vf(alf_idx)%sf(:, :, :) + bub_adv_src(:, :, :)
-                    if (num_fluids > 1) rhs_vf(adv_idx%beg)%sf(:, :, :) = rhs_vf(adv_idx%beg)%sf(:, :, :) - bub_adv_src(:, :, :)
-
-                    do k = 1, nb
-                        rhs_vf(bub_idx%rs(k))%sf(:, :, :) = rhs_vf(bub_idx%rs(k))%sf(:, :, :) + bub_r_src(k, :, :, :)
-                        rhs_vf(bub_idx%vs(k))%sf(:, :, :) = rhs_vf(bub_idx%vs(k))%sf(:, :, :) + bub_v_src(k, :, :, :)
-                        if (polytropic .neqv. .true.) then
-                            rhs_vf(bub_idx%ps(k))%sf(:, :, :) = rhs_vf(bub_idx%ps(k))%sf(:, :, :) + bub_p_src(k, :, :, :)
-                            rhs_vf(bub_idx%ms(k))%sf(:, :, :) = rhs_vf(bub_idx%ms(k))%sf(:, :, :) + bub_m_src(k, :, :, :)
-                        end if
-                    end do
-                end if
-
-                if (monopole) then
-                    mono_mass_src = 0d0; mono_mom_src = 0d0; mono_e_src = 0d0; 
-                    do j = 1, num_mono
-                        call s_get_monopole(i, q_prim_vf, t_step, mono(j))
-                    end do
-
-                    do k = cont_idx%beg, cont_idx%end
-                        rhs_vf(k)%sf(:, :, :) = rhs_vf(k)%sf(:, :, :) + mono_mass_src(:, :, :)
-                    end do
-
-                    do k = mom_idx%beg, mom_idx%end
-                        rhs_vf(k)%sf(:, :, :) = rhs_vf(k)%sf(:, :, :) + mono_mom_src(k - cont_idx%end, :, :, :)
-                    end do
-                    rhs_vf(E_idx)%sf(:, :, :) = rhs_vf(E_idx)%sf(:, :, :) + mono_e_src(:, :, :)
-                end if
-
-                ! Applying source terms to the RHS of the internal energy equations
-                if (model_eqns == 3) then
-                    do j = 1, num_fluids
-                        do k = 0, n
-                            rhs_vf(j + internalEnergies_idx%beg - 1)%sf(:, k, :) = &
-                                rhs_vf(j + internalEnergies_idx%beg - 1)%sf(:, k, :) - 1d0/dy(k)* &
-                                q_cons_qp%vf(j + adv_idx%beg - 1)%sf(0:m, k, 0:p)* &
-                                q_prim_qp%vf(E_idx)%sf(0:m, k, 0:p)* &
-                                (flux_src_ndqp(i)%vf(adv_idx%beg)%sf(0:m, k, 0:p) - &
-                                 flux_src_ndqp(i)%vf(adv_idx%beg)%sf(0:m, k - 1, 0:p))
-                        end do
-                    end do
-
-                    ! Applying the additional geometrical inviscid Riemann
-                    ! source fluxes for the internal energy equations
-                    ! using the average of velocities at cell boundaries
-                    if (cyl_coord) then
-                        do j = 1, num_fluids
-                            do k = 0, n
-                                rhs_vf(j + internalEnergies_idx%beg - 1)%sf(:, k, :) = &
-                                    rhs_vf(j + internalEnergies_idx%beg - 1)%sf(:, k, :) - 5d-1/y_cc(k)* &
-                                    q_cons_qp%vf(j + adv_idx%beg - 1)%sf(0:m, k, 0:p)* &
-                                    q_prim_qp%vf(E_idx)%sf(0:m, k, 0:p)* &
-                                    (flux_src_ndqp(i)%vf(adv_idx%beg)%sf(0:m, k, 0:p) + &
-                                     flux_src_ndqp(i)%vf(adv_idx%beg)%sf(0:m, k - 1, 0:p))
-                            end do
-                        end do
-                    end if
-                end if
-
-                ! Applying the geometrical inviscid Riemann source fluxes calculated as average
-                ! of values at cell boundaries
-                if (cyl_coord) then
-                    do j = 1, sys_size
-                        do k = 0, n
-                            rhs_vf(j)%sf(:, k, :) = &
-                                rhs_vf(j)%sf(:, k, :) - 5d-1/y_cc(k)* &
-                                (flux_gsrc_ndqp(i)%vf(j)%sf(0:m, k - 1, 0:p) &
-                                 + flux_gsrc_ndqp(i)%vf(j)%sf(0:m, k, 0:p))
-                        end do
-                    end do
-                end if
-
-                ! Applying interface sharpening regularization source terms
-                if (regularization .and. num_dims == 2) then
-                    call s_compute_regularization_source(i, q_prim_vf)
-                    do j = cont_idx%beg, adv_idx%end
-                        rhs_vf(j)%sf(:, :, :) = rhs_vf(j)%sf(:, :, :) + reg_src_vf(j)%sf(:, :, :)
-                    end do
-                end if
-
-                ! ===============================================================
-
-                ! RHS Contribution in z-direction ===============================
-            else
-                if (DEBUG) print *, 'dir = 3'
-                ! Compute upwind slope and flux limiter function value if TVD
-                ! flux limiter is chosen
-
-                ! Applying characteristic boundary conditions
-                if (bc_z%beg <= -5) then
-                    call s_cbc(q_prim_qp%vf, flux_ndqp(i)%vf, &
-                               flux_src_ndqp(i)%vf, i, -1, ix, iy, iz)
-                end if
-
-                if (bc_z%end <= -5) then
-                    call s_cbc(q_prim_qp%vf, flux_ndqp(i)%vf, &
-                               flux_src_ndqp(i)%vf, i, 1, ix, iy, iz)
-                end if
-
-                ! Applying the Riemann fluxes
-                do j = 1, sys_size
-                    if (grid_geometry == 3) then
-                        do l = 0, n
-                            do k = 0, p
-                                rhs_vf(j)%sf(:, l, k) = &
-                                    rhs_vf(j)%sf(:, l, k) + 1d0/dz(k)/y_cc(l)* &
-                                    (flux_ndqp(i)%vf(j)%sf(0:m, l, k - 1) &
-                                     - flux_ndqp(i)%vf(j)%sf(0:m, l, k))
-                            end do
-                        end do
-                    else
-                        do k = 0, p
-                            rhs_vf(j)%sf(:, :, k) = &
-                                rhs_vf(j)%sf(:, :, k) + 1d0/dz(k)* &
-                                (flux_ndqp(i)%vf(j)%sf(0:m, 0:n, k - 1) &
-                                 - flux_ndqp(i)%vf(j)%sf(0:m, 0:n, k))
-                        end do
-                    end if
-                end do
-
-                ! Applying source terms to the RHS of the advection equations
-                if (riemann_solver == 1) then
-                    do j = adv_idx%beg, adv_idx%end
-                        if (grid_geometry == 3) then
-                            do l = 0, n
-                                do k = 0, p
-                                    rhs_vf(j)%sf(:, l, k) = &
-                                        rhs_vf(j)%sf(:, l, k) + 1d0/dz(k)/y_cc(l)* &
-                                        q_prim_qp%vf(cont_idx%end + i)%sf(0:m, l, k)* &
-                                        (flux_src_ndqp(i)%vf(j)%sf(0:m, l, k - 1) &
-                                         - flux_src_ndqp(i)%vf(j)%sf(0:m, l, k))
-                                end do
-                            end do
-                        else
-                            do k = 0, p
-                                rhs_vf(j)%sf(:, :, k) = &
-                                    rhs_vf(j)%sf(:, :, k) + 1d0/dz(k)* &
-                                    q_prim_qp%vf(cont_idx%end + i)%sf(0:m, 0:n, k)* &
-                                    (flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k - 1) &
-                                     - flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k))
-                            end do
-                        end if
-                    end do
-                else
-                    do j = adv_idx%beg, adv_idx%end
-                        if (grid_geometry == 3) then
-                            do l = 0, n
-                                do k = 0, p
-                                    if (alt_soundspeed .or. regularization) then
-                                        if (adv_alphan .and. j == adv_idx%end) then
-                                            rhs_vf(j)%sf(:, l, k) = &
-                                                rhs_vf(j)%sf(:, l, k) + 1d0/dz(k)/y_cc(l)* &
-                                                (q_cons_qp%vf(j)%sf(0:m, l, k) - Kterm(:, l, k))* &
-                                                (flux_src_ndqp(i)%vf(j)%sf(0:m, l, k) &
-                                                 - flux_src_ndqp(i)%vf(j)%sf(0:m, l, k - 1))
-                                        else
-                                            rhs_vf(j)%sf(:, l, k) = &
-                                                rhs_vf(j)%sf(:, l, k) + 1d0/dz(k)/y_cc(l)* &
-                                                (q_cons_qp%vf(j)%sf(0:m, l, k) + Kterm(:, l, k))* &
-                                                (flux_src_ndqp(i)%vf(j)%sf(0:m, l, k) &
-                                                 - flux_src_ndqp(i)%vf(j)%sf(0:m, l, k - 1))
-                                        end if
-                                    else
-                                        rhs_vf(j)%sf(:, l, k) = &
-                                            rhs_vf(j)%sf(:, l, k) + 1d0/dz(k)/y_cc(l)* &
-                                            q_cons_qp%vf(j)%sf(0:m, l, k)* &
-                                            (flux_src_ndqp(i)%vf(j)%sf(0:m, l, k) &
-                                             - flux_src_ndqp(i)%vf(j)%sf(0:m, l, k - 1))
-                                    end if
-                                end do
-                            end do
-                        else
-                            do k = 0, p
-                                if (alt_soundspeed .or. regularization) then
-                                    if (adv_alphan .and. (j == adv_idx%beg) .and. bubbles) then
-                                        !liquid part, +k div(u)
-                                        rhs_vf(j)%sf(:, :, k) = &
-                                            rhs_vf(j)%sf(:, :, k) + 1d0/dz(k)* &
-                                            (q_cons_qp%vf(j)%sf(0:m, 0:n, k) + Kterm(:, :, k))* &
-                                            (flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k) &
-                                             - flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k - 1))
-
-                                    else if (adv_alphan .and. (j == alf_idx - 1) .and. bubbles) then
-                                        !resolved gas, -k div(u)
-                                        rhs_vf(j)%sf(:, :, k) = &
-                                            rhs_vf(j)%sf(:, :, k) + 1d0/dz(k)* &
-                                            (q_cons_qp%vf(j)%sf(0:m, 0:n, k) - Kterm(:, :, k))* &
-                                            (flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k) &
-                                             - flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k - 1))
-                                    else if (adv_alphan .and. (j == alf_idx) .and. bubbles) then
-                                        !bubble part, no k div(u)
-                                        rhs_vf(j)%sf(:, :, k) = &
-                                            rhs_vf(j)%sf(:, :, k) + 1d0/dz(k)* &
-                                            q_cons_qp%vf(j)%sf(0:m, 0:n, k)* &
-                                            (flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k) &
-                                             - flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k - 1))
-                                    else if (adv_alphan .and. j == adv_idx%end) then
-                                        rhs_vf(j)%sf(:, :, k) = &
-                                            rhs_vf(j)%sf(:, :, k) + 1d0/dz(k)* &
-                                            (q_cons_qp%vf(j)%sf(0:m, 0:n, k) - Kterm(:, :, k))* &
-                                            (flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k) &
-                                             - flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k - 1))
-                                    else
-                                        rhs_vf(j)%sf(:, :, k) = &
-                                            rhs_vf(j)%sf(:, :, k) + 1d0/dz(k)* &
-                                            (q_cons_qp%vf(j)%sf(0:m, 0:n, k) + Kterm(:, :, k))* &
-                                            (flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k) &
-                                             - flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k - 1))
-                                    end if
-                                else
-                                    rhs_vf(j)%sf(:, :, k) = &
-                                        rhs_vf(j)%sf(:, :, k) + 1d0/dz(k)* &
-                                        q_cons_qp%vf(j)%sf(0:m, 0:n, k)* &
-                                        (flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k) &
-                                         - flux_src_ndqp(i)%vf(j)%sf(0:m, 0:n, k - 1))
-                                end if
-                            end do
-                        end if
-                    end do
-                end if
-
-                if (bubbles) then
-                    call s_get_divergence(i, q_prim_vf, divu)
-                    call s_compute_bubble_source(i, q_prim_vf, q_cons_vf, divu, &
-                                                 bub_adv_src, bub_r_src, bub_v_src, bub_p_src, bub_m_src)
-
-                    rhs_vf(alf_idx)%sf(:, :, :) = rhs_vf(alf_idx)%sf(:, :, :) + bub_adv_src(:, :, :)
-                    if (num_fluids > 1) rhs_vf(adv_idx%beg)%sf(:, :, :) = rhs_vf(adv_idx%beg)%sf(:, :, :) - bub_adv_src(:, :, :)
-
-                    do k = 1, nb
-                        rhs_vf(bub_idx%rs(k))%sf(:, :, :) = rhs_vf(bub_idx%rs(k))%sf(:, :, :) + bub_r_src(k, :, :, :)
-                        rhs_vf(bub_idx%vs(k))%sf(:, :, :) = rhs_vf(bub_idx%vs(k))%sf(:, :, :) + bub_v_src(k, :, :, :)
-                        if (polytropic .neqv. .true.) then
-                            rhs_vf(bub_idx%ps(k))%sf(:, :, :) = rhs_vf(bub_idx%ps(k))%sf(:, :, :) + bub_p_src(k, :, :, :)
-                            rhs_vf(bub_idx%ms(k))%sf(:, :, :) = rhs_vf(bub_idx%ms(k))%sf(:, :, :) + bub_m_src(k, :, :, :)
-                        end if
-                    end do
-                end if
-
-                if (monopole) then
-                    mono_mass_src = 0d0; mono_mom_src = 0d0; mono_e_src = 0d0; 
-                    do j = 1, num_mono
-                        call s_get_monopole(i, q_prim_vf, t_step, mono(j))
-                    end do
-                    do k = cont_idx%beg, cont_idx%end
-                        rhs_vf(k)%sf(:, :, :) = rhs_vf(k)%sf(:, :, :) + mono_mass_src(:, :, :)
-                    end do
-                    do k = mom_idx%beg, mom_idx%end
-                        rhs_vf(k)%sf(:, :, :) = rhs_vf(k)%sf(:, :, :) + mono_mom_src(k - cont_idx%end, :, :, :)
-                    end do
-                    rhs_vf(E_idx)%sf(:, :, :) = rhs_vf(E_idx)%sf(:, :, :) + mono_e_src(:, :, :)
-                end if
-
-
-                ! Applying source terms to the RHS of the internal energy equations
-                if (model_eqns == 3) then
-                    do j = 1, num_fluids
-                        do k = 0, p
-                            rhs_vf(j + internalEnergies_idx%beg - 1)%sf(:, :, k) = &
-                                rhs_vf(j + internalEnergies_idx%beg - 1)%sf(:, :, k) - 1d0/dz(k)* &
-                                q_cons_qp%vf(j + adv_idx%beg - 1)%sf(0:m, 0:n, k)* &
-                                q_prim_qp%vf(E_idx)%sf(0:m, 0:n, k)* &
-                                (flux_src_ndqp(i)%vf(adv_idx%beg)%sf(0:m, 0:n, k) - &
-                                 flux_src_ndqp(i)%vf(adv_idx%beg)%sf(0:m, 0:n, k - 1))
-                        end do
-                    end do
-                end if
-
-                ! Applying the geometrical inviscid Riemann source fluxes calculated as average
-                ! of values at cell boundaries
-                if (grid_geometry == 3) then
-                    do j = 1, sys_size
-                        do l = 0, n
-                            do k = 0, p
-                                rhs_vf(j)%sf(:, l, k) = &
-                                    rhs_vf(j)%sf(:, l, k) - 5d-1/y_cc(l)* &
-                                    (flux_gsrc_ndqp(i)%vf(j)%sf(0:m, l, k - 1) &
-                                     + flux_gsrc_ndqp(i)%vf(j)%sf(0:m, l, k))
-                            end do
-                        end do
-                    end do
-                end if
-
-            end if
-            ! ===============================================================
-
-        end do
-        ! END: Dimensional Splitting Loop ==================================
-
-        ! Disassociation of Working Variables ==============================
-        do i = 1, sys_size
-            nullify (q_cons_qp%vf(i)%sf, q_prim_qp%vf(i)%sf)
-        end do
-        ! ==================================================================
-
-    end subroutine s_compute_rhs ! -----------------------------------------
-
 
     !> Gets the divergence term for k div(U)
     !> @param idir Coordinate direction
@@ -3266,15 +2434,9 @@ contains
                     deallocate (flux_gsrc_ndqp(i)%vf(l)%sf)
                 end do
 
-                if (riemann_solver == 1) then
-                    do l = adv_idx%beg + 1, adv_idx%end
-                        deallocate (flux_src_ndqp(i)%vf(l)%sf)
-                    end do
-                else
-                    do l = adv_idx%beg + 1, adv_idx%end
-                        nullify (flux_src_ndqp(i)%vf(l)%sf)
-                    end do
-                end if
+                do l = adv_idx%beg + 1, adv_idx%end
+                    nullify (flux_src_ndqp(i)%vf(l)%sf)
+                end do
 
                 deallocate (flux_src_ndqp(i)%vf(adv_idx%beg)%sf)
 
@@ -3287,10 +2449,6 @@ contains
         deallocate (flux_ndqp, flux_src_ndqp, flux_gsrc_ndqp)
 
         ! END: Deallocation/Disassociation of flux_ndqp, flux_src_ndqp, and flux_gsrc_ndqp  ===
-
-        ! Disassociating procedural pointer to the subroutine which was
-        ! utilized to calculate the solution of a given Riemann problem
-        s_riemann_solver => null()
 
         ! Disassociating the pointer to the procedure that was utilized to
         ! to convert mixture or species variables to the mixture variables

@@ -55,6 +55,8 @@ module m_weno
     use m_variables_conversion !< State variables type conversion procedures
 
     use openacc
+
+    use m_mpi_proxy
     ! ==========================================================================
 
     ! implicit none
@@ -96,6 +98,7 @@ contains
 
         type(bounds_info) :: ix, iy, iz !< Indical bounds in the x-, y- and z-directions
         integer :: i
+        integer :: ixb_full, ixe_full
 
         ! Allocating WENO-stencil for the variables to be WENO-reconstructed
         allocate (v_rs_wsL(-weno_polyn:weno_polyn))
@@ -124,9 +127,13 @@ contains
 
         allocate(v_rs_wsL_flat( ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end, -weno_polyn:weno_polyn, 1:sys_size))
 
-        allocate(v_flat(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
-        allocate(vL_vf_flat(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
-        allocate(vR_vf_flat(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
+        ixb_full = -buff_size; ixe_full = m + buff_size
+        ! print*, 'buff_size: ', buff_size
+
+        allocate(v_flat(ixb_full:ixe_full, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
+
+        allocate(vL_vf_flat(ixb_full:ixe_full, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
+        allocate(vR_vf_flat(ixb_full:ixe_full, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
 
         call s_compute_weno_coefficients(ix)
 
@@ -167,16 +174,16 @@ contains
         real(kind(0d0)), parameter :: alpha_mp = 2d0
         real(kind(0d0)), parameter :: beta_mp = 4d0/3d0
 
-        ! if (proc_rank == 0) print*, 'using alt weno'
+        ! v_weno_global_var%vf(i)%sf(j,k,l) = v_vf(i)%sf(j,k,l)
+        !! call acc_map_data? 
+
+        ixb = ix%beg
+        ixe = ix%end
 
         do j = 1,sys_size
             v_flat(:,:,:,j) = v_vf(j)%sf(:,:,:)
         end do
 
-        ixb = ix%beg
-        ixe = ix%end
-
-        ! call system_clock(t1, c_rate, c_max)
 
         k = 0; l = 0
         !$acc data copyin(v_flat) copyout(vL_vf_flat,vR_vf_flat) present(v_rs_wsL_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef)
@@ -410,15 +417,26 @@ contains
         ! print *, "Took: ", real(t2 - t1) / real(c_rate)
 
         ! do i = ixb, ixe
-        !     print*, 'v, vL, vR ', v_flat(i,0,0,1), &
-        !         vL_vf_flat(i,0,0,1), vR_vf_flat(i,0,0,1)
+        !     print*, 'v,vL,vR', &
+        !         v_flat(i,0,0,1), &
+        !         vL_vf_flat(i,0,0,1), &
+        !         vR_vf_flat(i,0,0,1)
         ! end do
 
-
         do j = 1,sys_size
-            vL_vf_flat(:,:,:,j) = vL_vf(j)%sf(:,:,:)
-            vR_vf_flat(:,:,:,j) = vR_vf(j)%sf(:,:,:)
+            do i = ixb,ixe
+                vL_vf(j)%sf(i,0,0) = vL_vf_flat(i,0,0,j)
+                vR_vf(j)%sf(i,0,0) = vR_vf_flat(i,0,0,j)
+            end do
         end do
+
+        ! do i = ixb, ixe
+        !     print*, '** vL, vR ', &
+        !         vL_vf(1)%sf(i,0,0), &
+        !         vR_vf(1)%sf(i,0,0)
+        ! end do
+
+        ! call s_mpi_abort()
 
     end subroutine s_weno_alt
 
@@ -567,6 +585,8 @@ contains
 !                deallocate (v_rs_wsL(i)%vf(j)%sf)
 !            end do
 !        end do
+
+
 
     end subroutine s_weno 
 

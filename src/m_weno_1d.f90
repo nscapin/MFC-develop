@@ -457,6 +457,16 @@ contains
             call s_associate_weno_coefficients_pointers
         end if
 
+        v_weno_global_var%vf(i)%sf(j,k,l) = v_vf(i)%sf(j,k,l)
+        !! call acc_map_data? 
+
+        ! weno global is setup once and for all on global weno module using
+        ! proper allocation and acc setup per example
+
+        ! v_vf has similar strucutre but is just passed into this code and goes
+        ! up the code chain significantly, want to avoid putting acc statements 
+        ! all the way up
+
         ! WENO1 ============================================================
         if (weno_order == 1) then
 
