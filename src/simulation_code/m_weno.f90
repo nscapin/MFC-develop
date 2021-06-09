@@ -158,7 +158,7 @@ contains
         ixb = ix%beg
         ixe = ix%end
 
-        call system_clock(t1, c_rate, c_max)
+        ! call system_clock(t1, c_rate, c_max)
 
         k = 0; l = 0
         !$acc data copyin(v_flat) copyout(vL_vf_flat,vR_vf_flat) present(v_rs_wsL_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef)
@@ -177,6 +177,8 @@ contains
         !$acc parallel loop gang vector private(dvd, poly, beta, alpha, omega)
         do j = ixb, ixe
             do i = 1, sys_size
+
+                !!! L Reconstruction
                 dvd(1) = v_rs_wsL_flat(j, k, l, 2, i) &
                          - v_rs_wsL_flat(j, k, l, 1, i)
                 dvd(0) = v_rs_wsL_flat(j, k, l, 1, i) &
@@ -211,8 +213,14 @@ contains
 
                 alpha = d_L(:, j)/(beta*beta)
                 omega = alpha/sum(alpha)
+
+                if (mapped_weno) then
+                    call s_map_nonlinear_weights(d_L(:, j), alpha, omega)
+                end if
+
                 vL_vf_flat(j, k, l, i) = sum(omega*poly)
 
+                !!! R Reconstruction
                 dvd(1) = v_rs_wsL_flat(j, k, l, 2, i) &
                        - v_rs_wsL_flat(j, k, l, 1, i)
                 dvd(0) = v_rs_wsL_flat(j, k, l, 1, i) &
@@ -248,18 +256,42 @@ contains
                 alpha = d_R(:, j)/(beta*beta)
                 omega = alpha/sum(alpha)
 
+                if (mapped_weno) then
+                    call s_map_nonlinear_weights(d_R(:, j), alpha, omega)
+                end if
+
                 vR_vf_flat(j, k, l, i) = sum(omega*poly)
             end do
         end do
         !$acc end parallel loop 
         !$acc end data
 
-        call system_clock(t2)
-        print *, "Took: ", real(t2 - t1) / real(c_rate)
+        ! call system_clock(t2)
+        ! print *, "Took: ", real(t2 - t1) / real(c_rate)
 
-        ! deallocate(v_rs_wsL_flat, vL_vf_flat, vR_vf_flat, v_flat)
+        ! do i = ixb, ixe
+        !     print*, 'v, vL, vR ', v_flat(i,0,0,1), &
+        !         vL_vf_flat(i,0,0,1), vR_vf_flat(i,0,0,1)
+        ! end do
 
     end subroutine s_weno_alt
+
+    subroutine s_map_nonlinear_weights(d_K, alpha_K, omega_K) ! ------------
+    !$acc routine seq 
+
+        real(kind(0d0)), dimension(0:2), intent(IN)    ::     d_K
+        real(kind(0d0)), dimension(0:2), intent(INOUT) :: alpha_K
+        real(kind(0d0)), dimension(0:2), intent(INOUT) :: omega_K
+
+        ! Mapping the WENO nonlinear weights to the WENOM nonlinear weights
+        if (minval(d_K) == 0d0 .or. maxval(d_K) == 1d0) return
+
+        alpha_K = (d_K*(1d0 + d_K - 3d0*omega_K) + omega_K**2d0) &
+                  *(omega_K/(d_K**2d0 + omega_K*(1d0 - 2d0*d_K)))
+
+        omega_K = alpha_K/sum(alpha_K)
+
+    end subroutine s_map_nonlinear_weights ! -------------------------------
 
 
     subroutine s_weno(v_vf, vL_vf, vR_vf, weno_dir_dummy, ix, iy, iz)
@@ -297,7 +329,6 @@ contains
             end do
         end do
 
-        !!!!$acc parallel loop
         do i = 1, sys_size
             do l = iz%beg, iz%end
                 do k = iy%beg, iy%end
