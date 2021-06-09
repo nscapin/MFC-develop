@@ -158,7 +158,7 @@ contains
         ixb = ix%beg
         ixe = ix%end
 
-        call system_clock(t1, c_rate, c_max)
+        ! call system_clock(t1, c_rate, c_max)
 
         k = 0; l = 0
         !$acc data copyin(v_flat) copyout(vL_vf_flat,vR_vf_flat) present(v_rs_wsL_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef)
@@ -249,17 +249,28 @@ contains
                 omega = alpha/sum(alpha)
 
                 vR_vf_flat(j, k, l, i) = sum(omega*poly)
+
+                call blah(a)
             end do
         end do
         !$acc end parallel loop 
         !$acc end data
 
-        call system_clock(t2)
-        print *, "Took: ", real(t2 - t1) / real(c_rate)
+        ! call system_clock(t2)
+        ! print *, "Took: ", real(t2 - t1) / real(c_rate)
 
-        ! deallocate(v_rs_wsL_flat, vL_vf_flat, vR_vf_flat, v_flat)
+        ! do i = ixb, ixe
+        !     print*, 'v, vL, vR ', v_flat(i,0,0,1), &
+        !         vL_vf_flat(i,0,0,1), vR_vf_flat(i,0,0,1)
+        ! end do
 
     end subroutine s_weno_alt
+
+
+    subroutine blah(a)
+    !$acc routine seq 
+
+    end subroutine blah
 
 
     subroutine s_weno(v_vf, vL_vf, vR_vf, weno_dir_dummy, ix, iy, iz)
@@ -297,7 +308,6 @@ contains
             end do
         end do
 
-        !!!!$acc parallel loop
         do i = 1, sys_size
             do l = iz%beg, iz%end
                 do k = iy%beg, iy%end
