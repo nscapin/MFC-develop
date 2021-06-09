@@ -63,6 +63,11 @@ module m_weno
                        s_finalize_weno_module, s_weno_alt
 
     type(vector_field), allocatable, dimension(:) :: v_rs_wsL
+    !$acc declare create(v_rs_wsL)
+
+    type(scalar_field), allocatable, dimension(:) :: v_vf
+    type(scalar_field), allocatable, dimension(:) :: vL_vf, vR_vf
+    !$acc declare create(v_vf, vL_vf, vR_vf)
 
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_L
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_R
@@ -143,13 +148,26 @@ contains
         real(kind(0d0)), dimension(0:2) :: beta 
         real(kind(0d0)), pointer :: beta_p(:)
 
-
         integer :: i, j, k, l, r, s
         integer :: ixb, ixe
         
         integer :: t1, t2, c_rate, c_max
 
-        if (proc_rank == 0) print*, 'using alt weno'
+        ! MP_WENO
+        real(kind(0d0)), dimension(-1:1) :: d
+
+        real(kind(0d0)) :: d_MD, d_LC
+
+        real(kind(0d0)) :: vL_UL, vR_UL
+        real(kind(0d0)) :: vL_MD, vR_MD
+        real(kind(0d0)) :: vL_LC, vR_LC
+        real(kind(0d0)) :: vL_min, vR_min
+        real(kind(0d0)) :: vL_max, vR_max
+
+        real(kind(0d0)), parameter :: alpha_mp = 2d0
+        real(kind(0d0)), parameter :: beta_mp = 4d0/3d0
+
+        ! if (proc_rank == 0) print*, 'using alt weno'
 
         do j = 1,sys_size
             v_flat(:,:,:,j) = v_vf(j)%sf(:,:,:)
@@ -172,7 +190,7 @@ contains
                 end do
             end do
         end do
-        !$acc end parallel
+        !$acc end parallel loop
 
         !$acc parallel loop gang vector private(dvd, poly, beta, alpha, omega)
         do j = ixb, ixe
@@ -264,6 +282,128 @@ contains
             end do
         end do
         !$acc end parallel loop 
+
+        if (mp_weno) then
+        !$acc parallel loop gang vector private(d)
+        do j = ixb, ixe
+            do i = 1, sys_size
+
+                ! Left Monotonicity Preserving Bound
+                d(-1) = v_rs_wsL_flat(j, k, l, 0, i) &
+                        + v_rs_wsL_flat(j, k, l, -2, i) &
+                        - v_rs_wsL_flat(j, k, l, -1, i) &
+                        *2d0
+                d(0) = v_rs_wsL_flat(j, k, l, 1, i) &
+                       + v_rs_wsL_flat(j, k, l, -1, i) &
+                       - v_rs_wsL_flat(j, k, l, 0, i) &
+                       *2d0
+                d(1) = v_rs_wsL_flat(j, k, l, 2, i) &
+                       + v_rs_wsL_flat(j, k, l, 0, i) &
+                       - v_rs_wsL_flat(j, k, l, 1, i) &
+                       *2d0
+
+                d_MD = (sign(1d0, 4d0*d(-1) - d(0)) + sign(1d0, 4d0*d(0) - d(-1))) &
+                       *abs((sign(1d0, 4d0*d(-1) - d(0)) + sign(1d0, d(-1))) &
+                            *(sign(1d0, 4d0*d(-1) - d(0)) + sign(1d0, d(0)))) &
+                       *min(abs(4d0*d(-1) - d(0)), abs(d(-1)), &
+                            abs(4d0*d(0) - d(-1)), abs(d(0)))/8d0
+
+                d_LC = (sign(1d0, 4d0*d(0) - d(1)) + sign(1d0, 4d0*d(1) - d(0))) &
+                       *abs((sign(1d0, 4d0*d(0) - d(1)) + sign(1d0, d(0))) &
+                            *(sign(1d0, 4d0*d(0) - d(1)) + sign(1d0, d(1)))) &
+                       *min(abs(4d0*d(0) - d(1)), abs(d(0)), &
+                            abs(4d0*d(1) - d(0)), abs(d(1)))/8d0
+
+                vL_UL = v_rs_wsL_flat(j, k, l, 0, i) &
+                        - (v_rs_wsL_flat(j, k, l, 1, i) &
+                           - v_rs_wsL_flat(j, k, l, 0, i))*alpha_mp
+
+                vL_MD = (v_rs_wsL_flat(j, k, l, 0, i) &
+                         + v_rs_wsL_flat(j, k, l, -1, i) &
+                         - d_MD)*5d-1
+
+                vL_LC = v_rs_wsL_flat(j, k, l, 0, i) &
+                        - (v_rs_wsL_flat(j, k, l, 1, i) &
+                           - v_rs_wsL_flat(j, k, l, 0, i))*5d-1 + beta_mp*d_LC
+
+                vL_min = max(min(v_rs_wsL_flat(j, k, l, 0, i), &
+                                 v_rs_wsL_flat(j, k, l, -1, i), &
+                                 vL_MD), &
+                             min(v_rs_wsL_flat(j, k, l, 0, i), &
+                                 vL_UL, &
+                                 vL_LC))
+
+                vL_max = min(max(v_rs_wsL_flat(j, k, l, 0, i), &
+                                 v_rs_wsL_flat(j, k, l, -1, i), &
+                                 vL_MD), &
+                             max(v_rs_wsL_flat(j, k, l, 0, i), &
+                                 vL_UL, &
+                                 vL_LC))
+
+                vL_vf_flat(j, k, l, i) = vL_vf_flat(j, k, l, i) &
+                          + (sign(5d-1, vL_min - vL_vf_flat(j, k, l, i)) &
+                             + sign(5d-1, vL_max - vL_vf_flat(j, k, l, i))) &
+                          *min(abs(vL_min - vL_vf_flat(j, k, l, i)), &
+                               abs(vL_max - vL_vf_flat(j, k, l, i)))
+
+                ! Right Monotonicity Preserving Bound
+                d(-1) = v_rs_wsL_flat(j, k, l, 0, i) &
+                        + v_rs_wsL_flat(j, k, l, -2, i) &
+                        - v_rs_wsL_flat(j, k, l, -1, i)*2d0
+                d(0) = v_rs_wsL_flat(j, k, l, 1, i) &
+                       + v_rs_wsL_flat(j, k, l, -1, i) &
+                       - v_rs_wsL_flat(j, k, l, 0, i)*2d0
+                d(1) = v_rs_wsL_flat(j, k, l, 2, i) &
+                       + v_rs_wsL_flat(j, k, l, 0, i) &
+                       - v_rs_wsL_flat(j, k, l, 1, i)*2d0
+
+                d_MD = (sign(1d0, 4d0*d(0) - d(1)) + sign(1d0, 4d0*d(1) - d(0))) &
+                       *abs((sign(1d0, 4d0*d(0) - d(1)) + sign(1d0, d(0))) &
+                            *(sign(1d0, 4d0*d(0) - d(1)) + sign(1d0, d(1)))) &
+                       *min(abs(4d0*d(0) - d(1)), abs(d(0)), &
+                            abs(4d0*d(1) - d(0)), abs(d(1)))/8d0
+
+                d_LC = (sign(1d0, 4d0*d(-1) - d(0)) + sign(1d0, 4d0*d(0) - d(-1))) &
+                       *abs((sign(1d0, 4d0*d(-1) - d(0)) + sign(1d0, d(-1))) &
+                            *(sign(1d0, 4d0*d(-1) - d(0)) + sign(1d0, d(0)))) &
+                       *min(abs(4d0*d(-1) - d(0)), abs(d(-1)), &
+                            abs(4d0*d(0) - d(-1)), abs(d(0)))/8d0
+
+                vR_UL = v_rs_wsL_flat(j, k, l, 0, i) &
+                        + (v_rs_wsL_flat(j, k, l, 0, i) &
+                           - v_rs_wsL_flat(j, k, l, -1, i))*alpha_mp
+
+                vR_MD = (v_rs_wsL_flat(j, k, l, 0, i) &
+                         + v_rs_wsL_flat(j, k, l, 1, i) &
+                         - d_MD)*5d-1
+
+                vR_LC = v_rs_wsL_flat(j, k, l, 0, i) &
+                        + (v_rs_wsL_flat(j, k, l, 0, i) &
+                           - v_rs_wsL_flat(j, k, l, -1, i))*5d-1 + beta_mp*d_LC
+
+                vR_min = max(min(v_rs_wsL_flat(j, k, l, 0, i), &
+                                 v_rs_wsL_flat(j, k, l, 1, i), &
+                                 vR_MD), &
+                             min(v_rs_wsL_flat(j, k, l, 0, i), &
+                                 vR_UL, &
+                                 vR_LC))
+
+                vR_max = min(max(v_rs_wsL_flat(j, k, l, 0, i), &
+                                 v_rs_wsL_flat(j, k, l, 1, i), &
+                                 vR_MD), &
+                             max(v_rs_wsL_flat(j, k, l, 0, i), &
+                                 vR_UL, &
+                                 vR_LC))
+
+                vR_vf_flat(j, k, l, i) = vR_vf_flat(j, k, l, i) &
+                          + (sign(5d-1, vR_min - vR_vf_flat(j, k, l, i)) &
+                             + sign(5d-1, vR_max - vR_vf_flat(j, k, l, i))) &
+                          *min(abs(vR_min - vR_vf_flat(j, k, l, i)), &
+                               abs(vR_max - vR_vf_flat(j, k, l, i)))
+            end do
+        end do
+        !$acc end parallel loop
+        end if
         !$acc end data
 
         ! call system_clock(t2)
@@ -274,9 +414,15 @@ contains
         !         vL_vf_flat(i,0,0,1), vR_vf_flat(i,0,0,1)
         ! end do
 
+
+        do j = 1,sys_size
+            vL_vf_flat(:,:,:,j) = vL_vf(j)%sf(:,:,:)
+            vR_vf_flat(:,:,:,j) = vR_vf(j)%sf(:,:,:)
+        end do
+
     end subroutine s_weno_alt
 
-    subroutine s_map_nonlinear_weights(d_K, alpha_K, omega_K) ! ------------
+    subroutine s_map_nonlinear_weights(d_K, alpha_K, omega_K) 
     !$acc routine seq 
 
         real(kind(0d0)), dimension(0:2), intent(IN)    ::     d_K
@@ -307,19 +453,24 @@ contains
         real(kind(0d0)), dimension(0:weno_polyn) :: omega_L, omega_R
         real(kind(0d0)), dimension(0:weno_polyn) :: beta 
 
-
+        
         integer :: i, j, k, l
 
         ! Allocate space for full stencil variables
-        do i = -weno_polyn, weno_polyn
-            do j = 1, sys_size
-                allocate (v_rs_wsL(i)%vf(j)%sf(ix%beg:ix%end, &
-                                               iy%beg:iy%end, &
-                                               iz%beg:iz%end))
-            end do
-        end do
+!        do i = -weno_polyn, weno_polyn
+!            do j = 1, sys_size
+!                allocate (v_rs_wsL(i)%vf(j)%sf(ix%beg:ix%end, &
+!                                               iy%beg:iy%end, &
+!                                              iz%beg:iz%end))
+!           end do
+!        end do
 
         ! Populate variable buffers at each point (for full stencil)
+
+        !$acc data copyin(v_flat) copyout(vL_vf
+
+        !$acc parallel loop collapse(3)
+        !present(v_rs_wsL(:),v_rs_wsL(:)%vf(:),v_rs_wsL(:)%vf(:)%sf(:,:,:))
         do i = -weno_polyn, weno_polyn
             do j = 1, sys_size
                 do k = ix%beg, ix%end
@@ -328,6 +479,7 @@ contains
                 end do
             end do
         end do
+        !$acc end parallel loop
 
         do i = 1, sys_size
             do l = iz%beg, iz%end
@@ -412,11 +564,11 @@ contains
             end do
         end do
 
-        do i = -weno_polyn, weno_polyn
-            do j = 1, sys_size
-                deallocate (v_rs_wsL(i)%vf(j)%sf)
-            end do
-        end do
+!        do i = -weno_polyn, weno_polyn
+!            do j = 1, sys_size
+!                deallocate (v_rs_wsL(i)%vf(j)%sf)
+!            end do
+!        end do
 
     end subroutine s_weno 
 
