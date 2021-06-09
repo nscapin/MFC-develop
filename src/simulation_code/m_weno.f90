@@ -467,8 +467,6 @@ contains
 
         ! Populate variable buffers at each point (for full stencil)
 
-        !$acc data copyin(v_flat)
-
         !$acc parallel loop collapse(3)
         !present(v_rs_wsL(:),v_rs_wsL(:)%vf(:),v_rs_wsL(:)%vf(:)%sf(:,:,:))
         do i = -weno_polyn, weno_polyn
