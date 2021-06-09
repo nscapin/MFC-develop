@@ -98,42 +98,13 @@ module m_riemann_solvers
 
     end interface ! ============================================================
 
-    !> The left (L) and right (R) WENO-reconstructed cell-boundary values of the
-    !! cell-average primitive variables that define the left and right states of
-    !! the Riemann problem. Variables qK_prim_rs_vf, K = L or R, are obtained by
-    !! reshaping (RS) qK_prim_vf in a coordinate direction that is normal to the
-    !! cell-boundaries along which the fluxes are to be determined.
-    !> @{
     type(scalar_field), allocatable, dimension(:) :: qL_prim_rs_vf
     type(scalar_field), allocatable, dimension(:) :: qR_prim_rs_vf
     type(scalar_field), allocatable, dimension(:) :: q_prim_rs_vf
-    !> @}
-
-
-    !> The cell-boundary values of the fluxes (src - source) that are computed
-    !! through the chosen Riemann problem solver, and the direct evaluation of
-    !! source terms, by using the left and right states given in qK_prim_rs_vf,
-    !! dqK_prim_ds_vf and kappaK_rs_vf, where ds = dx, dy or dz.
-    !> @{
     type(scalar_field), allocatable, dimension(:) :: flux_rs_vf, flux_src_rs_vf
-    !> @}
-
-    type(scalar_field), allocatable, dimension(:) :: flux_gsrc_rs_vf !<
-    !! The cell-boundary values of the geometrical source flux that are computed
-    !! through the chosen Riemann problem solver by using the left and right
-    !! states given in qK_prim_rs_vf. Currently 2D axisymmetric for inviscid only.
-
-    ! The cell-boundary values of the velocity. vel_src_rs_vf is determined as
-    ! part of Riemann problem solution and is used to evaluate the source flux.
+    type(scalar_field), allocatable, dimension(:) :: flux_gsrc_rs_vf
     type(scalar_field), allocatable, dimension(:) :: vel_src_rs_vf
 
-    !> @name Left and right, WENO-reconstructed, cell-boundary values of cell-average
-    !! partial densities, density, velocity, pressure, internal energy, energy, enthalpy, volume
-    !! fractions, mass fractions, the specific heat ratio and liquid stiffness functions, speed
-    !! of sound, shear and volume Reynolds numbers and the Weber numbers. These
-    !! variables are left and right states of the Riemann problem obtained from
-    !! qK_prim_rs_vf and kappaK_rs_vf.
-    !> @{
     real(kind(0d0)), allocatable, dimension(:)   :: alpha_rho_L, alpha_rho_R
     real(kind(0d0))                              ::       rho_L, rho_R
     real(kind(0d0)), allocatable, dimension(:)   ::       vel_L, vel_R
@@ -147,30 +118,9 @@ module m_riemann_solvers
     real(kind(0d0))                              ::         c_L, c_R
     real(kind(0d0)), allocatable, dimension(:)   ::     tau_e_L, tau_e_R
 
-    !> @}
-
-    !> @name Left and right, WENO-reconstructed, cell-boundary values of cell-average
-    !! bubble density, radius, radial velocity, pressure, wall pressure, and modified
-    !! pressure. These variables are left and right states of the Riemann problem obtained from
-    !! qK_prim_rs_vf and kappaK_rs_vf.
-    !> @{
-    real(kind(0d0))                              ::       nbub_L, nbub_R
-    real(kind(0d0)), allocatable, dimension(:)   ::         R0_L, R0_R
-    real(kind(0d0)), allocatable, dimension(:)   ::         V0_L, V0_R
-    real(kind(0d0)), allocatable, dimension(:)   ::         P0_L, P0_R
-    real(kind(0d0)), allocatable, dimension(:)   ::        pbw_L, pbw_R
-    real(kind(0d0)), allocatable, dimension(:, :) ::       moms_L, moms_R
-    real(kind(0d0))                              ::     ptilde_L, ptilde_R
-    !> @}
-
-    !> @name Star region pressure and velocity
-    !> @{
     real(kind(0d0)) :: pres_S
     real(kind(0d0)) :: vel_S
-    !> @}
 
-    !> @name Intercell solution used to calculated intercell flux
-    !> @{
     real(kind(0d0)), allocatable, dimension(:)   :: alpha_rho_IC
     real(kind(0d0))                              :: rho_IC
     real(kind(0d0)), allocatable, dimension(:)   :: vel_IC
@@ -178,66 +128,30 @@ module m_riemann_solvers
     real(kind(0d0))                              :: E_IC
     real(kind(0d0)), allocatable, dimension(:)   :: alpha_IC
     real(kind(0d0)), allocatable, dimension(:)   :: tau_e_IC
-    !> @}
 
-    !> @name Surface tension pressure contribution
-    !> @{
     real(kind(0d0)) :: dpres_L, dpres_R
-    !> @}
 
-    !> @name Roe or arithmetic average density, velocity, enthalpy, volume fractions,
-    !! specific heat ratio function, speed of sound, shear and volume Reynolds
-    !! numbers, Weber numbers and curvatures, at the cell-boundaries, computed
-    !! from the left and the right states of the Riemann problem
-    !> @{
     real(kind(0d0))                                 :: rho_avg
     real(kind(0d0)), allocatable, dimension(:)   :: vel_avg
     real(kind(0d0))                                 :: H_avg
     type(scalar_field), allocatable, dimension(:)   :: alpha_avg_rs_vf
     real(kind(0d0))                                 :: gamma_avg
     real(kind(0d0))                                 :: c_avg
-    !> @}
-
-    !> @name Left, right and star (S) region wave speeds
-    !> @{
     real(kind(0d0)) :: s_L, s_R, s_S
-    !> @}
-
-    !> @name Star region variables (HLLC)
-    !> @{
     real(kind(0d0)) :: rho_Star, E_Star, p_Star, p_K_Star
-    !> @}
-
-    !> Minus (M) and plus (P) wave speeds
-    !> @{
     real(kind(0d0)) :: s_M, s_P
-    !> @}
-
-    !> Minus and plus wave speeds functions
-    !> @{
     real(kind(0d0)) :: xi_M, xi_P
-    !> @}
 
     procedure(s_abstract_riemann_solver), &
         pointer :: s_riemann_solver => null() !<
-    !! Pointer to the procedure that is utilized to calculate either the HLL,
-    !! HLLC or exact intercell fluxes, based on the choice of Riemann solver
 
     procedure(s_compute_abstract_average_state), &
         pointer :: s_compute_average_state => null() !<
-    !! Pointer to the subroutine utilized to calculate either the Roe or the
-    !! arithmetic average state variables, based on the chosen average state
 
     procedure(s_compute_abstract_wave_speeds), &
         pointer :: s_compute_wave_speeds => null() !<
-    !! Pointer to the subroutine that is utilized to compute the wave speeds of
-    !! the Riemann problem either directly or by the means of pressure-velocity
-    !! estimates, based on the selected method of estimation of the wave speeds
 
-    !> @name Indical bounds in the s1-, s2- and s3-directions
-    !> @{
     type(bounds_info) :: is1, is2, is3
-    !> @}
 
 contains
 
@@ -292,18 +206,9 @@ contains
         integer, intent(IN) :: norm_dir
         type(bounds_info), intent(IN) :: ix, iy, iz
 
-        real(kind(0d0)) :: xi_L, xi_R !< Left and right wave speeds functions
+        real(kind(0d0)) :: xi_L, xi_R
 
-        integer :: i, j, k, l !< Generic loop iterators
-
-        ! Populating the buffers of the left and right Riemann problem
-        ! states variables, based on the choice of boundary conditions
-        call s_populate_riemann_states_variables_buffers( &
-            qL_prim_vf, dqL_prim_dx_vf, &
-            gm_alphaL_vf, &
-            qR_prim_vf, dqR_prim_dx_vf, &
-            gm_alphaR_vf, &
-            norm_dir, ix, iy, iz)
+        integer :: i, j, k, l
 
         ! Reshaping inputted data based on dimensional splitting direction
         call s_initialize_riemann_solver(qL_prim_vf, &
@@ -401,18 +306,11 @@ contains
     end subroutine s_hllc_riemann_solver ! ---------------------------------
 
 
-
-    !> Compute mixture sound speed
-        !! @param j  First coordinate index
-        !! @param k Second coordinate index
-        !! @param l  Third coordinate index
     subroutine s_compute_mixture_sound_speeds(j, k, l) ! ---------------------
 
         integer, intent(IN) :: j, k, l
-
-        real(kind(0d0)) :: blkmod1, blkmod2 !< Fluid bulk modulus for alternate sound speed
-
-        integer :: i !< Generic loop iterator
+        real(kind(0d0)) :: blkmod1, blkmod2
+        integer :: i 
 
         if ((alt_soundspeed .or. regularization)) then
             do i = 1, num_fluids
@@ -454,14 +352,6 @@ contains
     end subroutine s_compute_mixture_sound_speeds ! ------------------------
 
 
-    !>  The procedure computes the Roe average density, velocity,
-        !!      enthalpy, volume fractions, specific heat ratio function,
-        !!      speed of sound, shear and volume Reynolds numbers, Weber
-        !!      numbers and curvatures, at the cell-boundaries, from the
-        !!      left and right states of the Riemann problem.
-        !! @param j  First coordinate index
-        !! @param k Second coordinate index
-        !! @param l  Third coordinate index
     subroutine s_compute_roe_average_state(j, k, l) ! ---------------
 
         integer, intent(IN) :: j, k, l
@@ -527,14 +417,7 @@ contains
 
     end subroutine s_compute_roe_average_state ! ---------------------------
 
-    !>  This procedure calculates the arithmetic average density,
-        !!      velocity, enthalpy, volume fractions, specIFic heat ratio
-        !!      function, sound speed, shear and volume Reynolds numbers,
-        !!      Weber numbers and the curvatures, at the cell-boundaries,
-        !!      from the left and right states of the Riemann problem.
-        !!  @param j  First coordinate index
-        !!  @param k Second coordinate index
-        !!  @param l  Third coordinate index
+
     subroutine s_compute_arithmetic_average_state(j, k, l) ! --------
 
         integer, intent(IN) :: j, k, l
@@ -593,16 +476,9 @@ contains
             c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
         end if
 
-        ! ==================================================================
-
     end subroutine s_compute_arithmetic_average_state ! --------------------
 
-    !>  The direct estimation of the left, right and middle wave
-        !!      speeds, proposed by Batten et al. (1997) that results in
-        !!      the exact resolution of isolated shock and contact waves.
-        !!  @param j  First coordinate index
-        !!  @param k Second coordinate index
-        !!  @param l  Third coordinate index
+
     subroutine s_compute_direct_wave_speeds(j, k, l) ! -----------------------
 
         integer, intent(IN) :: j, k, l
@@ -626,15 +502,7 @@ contains
 
     end subroutine s_compute_direct_wave_speeds ! --------------------------
 
-    !>  Estimation of the left, right and star region wave speeds
-        !!      by the approximation of the pressures and velocity in the
-        !!      star regions, see Toro (1999). The pressures and velocity
-        !!      are approximated by using the primitive variables Riemann
-        !!      solver (PVRS) and the wave speeds are then estimated from
-        !!      those approximations using the exact wave relations.
-        !!  @param j  First coordinate index
-        !!  @param k Second coordinate index
-        !!  @param l  Third coordinate index
+
     subroutine s_compute_pressure_velocity_wave_speeds(j, k, l) ! ------------
 
         integer, intent(IN) :: j, k, l
@@ -708,64 +576,11 @@ contains
         end if
 
 
-        ! Associating the procedural pointer to the appropriate subroutine
-        ! that will be utilized in the conversion to the mixture variables
-
-        if (model_eqns == 1) then        ! Gamma/pi_inf model
-            s_convert_to_mixture_variables => &
-                s_convert_mixture_to_mixture_variables
-        else                            ! Volume fraction model
-            s_convert_to_mixture_variables => &
-                s_convert_species_to_mixture_variables
-        end if
+        s_convert_to_mixture_variables => s_convert_species_to_mixture_variables
 
     end subroutine s_initialize_riemann_solvers_module ! -------------------
 
 
-    subroutine s_populate_riemann_states_variables_buffers( & ! ------------
-        qL_prim_vf, dqL_prim_dx_vf, &
-        gm_alphaL_vf, &
-        qR_prim_vf, dqR_prim_dx_vf, &
-        gm_alphaR_vf, &
-        norm_dir, ix, iy, iz)
-
-        type(scalar_field), &
-            dimension(sys_size), &
-            intent(INOUT) :: qL_prim_vf, qR_prim_vf
-
-        type(scalar_field), &
-            allocatable, dimension(:), &
-            intent(INOUT) :: dqL_prim_dx_vf, dqR_prim_dx_vf, &
-                             gm_alphaL_vf, gm_alphaR_vf
-
-        integer, intent(IN) :: norm_dir
-        type(bounds_info), intent(IN) :: ix, iy, iz
-        integer :: i
-
-        ! Population of Buffers in x-direction =============================
-        if (norm_dir == 1) then
-
-            if (bc_x%beg == -4) then    ! Riemann state extrap. BC at beginning
-
-                do i = 1, sys_size
-                    qL_prim_vf(i)%sf(-1, iy%beg:iy%end, iz%beg:iz%end) = &
-                        qR_prim_vf(i)%sf(0, iy%beg:iy%end, iz%beg:iz%end)
-                end do
-
-            end if
-
-            if (bc_x%end == -4) then    ! Riemann state extrap. BC at end
-
-                do i = 1, sys_size
-                    qR_prim_vf(i)%sf(m + 1, iy%beg:iy%end, iz%beg:iz%end) = &
-                        qL_prim_vf(i)%sf(m, iy%beg:iy%end, iz%beg:iz%end)
-                end do
-
-            end if
-        end if
-
-
-    end subroutine s_populate_riemann_states_variables_buffers ! -----------
 
     !>  The computation of parameters, the allocation of memory,
         !!      the association of pointers and/or the execution of any
@@ -808,12 +623,8 @@ contains
         integer :: xbeg, xend, ybeg, yend, zbeg, zend
         integer :: s1beg, s1end, s2beg, s2end, s3beg, s3end
 
-        ! Configuring the coordinate direction indexes and flags
-        if (norm_dir == 1) then
-            is1 = ix; is2 = iy; is3 = iz
-            dir_idx = (/1, 2, 3/); dir_flg = (/1d0, 0d0, 0d0/)
-        end if
-
+        is1 = ix; is2 = iy; is3 = iz
+        dir_idx = (/1, 2, 3/); dir_flg = (/1d0, 0d0, 0d0/)
 
         ! Setting up special bounds for cell-average values
         xbeg = -buff_size; ybeg = 0; zbeg = 0
@@ -821,9 +632,7 @@ contains
         xend = m - xbeg; yend = n - ybeg; zend = p - zbeg
 
         ! Configuring the coordinate direction indexes
-        if (norm_dir == 1) then
-            s1beg = xbeg; s1end = xend; s2beg = ybeg; s2end = yend; s3beg = zbeg; s3end = zend
-        end if
+        s1beg = xbeg; s1end = xend; s2beg = ybeg; s2end = yend; s3beg = zbeg; s3end = zend
 
         ! Allocating Left, Right and Average Riemann Problem States ========
         do i = 1, sys_size
@@ -843,25 +652,20 @@ contains
             flux_gsrc_rs_vf(i)%sf => flux_gsrc_vf(i)%sf
         end do
 
-
         vel_src_rs_vf(dir_idx(1))%sf => flux_src_rs_vf(adv_idx%beg)%sf
 
-        ! Reshaping Inputted Data in x-direction ===========================
-        if (norm_dir == 1) then
 
-            do i = 1, sys_size
-                qL_prim_rs_vf(i)%sf = qL_prim_vf(i)%sf(ix%beg:ix%end, &
-                                                       iy%beg:iy%end, &
-                                                       iz%beg:iz%end)
-                qR_prim_rs_vf(i)%sf = qR_prim_vf(i)%sf(ix%beg + 1:ix%end + 1, &
-                                                       iy%beg:iy%end, &
-                                                       iz%beg:iz%end)
-            end do
-
-        end if
-        ! ==================================================================
+        do i = 1, sys_size
+            qL_prim_rs_vf(i)%sf = qL_prim_vf(i)%sf(ix%beg:ix%end, &
+                                                   iy%beg:iy%end, &
+                                                   iz%beg:iz%end)
+            qR_prim_rs_vf(i)%sf = qR_prim_vf(i)%sf(ix%beg + 1:ix%end + 1, &
+                                                   iy%beg:iy%end, &
+                                                   iz%beg:iz%end)
+        end do
 
     end subroutine s_initialize_riemann_solver ! ---------------------------
+
 
     subroutine s_finalize_riemann_solver(flux_vf, flux_src_vf, & ! --------
                                          flux_gsrc_vf, &
@@ -875,16 +679,12 @@ contains
 
         type(bounds_info), intent(IN) :: ix, iy, iz
 
-        integer :: i, j, k !< Generic loop iterators
+        integer :: i
 
-        ! Deallocating Left, Right and Average Riemann Problem States ======
         do i = 1, sys_size
             deallocate (qL_prim_rs_vf(i)%sf, qR_prim_rs_vf(i)%sf)
         end do
 
-        ! ==================================================================
-
-        ! Deallocating Intercell Fluxes and Velocity =======================
         do i = 1, sys_size
             flux_rs_vf(i)%sf => null()
             flux_src_rs_vf(i)%sf => null()
@@ -892,39 +692,24 @@ contains
         end do
         vel_src_rs_vf(dir_idx(1))%sf => null()
 
-    end subroutine s_finalize_riemann_solver ! -----------------------------
+    end subroutine s_finalize_riemann_solver 
 
-    !> Module deallocation and/or disassociation procedures
-    subroutine s_finalize_riemann_solvers_module() ! -----------------------
 
-        ! Deallocating the variables that were utilized to formulate the
-        ! left, right and average states of the Riemann problem, as well
-        ! the Riemann problem solution
+    subroutine s_finalize_riemann_solvers_module() 
+
         deallocate (qL_prim_rs_vf, qR_prim_rs_vf)
-
         deallocate (flux_rs_vf, flux_src_rs_vf, flux_gsrc_rs_vf)
-
         deallocate (vel_src_rs_vf)
-
         deallocate (alpha_rho_L, vel_L)
         deallocate (alpha_rho_R, vel_R)
-
         deallocate (vel_avg)
-
         deallocate (alpha_L, alpha_R)
 
-        ! Disassociating procedural pointer to the subroutine which was
-        ! utilized to calculate the solution of a given Riemann problem
         s_riemann_solver => null()
-
-        ! Disassociating the procedural pointers to the procedures that were
-        ! utilized to compute the average state and estimate the wave speeds
-        s_compute_average_state => null(); s_compute_wave_speeds => null()
-
-        ! Disassociating the pointer to the procedure that was utilized to
-        ! to convert mixture or species variables to the mixture variables
+        s_compute_average_state => null()
+        s_compute_wave_speeds => null()
         s_convert_to_mixture_variables => null()
 
-    end subroutine s_finalize_riemann_solvers_module ! ---------------------
+    end subroutine s_finalize_riemann_solvers_module 
 
 end module m_riemann_solvers
