@@ -283,7 +283,7 @@ contains
         do j = ixb, ixe
             do i = 1, sys_size
 
-                ! Left Monotonicity Preserving Bound ===============================
+                ! Left Monotonicity Preserving Bound
                 d(-1) = v_rs_wsL_flat(j, k, l, 0, i) &
                         + v_rs_wsL_flat(j, k, l, -2, i) &
                         - v_rs_wsL_flat(j, k, l, -1, i) &
@@ -340,9 +340,8 @@ contains
                              + sign(5d-1, vL_max - vL_vf_flat(j, k, l, i))) &
                           *min(abs(vL_min - vL_vf_flat(j, k, l, i)), &
                                abs(vL_max - vL_vf_flat(j, k, l, i)))
-                ! END: Left Monotonicity Preserving Bound ==========================
 
-                ! Right Monotonicity Preserving Bound ==============================
+                ! Right Monotonicity Preserving Bound
                 d(-1) = v_rs_wsL_flat(j, k, l, 0, i) &
                         + v_rs_wsL_flat(j, k, l, -2, i) &
                         - v_rs_wsL_flat(j, k, l, -1, i)*2d0
@@ -410,9 +409,15 @@ contains
         !         vL_vf_flat(i,0,0,1), vR_vf_flat(i,0,0,1)
         ! end do
 
+
+        do j = 1,sys_size
+            vL_vf_flat(:,:,:,j) = vL_vf(j)%sf(:,:,:)
+            vR_vf_flat(:,:,:,j) = vR_vf(j)%sf(:,:,:)
+        end do
+
     end subroutine s_weno_alt
 
-    subroutine s_map_nonlinear_weights(d_K, alpha_K, omega_K) ! ------------
+    subroutine s_map_nonlinear_weights(d_K, alpha_K, omega_K) 
     !$acc routine seq 
 
         real(kind(0d0)), dimension(0:2), intent(IN)    ::     d_K
@@ -428,16 +433,6 @@ contains
         omega_K = alpha_K/sum(alpha_K)
 
     end subroutine s_map_nonlinear_weights ! -------------------------------
-
-
-    subroutine s_preserve_monotonicity(i, j, k, l) ! --------------------------
-
-        integer, intent(IN) :: i, j, k, l
-
-
-        ! END: Right Monotonicity Preserving Bound =========================
-
-    end subroutine s_preserve_monotonicity ! -------------------------------
 
 
     subroutine s_weno(v_vf, vL_vf, vR_vf, weno_dir_dummy, ix, iy, iz)
