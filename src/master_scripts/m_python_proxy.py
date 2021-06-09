@@ -2141,14 +2141,14 @@ def f_create_batch_file(comp_name, case_dict, mfc_dir): # ----------------------
         '#BSUB -e ' + comp_name + '.%J'                                  + '\n' \
         '#BSUB -alloc_flags "gpumps smt1"'                               + '\n' \
 										\
-	'export TAU_METRICS=TIME'              				 + '\n' \
-	'export TAU_SAMPLING=0'	                                         + '\n' \
-	'export TAU_PROFILE_FORMAT=Profile'				 + '\n' \
+	#'export TAU_METRICS=TIME'              				 + '\n' \
+	#'export TAU_SAMPLING=0'	                                         + '\n' \
+	#'export TAU_PROFILE_FORMAT=Profile'				 + '\n' \
 	#'export TAU_TRACK_MESSAGE=1'					 + '\n' \
-	'export TAU_COMM_MATRIX=0'					 + '\n' \
-	'export TAU_TRACE=0'	                                         + '\n' \
-	'export TAU_CALLPATH=0'	                                         + '\n' \
-	'export TAU_THROTTLE=0'	                                         + '\n' \
+	#'export TAU_COMM_MATRIX=0'					 + '\n' \
+	#'export TAU_TRACE=0'	                                         + '\n' \
+	#'export TAU_CALLPATH=0'	                                         + '\n' \
+	#'export TAU_THROTTLE=0'	                                         + '\n' \
 	#'export TAU_CALLDEPTH=1'					 + '\n' \
 	#'echo $TAU_SAMPLING'						   '\n'	\
         # Allocation flags (LSF)
@@ -2209,12 +2209,14 @@ def f_create_batch_file(comp_name, case_dict, mfc_dir): # ----------------------
         #                               + '_code' + '/' + comp_name      + '\n' \
 	# (LSF)
         'jsrun -n 1 -a '+str(pbs_dict[ 'ppn' ]) + ' -c '+str(pbs_dict[ 'ppn' ])\
-				       + ' --smpiargs="-gpu" '	               \
+				       #+ ' --smpiargs="off" '	               \
+				       #+ ' --smpiargs="-gpu" '	               \
 	                               + ' -g '+str(pbs_dict[ 'gpn' ]) +  ' '  \
-				       #+ ' pgprof -o profile.%h.%p '        \
+				       #+ ' pgprof -o profile.%h.%p.%q{OMPI_COMM_WORLD_RANK} '\
+				       #+ ' nvprof --cpu-profiling on --cpu-profiling-mode top-down -o profile.%h.%q{OMPI_COMM_WORLD_RANK} '\
 				       #+ ' -l GPU-CPU '                       \
-				       + ' tau_exec -T mpi -ebs '	       \
-				       + ' -openacc '			       \
+				       #+ ' tau_exec -T mpi -ebs '	       \
+				       #+ ' -openacc '			       \
 				       #+ ' tau_exec -T mpi,pgi,pdt -ebs '     \
                                        + mfc_dir + '/' + comp_name             \
                                        + '_code' + '/' + comp_name      + '\n' \
@@ -2231,13 +2233,14 @@ def f_create_batch_file(comp_name, case_dict, mfc_dir): # ----------------------
         'echo Total-time: $(expr $t_stop - $t_start)s'                  + '\n' \
                                                                                \
         # Removing the input file
-        'rm -f ' + comp_name + '.inp'                                   + '\n' \
-                                                                               \
+        #'rm -f ' + comp_name + '.inp'                                   + '\n' \
+        #                                                                       \
         # Removing the batch file
 	# (Slurm) or (PBS)
         #'rm -f ' + comp_name + '.sh'                                           )
       	# (LSF)
-        'rm -f ' + comp_name + '.lsf'                                           )
+        #'rm -f ' + comp_name + '.lsf'                                          \
+         )
 
     # END: Populating Batch File ===============================================
     
