@@ -53,11 +53,19 @@ module m_riemann_solvers
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: qL_prim_rs_vf_flat, qR_prim_rs_vf_flat
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: flux_vf_flat, flux_src_vf_flat
 
+    integer :: ixb, ixe, iyb, iye, izb, ize
+    integer :: cont_idx_e
+    integer :: adv_idx_b, adv_idx_e
+
 contains
 
     subroutine s_initialize_riemann_solvers_module() 
 
         integer :: i
+
+        cont_idx_e = cont_idx%end
+        adv_idx_b = adv_idx%beg
+        adv_idx_e = adv_idx%end
 
         allocate (qL_prim_rs_vf(1:sys_size), qR_prim_rs_vf(1:sys_size))
         allocate (alpha_rho_L(1:cont_idx%end), vel_L(1:num_dims))
@@ -76,6 +84,10 @@ contains
         is1 = ix; is2 = iy; is3 = iz
         dir_idx = (/1, 2, 3/)
         dir_flg = (/1d0, 0d0, 0d0/)
+
+        ixb = is1%beg; ixe = is1%end
+        iyb = is2%beg; iye = is2%end
+        izb = is3%beg; ize = is3%end
 
         ! Allocating Left, Right and Average Riemann Problem States ========
         do i = 1, sys_size
@@ -137,18 +149,20 @@ contains
                                                    iz%beg:iz%end)
         end do
 
-        do l = is3%beg, is3%end
-            do k = is2%beg, is2%end
-                do j = is1%beg, is1%end
+        !$acc data copyin(qL_prim_rs_vf_flat,qR_prim_rs_vf_flat,dir_idx,dir_flg) copyout(flux_vf_flat,flux_src_vf_flat) 
+        !$acc parallel loop gang vector private(alpha_rho_L, alpha_rho_R, vel_L, vel_R, alpha_L, alpha_R, pres_L, pres_R, s_M, s_P, xi_L, xi_R, xi_M, xi_P)
+        do l = izb, ize
+            do k = iyb, iye
+                do j = ixb, ixe
 
-                    do i = 1, cont_idx%end
+                    do i = 1, cont_idx_e
                         alpha_rho_L(i) = qL_prim_rs_vf_flat(j, k, l, i)
                         alpha_rho_R(i) = qR_prim_rs_vf_flat(j + 1, k, l, i)
                     end do
 
                     do i = 1, num_dims
-                        vel_L(i) = qL_prim_rs_vf_flat(j, k, l, cont_idx%end + i)
-                        vel_R(i) = qR_prim_rs_vf_flat(j + 1, k, l, cont_idx%end + i)
+                        vel_L(i) = qL_prim_rs_vf_flat(j, k, l, cont_idx_e + i)
+                        vel_R(i) = qR_prim_rs_vf_flat(j + 1, k, l, cont_idx_e + i)
                     end do
 
                     do i = 1,num_fluids
@@ -171,7 +185,7 @@ contains
                     xi_M = (5d-1 + sign(5d-1, s_S))
                     xi_P = (5d-1 - sign(5d-1, s_S))
 
-                    do i = 1, cont_idx%end
+                    do i = 1, cont_idx_e
                         flux_vf_flat(j, k, l, i) = &
                             xi_M*alpha_rho_L(i) &
                             *(vel_L(dir_idx(1)) + s_M*(xi_L - 1d0)) &
@@ -181,7 +195,7 @@ contains
 
                     ! Momentum flux.
                     do i = 1, num_dims
-                        flux_vf_flat(j, k, l, cont_idx%end + dir_idx(i)) = &
+                        flux_vf_flat(j, k, l, cont_idx_e + dir_idx(i)) = &
                             xi_M*(rho_L*(vel_L(dir_idx(1))* &
                                   vel_L(dir_idx(i)) + &
                                   s_M*(xi_L*(dir_flg(dir_idx(i))*s_S + &
@@ -208,7 +222,7 @@ contains
                              (s_R - vel_R(dir_idx(1))))) - E_R))
 
                     ! Volume fraction flux
-                    do i = adv_idx%beg, adv_idx%end
+                    do i = adv_idx_b, adv_idx_e
                         flux_vf_flat(j, k, l, i) = &
                             xi_M*qL_prim_rs_vf_flat(j, k, l, i) &
                             *(vel_L(dir_idx(1)) + s_M*(xi_L - 1d0)) &
@@ -219,7 +233,7 @@ contains
                     ! Source for volume fraction advection equation
                     do i = 1, num_dims
                         ! This only works in 1D
-                        flux_src_vf_flat(j, k, l, adv_idx%beg) = &
+                        flux_src_vf_flat(j, k, l, adv_idx_b) = &
                             xi_M*(vel_L(dir_idx(i)) + &
                                   dir_flg(dir_idx(i))* &
                                   s_M*(xi_L - 1d0)) &
@@ -230,6 +244,19 @@ contains
                 end do
             end do
         end do
+        !$acc end parallel loop 
+        !$acc end data
+
+
+        ! do i = 1,sys_size
+        !     do j = ixb, ixe
+        !         print*, 'flux:',j,flux_vf_flat(j,0,0,i)
+        !     end do
+        ! end do
+
+        ! do j = ixb, ixe
+        !     print*, 'rs:',j,flux_src_vf_flat(j,0,0,adv_idx_b)
+        ! end do
 
     end subroutine s_hllc_riemann_solver 
 
@@ -237,7 +264,7 @@ contains
     subroutine s_compute_arithmetic_average_state
         !$acc routine seq 
 
-        call s_convert_species_to_mixture_variables_acc( &
+        call s_convert_species_to_mixture_variables_acc_shb( &
                                             alpha_rho_L, alpha_L, &
                                             gammas, pi_infs, &
                                             rho_L, &
@@ -245,7 +272,7 @@ contains
                                             pi_inf_L)
 
 
-        call s_convert_species_to_mixture_variables_acc( &
+        call s_convert_species_to_mixture_variables_acc_shb( &
                                             alpha_rho_R, alpha_R, &
                                             gammas, pi_infs, &
                                             rho_R, &
@@ -314,6 +341,30 @@ contains
                 rho_R*(s_R - vel_R(dir_idx(1))))
 
     end subroutine s_compute_direct_wave_speeds 
+
+
+    subroutine s_convert_species_to_mixture_variables_acc_shb(alpha_rho_K, &
+                                                      alpha_K, &
+                                                      gammas, pi_infs, &
+                                                      rho_K, &
+                                                      gamma_K, pi_inf_K &
+                                                      )
+        !$acc routine seq
+
+        real(kind(0d0)), dimension(num_fluids), intent(IN) :: alpha_rho_K, alpha_K 
+        real(kind(0d0)), dimension(num_fluids), intent(IN) :: gammas, pi_infs
+        real(kind(0d0)), intent(OUT) :: rho_K, gamma_K, pi_inf_K
+        integer :: i
+
+        rho_K = 0d0; gamma_K = 0d0; pi_inf_K = 0d0
+
+        do i = 1, num_fluids
+            rho_K = rho_K + alpha_rho_K(i)
+            gamma_K = gamma_K + alpha_K(i)*gammas(i)
+            pi_inf_K = pi_inf_K + alpha_K(i)*pi_infs(i)
+        end do
+
+    end subroutine s_convert_species_to_mixture_variables_acc_shb
 
 
     subroutine s_finalize_riemann_solvers_module() 
