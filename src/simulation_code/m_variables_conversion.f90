@@ -59,7 +59,6 @@ module m_variables_conversion
          s_convert_mixture_to_mixture_variables, &
          s_convert_species_to_mixture_variables_bubbles, &
          s_convert_species_to_mixture_variables, &
-         s_convert_species_to_mixture_variables_acc, &
          s_convert_conservative_to_primitive_variables, &
          s_convert_conservative_to_primitive_variables_acc, &
          s_convert_conservative_to_flux_variables, &
@@ -129,6 +128,9 @@ contains
         ! For dir=1
         is1%beg = -buff_size
         is1%end = m - is1%beg
+        ! print*, 'is: ', is1%beg, is1%end
+
+        ! stop
 
         is2%beg =  0
         is2%end = n
@@ -136,8 +138,8 @@ contains
         is3%beg =  0
         is3%end = p
 
-        allocate( qK_prim_vf_flat(is1%beg:is2%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size ) )
-        allocate( qK_cons_vf_flat(is1%beg:is2%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size ) )
+        allocate( qK_prim_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size ) )
+        allocate( qK_cons_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size ) )
 
     end subroutine s_initialize_variables_conversion_module ! --------------
 
@@ -287,27 +289,7 @@ contains
     end subroutine s_convert_species_to_mixture_variables ! ----------------
 
 
-    subroutine s_convert_species_to_mixture_variables_acc(alpha_rho_K, &
-                                                      alpha_K, &
-                                                      gammas, pi_infs, &
-                                                      rho_K, &
-                                                      gamma_K, pi_inf_K &
-                                                      )
 
-        real(kind(0d0)), dimension(num_fluids), intent(IN) :: alpha_rho_K, alpha_K 
-        real(kind(0d0)), dimension(num_fluids), intent(IN) :: gammas, pi_infs
-        real(kind(0d0)), intent(OUT) :: rho_K, gamma_K, pi_inf_K
-        integer :: i
-
-        rho_K = 0d0; gamma_K = 0d0; pi_inf_K = 0d0
-
-        do i = 1, num_fluids
-            rho_K = rho_K + alpha_rho_K(i)
-            gamma_K = gamma_K + alpha_K(i)*gammas(i)
-            pi_inf_K = pi_inf_K + alpha_K(i)*pi_infs(i)
-        end do
-
-    end subroutine s_convert_species_to_mixture_variables_acc
 
 
     subroutine s_convert_conservative_to_primitive_variables_acc( &
@@ -327,9 +309,10 @@ contains
         real(kind(0d0)) ::   pi_inf_K
 
         integer :: ixb, ixe, iyb, iye, izb, ize
-        integer :: mom_idx_b, mom_idx_e
+        integer :: adv_idx_b, mom_idx_b, mom_idx_e
         integer :: i, j, k, l 
 
+        adv_idx_b = adv_idx%beg
         mom_idx_b = mom_idx%beg
         mom_idx_e = mom_idx%end
 
@@ -337,7 +320,7 @@ contains
         iyb = iy%beg; iye = iy%end
         izb = iz%beg; ize = iz%end
 
-        do i = 1,num_fluids
+        do i = 1, num_fluids
             gammas(i) = fluid_pp(i)%gamma
             pi_infs(i) = fluid_pp(i)%pi_inf
         end do
@@ -346,15 +329,15 @@ contains
             qK_cons_vf_flat(:,:,:,i) = qK_cons_vf(i)%sf(:,:,:)
         end do
 
+        !$acc data copyin(qK_cons_vf_flat,gammas,pi_infs) copyout(qK_prim_vf_flat) 
+        !$acc parallel loop collapse(3) gang vector private(alpha_rho, alpha)
         do l = izb, ize
             do k = iyb, iye
                 do j = ixb, ixe
 
-                    dyn_pres_K = 0d0
-
                     do i = 1, num_fluids
-                        alpha_rho(i) = qK_cons_vf(i)%sf(j,k,l)
-                        alpha(i) = qK_cons_vf(adv_idx%beg + i - 1)%sf(j,k,l)
+                        alpha_rho(i) = qK_cons_vf_flat(j, k, l, i)
+                        alpha(i) = qK_cons_vf_flat(j, k, l, adv_idx_b + i - 1)
                     end do
 
                     call s_convert_species_to_mixture_variables_acc( &
@@ -362,21 +345,61 @@ contains
                                                       alpha, &
                                                       gammas, pi_infs, &
                                                       rho_K, &
-                                                      gamma_K, pi_inf_K &
+                                                      gamma_K, pi_inf_K, &
+                                                      num_fluids &
                                                       )
 
-                    do i = mom_idx%beg, mom_idx%end
-                        qK_prim_vf(i)%sf(j, k, l) = qK_cons_vf(i)%sf(j, k, l)/max(rho_K, sgm_eps)
-                        dyn_pres_K = dyn_pres_K + 5d-1*qK_cons_vf(i)%sf(j, k, l)*qK_prim_vf(i)%sf(j, k, l)
+
+                    dyn_pres_K = 0d0
+                    do i = mom_idx_b, mom_idx_e
+                        qK_prim_vf_flat(j, k, l, i) = &
+                            qK_cons_vf_flat(j, k, l, i)/max(rho_K, sgm_eps)
+                        dyn_pres_K = dyn_pres_K + 5d-1*qK_cons_vf_flat(j, k, l, i) & 
+                            * qK_prim_vf_flat(j, k, l, i)
                     end do
 
-                    qK_prim_vf(E_idx)%sf(j, k, l) = ( &
-                        qK_cons_vf(E_idx)%sf(j, k, l) - dyn_pres_K - pi_inf_K )/gamma_K
+                    qK_prim_vf_flat(j, k, l, E_idx) = ( &
+                        qK_cons_vf_flat(j, k, l, E_idx) - dyn_pres_K - pi_inf_K )/gamma_K
+
                 end do
             end do
         end do
+        !$acc end parallel loop 
+        !$acc end data
+
+        do i = mom_idx%beg,E_idx
+            qK_prim_vf(i)%sf(:,:,:) = qK_prim_vf_flat(:,:,:,i)
+        end do
+
 
     end subroutine s_convert_conservative_to_primitive_variables_acc
+
+
+    subroutine s_convert_species_to_mixture_variables_acc( &
+                                                      alpha_rho_K, &
+                                                      alpha_K, &
+                                                      gammas, pi_infs, &
+                                                      rho_K, &
+                                                      gamma_K, pi_inf_K, &
+                                                      num_fluids &
+                                                      )
+        !$acc routine seq
+
+        real(kind(0d0)), dimension(num_fluids), intent(IN) :: alpha_rho_K, alpha_K 
+        real(kind(0d0)), dimension(num_fluids), intent(IN) :: gammas, pi_infs
+        real(kind(0d0)), intent(OUT) :: rho_K, gamma_K, pi_inf_K
+        integer, intent(IN) :: num_fluids
+        integer :: i
+
+        rho_K = 0d0; gamma_K = 0d0; pi_inf_K = 0d0
+
+        do i = 1, num_fluids
+            rho_K = rho_K + alpha_rho_K(i)
+            gamma_K = gamma_K + alpha_K(i)*gammas(i)
+            pi_inf_K = pi_inf_K + alpha_K(i)*pi_infs(i)
+        end do
+
+    end subroutine s_convert_species_to_mixture_variables_acc
 
     !> The following procedure handles the conversion between
         !!      the conservative variables and the primitive variables.

@@ -536,15 +536,15 @@ contains
             q_prim_qp%vf(iv%beg:iv%end), &
             qL_prim_ndqp(i), qR_prim_ndqp(i), i)
 
-        ! do k = 1,sys_size-1
-        !     print*, 'Variable ', k 
-        !     do j = 0,m
-        !         print*, 'Prim, L, R: ', &
-        !             q_prim_qp%vf(k)%sf(j,0,0), &
-        !             qL_prim_ndqp(1)%vf(k)%sf(j,0,0),  &
-        !             qR_prim_ndqp(1)%vf(k)%sf(j,0,0)
-        !     end do
-        ! end do
+        do k = 1,sys_size-1
+            print*, 'Variable ', k 
+            do j = 0,m
+                print*, 'Prim, L, R: ', &
+                    q_prim_qp%vf(k)%sf(j,0,0), &
+                    qL_prim_ndqp(1)%vf(k)%sf(j,0,0),  &
+                    qR_prim_ndqp(1)%vf(k)%sf(j,0,0)
+            end do
+        end do
 
         call s_hllc_riemann_solver( &
                               qR_prim_ndqp(i)%vf, &
