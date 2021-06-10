@@ -23,88 +23,106 @@ module m_riemann_solvers
 
     type(scalar_field), allocatable, dimension(:) :: qL_prim_rs_vf
     type(scalar_field), allocatable, dimension(:) :: qR_prim_rs_vf
-    type(scalar_field), allocatable, dimension(:) :: q_prim_rs_vf
-    type(scalar_field), allocatable, dimension(:) :: flux_rs_vf, flux_src_rs_vf
-    type(scalar_field), allocatable, dimension(:) :: flux_gsrc_rs_vf
-    type(scalar_field), allocatable, dimension(:) :: vel_src_rs_vf
 
-    real(kind(0d0)), allocatable, dimension(:)   :: alpha_rho_L, alpha_rho_R
-    real(kind(0d0))                              ::       rho_L, rho_R
-    real(kind(0d0)), allocatable, dimension(:)   ::       vel_L, vel_R
-    real(kind(0d0))                              ::      pres_L, pres_R
-    real(kind(0d0))                              ::         E_L, E_R
-    real(kind(0d0))                              ::         H_L, H_R
-    real(kind(0d0)), allocatable, dimension(:)   ::     alpha_L, alpha_R
-    real(kind(0d0))                              ::     gamma_L, gamma_R
-    real(kind(0d0))                              ::    pi_inf_L, pi_inf_R
-    real(kind(0d0))                              ::         c_L, c_R
+    real(kind(0d0)), allocatable, dimension(:)    :: alpha_rho_L, alpha_rho_R
+    real(kind(0d0))                               ::       rho_L, rho_R
+    real(kind(0d0)), allocatable, dimension(:)    ::       vel_L, vel_R
+    real(kind(0d0))                               ::      pres_L, pres_R
+    real(kind(0d0))                               ::         E_L, E_R
+    real(kind(0d0))                               ::         H_L, H_R
+    real(kind(0d0)), allocatable, dimension(:)    ::     alpha_L, alpha_R
+    real(kind(0d0))                               ::     gamma_L, gamma_R
+    real(kind(0d0))                               ::    pi_inf_L, pi_inf_R
+    real(kind(0d0))                               ::         c_L, c_R
 
-    real(kind(0d0))                                 :: rho_avg
-    real(kind(0d0)), allocatable, dimension(:)      :: vel_avg
-    real(kind(0d0))                                 :: H_avg
-    real(kind(0d0))                                 :: gamma_avg
-    real(kind(0d0))                                 :: c_avg
-    real(kind(0d0)) :: s_L, s_R, s_S
-    real(kind(0d0)) :: s_M, s_P
-    real(kind(0d0)) :: xi_M, xi_P
+    real(kind(0d0))                               :: rho_avg
+    real(kind(0d0)), allocatable, dimension(:)    :: vel_avg
+    real(kind(0d0))                               :: H_avg
+    real(kind(0d0))                               :: gamma_avg
+    real(kind(0d0))                               :: c_avg
+    real(kind(0d0))                               :: s_L, s_R, s_S
+    real(kind(0d0))                               :: s_M, s_P
+    real(kind(0d0))                               :: xi_M, xi_P
+    real(kind(0d0))                               :: xi_L, xi_R
 
     type(bounds_info) :: is1, is2, is3
 
 contains
 
 
+    subroutine s_initialize_riemann_solvers_module() ! ---------------------
+
+        allocate (qL_prim_rs_vf(1:sys_size), qR_prim_rs_vf(1:sys_size))
+        allocate (alpha_rho_L(1:cont_idx%end), vel_L(1:num_dims))
+        allocate (alpha_rho_R(1:cont_idx%end), vel_R(1:num_dims))
+        allocate (vel_avg(1:num_dims))
+        allocate (alpha_L(1:num_fluids))
+        allocate (alpha_R(1:num_fluids))
+
+    end subroutine s_initialize_riemann_solvers_module ! -------------------
+
+
     !!  @param qL_prim_vf The left WENO-reconstructed cell-boundary values of the
     !!      cell-average primitive variables
-    !!  @param qR_prim_vf The right WENO-reconstructed cell-boundary values of the
-    !!      cell-average primitive variables
-    !!  @param dqL_prim_dx_vf The left WENO-reconstructed cell-boundary values of the
-    !!      first-order x-dir spatial derivatives
-    !!  @param dqR_prim_dx_vf The right WENO-reconstructed cell-boundary values of the
-    !!      first-order x-dir spatial derivatives
-    !!  @param gm_alphaL_vf Left averaged gradient magnitude
-    !!  @param gm_alphaR_vf Right averaged gradient magnitude
+    !!  @param qR_prim_vf The right WENO-reconstructed cell-boundary values of the cell-average primitive variables
     !!  @param flux_vf Intra-cell fluxes
     !!  @param flux_src_vf Intra-cell fluxes sources
-    !!  @param flux_gsrc_vf Intra-cell geometric fluxes sources
     !!  @param norm_dir Dir. splitting direction
-    !!  @param q_prim_vf Cell-averaged primitive variables
-    subroutine s_hllc_riemann_solver(qL_prim_vf, dqL_prim_dx_vf, & 
-                                     gm_alphaL_vf, &
-                                     qR_prim_vf, dqR_prim_dx_vf, &
-                                     gm_alphaR_vf, &
-                                     q_prim_vf, &
-                                     flux_vf, flux_src_vf, &
-                                     flux_gsrc_vf, &
+    subroutine s_hllc_riemann_solver(qL_prim_vf,  & 
+                                     qR_prim_vf,  &
+                                     flux_vf,     &
+                                     flux_src_vf, &
                                      norm_dir, ix, iy, iz)
 
         type(scalar_field), &
             dimension(sys_size), &
             intent(INOUT) :: qL_prim_vf, qR_prim_vf
-        type(scalar_field), dimension(sys_size), intent(IN) :: q_prim_vf
-
-        type(scalar_field), &
-            allocatable, dimension(:), &
-            intent(INOUT) :: dqL_prim_dx_vf, dqR_prim_dx_vf, &
-                             gm_alphaL_vf, gm_alphaR_vf
 
         type(scalar_field), &
             dimension(sys_size), &
-            intent(INOUT) :: flux_vf, flux_src_vf, flux_gsrc_vf
+            intent(INOUT) :: flux_vf, flux_src_vf
 
         integer, intent(IN) :: norm_dir
         type(bounds_info), intent(IN) :: ix, iy, iz
 
-        real(kind(0d0)) :: xi_L, xi_R
+        integer :: xbeg, xend, ybeg, yend, zbeg, zend
+        integer :: s1beg, s1end, s2beg, s2end, s3beg, s3end
 
         integer :: i, j, k, l
 
-        ! Reshaping input data based on dimensional splitting direction
-        call s_initialize_riemann_solver(qL_prim_vf, &
-                                         qR_prim_vf, &
-                                         q_prim_vf, &
-                                         flux_vf, flux_src_vf, &
-                                         flux_gsrc_vf, &
-                                         norm_dir, ix, iy, iz)
+        is1 = ix; is2 = iy; is3 = iz
+        dir_idx = (/1, 2, 3/)
+        dir_flg = (/1d0, 0d0, 0d0/)
+
+        ! Setting up special bounds for cell-average values
+        xbeg = -buff_size; ybeg = 0; zbeg = 0
+        if (n > 0) ybeg = -buff_size; if (p > 0) zbeg = -buff_size
+        xend = m - xbeg; yend = n - ybeg; zend = p - zbeg
+
+        ! Configuring the coordinate direction indexes
+        s1beg = xbeg; s1end = xend
+        s2beg = ybeg; s2end = yend
+        s3beg = zbeg; s3end = zend
+
+        ! Allocating Left, Right and Average Riemann Problem States ========
+        do i = 1, sys_size
+            allocate (qL_prim_rs_vf(i)%sf(is1%beg:is1%end, &
+                                          is2%beg:is2%end, &
+                                          is3%beg:is3%end))
+            allocate (qR_prim_rs_vf(i)%sf(is1%beg + 1:is1%end + 1, &
+                                          is2%beg:is2%end, &
+                                          is3%beg:is3%end))
+        end do
+
+        do i = 1, sys_size
+            qL_prim_rs_vf(i)%sf = qL_prim_vf(i)%sf(ix%beg:ix%end, &
+                                                   iy%beg:iy%end, &
+                                                   iz%beg:iz%end)
+            qR_prim_rs_vf(i)%sf = qR_prim_vf(i)%sf(ix%beg + 1:ix%end + 1, &
+                                                   iy%beg:iy%end, &
+                                                   iz%beg:iz%end)
+        end do
+
 
         ! Computing HLLC flux and source flux for Euler system of equations
         do l = is3%beg, is3%end
@@ -125,7 +143,7 @@ contains
                     xi_P = (5d-1 - sign(5d-1, s_S))
 
                     do i = 1, cont_idx%end
-                        flux_rs_vf(i)%sf(j, k, l) = &
+                        flux_vf(i)%sf(j, k, l) = &
                             xi_M*alpha_rho_L(i) &
                             *(vel_L(dir_idx(1)) + s_M*(xi_L - 1d0)) &
                             + xi_P*alpha_rho_R(i) &
@@ -134,7 +152,7 @@ contains
 
                     ! Momentum flux.
                     do i = 1, num_dims
-                        flux_rs_vf(cont_idx%end + dir_idx(i))%sf(j, k, l) = &
+                        flux_vf(cont_idx%end + dir_idx(i))%sf(j, k, l) = &
                             xi_M*(rho_L*(vel_L(dir_idx(1))* &
                                   vel_L(dir_idx(i)) + &
                                   s_M*(xi_L*(dir_flg(dir_idx(i))*s_S + &
@@ -150,7 +168,7 @@ contains
                     end do
 
                     ! Energy flux
-                    flux_rs_vf(E_idx)%sf(j, k, l) = &
+                    flux_vf(E_idx)%sf(j, k, l) = &
                         xi_M*(vel_L(dir_idx(1))*(E_L + pres_L) + &
                              s_M*(xi_L*(E_L + (s_S - vel_L(dir_idx(1)))* &
                              (rho_L*s_S + pres_L/ &
@@ -162,7 +180,7 @@ contains
 
                     ! Volume fraction flux
                     do i = adv_idx%beg, adv_idx%end
-                        flux_rs_vf(i)%sf(j, k, l) = &
+                        flux_vf(i)%sf(j, k, l) = &
                             xi_M*qL_prim_rs_vf(i)%sf(j, k, l) &
                             *(vel_L(dir_idx(1)) + s_M*(xi_L - 1d0)) &
                             + xi_P*qR_prim_rs_vf(i)%sf(j + 1, k, l) &
@@ -171,7 +189,8 @@ contains
 
                     ! Source for volume fraction advection equation
                     do i = 1, num_dims
-                        vel_src_rs_vf(dir_idx(i))%sf(j, k, l) = &
+                        ! this only works in 1D for now
+                        flux_src_vf(adv_idx%beg)%sf(j, k, l) = &
                             xi_M*(vel_L(dir_idx(i)) + &
                                   dir_flg(dir_idx(i))* &
                                   s_M*(xi_L - 1d0)) &
@@ -179,18 +198,13 @@ contains
                                   dir_flg(dir_idx(i))* &
                                   s_P*(xi_R - 1d0))
                     end do
-
-                    do i = 1, sys_size
-                        flux_gsrc_rs_vf(i)%sf(j, k, l) = 0d0
-                    end do
                 end do
             end do
         end do
 
-        ! Reshaping outputted data based on dimensional splitting direction
-        call s_finalize_riemann_solver(flux_vf, flux_src_vf, &
-                                       flux_gsrc_vf, &
-                                       norm_dir, ix, iy, iz)
+        do i = 1, sys_size
+            deallocate (qL_prim_rs_vf(i)%sf, qR_prim_rs_vf(i)%sf)
+        end do
 
     end subroutine s_hllc_riemann_solver 
 
@@ -323,140 +337,12 @@ contains
     end subroutine s_compute_direct_wave_speeds ! --------------------------
 
 
-    subroutine s_initialize_riemann_solvers_module() ! ---------------------
 
-        allocate (qL_prim_rs_vf(1:sys_size), qR_prim_rs_vf(1:sys_size))
-        allocate (flux_rs_vf(1:sys_size), flux_src_rs_vf(1:sys_size))
-        allocate (flux_gsrc_rs_vf(1:sys_size))
-        allocate (vel_src_rs_vf(1:num_dims))
-        allocate (alpha_rho_L(1:cont_idx%end), vel_L(1:num_dims))
-        allocate (alpha_rho_R(1:cont_idx%end), vel_R(1:num_dims))
-        allocate (vel_avg(1:num_dims))
-        allocate (alpha_L(1:num_fluids))
-        allocate (alpha_R(1:num_fluids))
-
-    end subroutine s_initialize_riemann_solvers_module ! -------------------
-
-
-
-    !>  The computation of parameters, the allocation of memory,
-        !!      the association of pointers and/or the execution of any
-        !!      other procedures needed to configure the chosen Riemann
-        !!      solver algorithm.
-        !!  @param qL_prim_vf The  left WENO-reconstructed cell-boundary values of the
-        !!      cell-average primitive variables
-        !!  @param qR_prim_vf The right WENO-reconstructed cell-boundary values of the
-        !!      cell-average primitive variables
-        !!  @param flux_vf Intra-cell fluxes
-        !!  @param flux_src_vf Intra-cell fluxes sources
-        !!  @param flux_gsrc_vf Intra-cell geometric fluxes sources
-        !!  @param norm_dir Dir. splitting direction
-        !!  @param ix Index bounds in the x-dir
-        !!  @param iy Index bounds in the y-dir
-        !!  @param iz Index bounds in the z-dir
-        !!  @param q_prim_vf Cell-averaged primitive variables
-    subroutine s_initialize_riemann_solver(qL_prim_vf, &
-                                           qR_prim_vf, &
-                                           q_prim_vf, &
-                                           flux_vf, flux_src_vf, &
-                                           flux_gsrc_vf, &
-                                           norm_dir, ix, iy, iz)
-
-        type(scalar_field), &
-            dimension(sys_size), &
-            intent(IN) :: qL_prim_vf, qR_prim_vf
-        type(scalar_field), dimension(sys_size), intent(IN) :: q_prim_vf
-
-        type(scalar_field), &
-            dimension(sys_size), &
-            intent(INOUT) :: flux_vf, flux_src_vf, flux_gsrc_vf
-
-        integer, intent(IN) :: norm_dir
-
-        type(bounds_info), intent(IN) :: ix, iy, iz
-
-        integer :: i, j, k ! Generic loop iterators
-
-        integer :: xbeg, xend, ybeg, yend, zbeg, zend
-        integer :: s1beg, s1end, s2beg, s2end, s3beg, s3end
-
-        is1 = ix; is2 = iy; is3 = iz
-        dir_idx = (/1, 2, 3/); dir_flg = (/1d0, 0d0, 0d0/)
-
-        ! Setting up special bounds for cell-average values
-        xbeg = -buff_size; ybeg = 0; zbeg = 0
-        if (n > 0) ybeg = -buff_size; if (p > 0) zbeg = -buff_size
-        xend = m - xbeg; yend = n - ybeg; zend = p - zbeg
-
-        ! Configuring the coordinate direction indexes
-        s1beg = xbeg; s1end = xend; s2beg = ybeg; s2end = yend; s3beg = zbeg; s3end = zend
-
-        ! Allocating Left, Right and Average Riemann Problem States ========
-        do i = 1, sys_size
-            allocate (qL_prim_rs_vf(i)%sf(is1%beg:is1%end, &
-                                          is2%beg:is2%end, &
-                                          is3%beg:is3%end))
-            allocate (qR_prim_rs_vf(i)%sf(is1%beg + 1:is1%end + 1, &
-                                          is2%beg:is2%end, &
-                                          is3%beg:is3%end))
-        end do
-        ! ==================================================================
-
-        ! Allocating Intercell Fluxes and Velocity =========================
-        do i = 1, sys_size
-            flux_rs_vf(i)%sf => flux_vf(i)%sf
-            flux_src_rs_vf(i)%sf => flux_src_vf(i)%sf
-            flux_gsrc_rs_vf(i)%sf => flux_gsrc_vf(i)%sf
-        end do
-
-        vel_src_rs_vf(dir_idx(1))%sf => flux_src_rs_vf(adv_idx%beg)%sf
-
-
-        do i = 1, sys_size
-            qL_prim_rs_vf(i)%sf = qL_prim_vf(i)%sf(ix%beg:ix%end, &
-                                                   iy%beg:iy%end, &
-                                                   iz%beg:iz%end)
-            qR_prim_rs_vf(i)%sf = qR_prim_vf(i)%sf(ix%beg + 1:ix%end + 1, &
-                                                   iy%beg:iy%end, &
-                                                   iz%beg:iz%end)
-        end do
-
-    end subroutine s_initialize_riemann_solver ! ---------------------------
-
-
-    subroutine s_finalize_riemann_solver(flux_vf, flux_src_vf, & ! --------
-                                         flux_gsrc_vf, &
-                                         norm_dir, ix, iy, iz)
-
-        type(scalar_field), &
-            dimension(sys_size), &
-            intent(INOUT) :: flux_vf, flux_src_vf, flux_gsrc_vf
-
-        integer, intent(IN) :: norm_dir
-
-        type(bounds_info), intent(IN) :: ix, iy, iz
-
-        integer :: i
-
-        do i = 1, sys_size
-            deallocate (qL_prim_rs_vf(i)%sf, qR_prim_rs_vf(i)%sf)
-        end do
-
-        do i = 1, sys_size
-            flux_rs_vf(i)%sf => null()
-            flux_src_rs_vf(i)%sf => null()
-            flux_gsrc_rs_vf(i)%sf => null()
-        end do
-        vel_src_rs_vf(dir_idx(1))%sf => null()
-
-    end subroutine s_finalize_riemann_solver 
 
 
     subroutine s_finalize_riemann_solvers_module() 
 
         deallocate (qL_prim_rs_vf, qR_prim_rs_vf)
-        deallocate (flux_rs_vf, flux_src_rs_vf, flux_gsrc_rs_vf)
-        deallocate (vel_src_rs_vf)
         deallocate (alpha_rho_L, vel_L)
         deallocate (alpha_rho_R, vel_R)
         deallocate (vel_avg)

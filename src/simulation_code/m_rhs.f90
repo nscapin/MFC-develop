@@ -563,16 +563,11 @@ contains
         END IF
         ix%end = m; iy%end = n; iz%end = p
 
-        call s_hllc_riemann_solver(qR_prim_ndqp(i)%vf, &
-                              dqR_prim_dx_ndqp(i)%vf, &
-                              gm_alphaR_ndqp(i)%vf, &
+        call s_hllc_riemann_solver( &
+                              qR_prim_ndqp(i)%vf, &
                               qL_prim_ndqp(i)%vf, &
-                              dqL_prim_dx_ndqp(i)%vf, &
-                              gm_alphaL_ndqp(i)%vf, &
-                              q_prim_qp%vf, &
                               flux_ndqp(i)%vf, &
                               flux_src_ndqp(i)%vf, &
-                              flux_gsrc_ndqp(i)%vf, &
                               i, ix, iy, iz)
 
 
