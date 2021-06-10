@@ -537,7 +537,7 @@ contains
             q_prim_qp%vf(iv%beg:iv%end), &
             qL_prim_ndqp(i), qR_prim_ndqp(i), i)
 
-        print*, 'finished weno'
+        !print*, 'finished weno'
 
         ! ! do k = iv%beg, iv%end
 
@@ -563,12 +563,12 @@ contains
         END IF
         ix%end = m; iy%end = n; iz%end = p
 
-        call s_hllc_riemann_solver( &
-                              qR_prim_ndqp(i)%vf, &
-                              qL_prim_ndqp(i)%vf, &
-                              flux_ndqp(i)%vf, &
-                              flux_src_ndqp(i)%vf, &
-                              i)
+        !call s_hllc_riemann_solver( &
+        !                      qR_prim_ndqp(i)%vf, &
+        !                      qL_prim_ndqp(i)%vf, &
+        !                      flux_ndqp(i)%vf, &
+        !                      flux_src_ndqp(i)%vf, &
+        !                      i)
 
 
         ! do j = 1, sys_size
@@ -2018,7 +2018,6 @@ contains
             weno_dir = 3; is3%beg = is3%beg + weno_polyn
             is3%end = is3%end - weno_polyn
         end if
-
 
         !call s_weno_alt(v_vf(iv%beg:iv%end), &
         !            vL_qp%vf(iv%beg:iv%end), &

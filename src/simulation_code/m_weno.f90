@@ -99,6 +99,7 @@ contains
         type(bounds_info) :: ix, iy, iz !< Indical bounds in the x-, y- and z-directions
         integer :: i
         integer :: ixb_full, ixe_full
+        ix%beg = -buff_size + weno_polyn; ix%end = m - ix%beg
 
         ! Allocating WENO-stencil for the variables to be WENO-reconstructed
         allocate (v_rs_wsL(-weno_polyn:weno_polyn))
@@ -119,8 +120,6 @@ contains
         end do
 
         ! Allocating/Computing WENO Coefficients in x-direction ============
-        ix%beg = -buff_size + weno_polyn; ix%end = m - ix%beg
-
         allocate (poly_coef_L(0:weno_polyn, &
                               0:weno_polyn - 1, &
                               ix%beg:ix%end))
@@ -470,7 +469,6 @@ contains
 
 
     subroutine s_weno(v_vf, vL_vf, vR_vf, weno_dir_dummy, ix, iy, iz)
-
         type(scalar_field), dimension(:), intent(IN) :: v_vf
         type(scalar_field), dimension(:), intent(INOUT) :: vL_vf, vR_vf
         integer, intent(IN) :: weno_dir_dummy
@@ -481,15 +479,13 @@ contains
         real(kind(0d0)), dimension(0:weno_polyn) :: alpha
         real(kind(0d0)), dimension(0:weno_polyn) :: omega
         real(kind(0d0)), dimension(0:weno_polyn) :: beta 
-
-        
         integer :: i, j, k, l
 
         !$acc data copyin(v_vf) copyout(vL_vf,vR_vf) present(v_rs_wsL, poly_coef_L, poly_coef_R, d_L, d_R, beta_coef)
         !$acc parallel loop collapse(3) present(v_rs_wsL(:))
-        do i = -weno_polyn, weno_polyn
-            do j = 1, sys_size
-                do k = ix%beg, ix%end
+        do k = ix%beg, ix%end
+           do j = 1, sys_size
+              do i = -weno_polyn, weno_polyn
                     v_rs_wsL(i)%vf(j)%sf(k, :, :) = &
                         v_vf(j)%sf(i + k, iy%beg:iy%end, iz%beg:iz%end)
                 end do
@@ -500,7 +496,7 @@ contains
         !$acc parallel loop gang vector collapse(3) private(dvd, poly, beta, alpha, omega)
         do l = iz%beg, iz%end
             do k = iy%beg, iy%end
-                do j = ix%beg, ix%end
+                do j = ixb, ixe
                    do i = 1, sys_size
                         dvd(1) = v_rs_wsL(2)%vf(i)%sf(j, k, l) &
                                  - v_rs_wsL(1)%vf(i)%sf(j, k, l)

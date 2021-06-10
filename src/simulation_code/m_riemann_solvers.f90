@@ -230,7 +230,7 @@ contains
 
 
     subroutine s_compute_arithmetic_average_state
-        !$acc routine seq 
+        !$ acc routine seq 
 
         call s_convert_species_to_mixture_variables_acc( &
                                             alpha_rho_L, alpha_L, &
@@ -275,7 +275,7 @@ contains
 
 
     subroutine s_compute_mixture_sound_speeds
-        !$acc routine seq 
+        !$ acc routine seq 
 
         c_L = (H_L - 5d-1*sum(vel_L**2d0))/gamma_L
         c_R = (H_R - 5d-1*sum(vel_R**2d0))/gamma_R
@@ -296,7 +296,7 @@ contains
 
 
     subroutine s_compute_direct_wave_speeds
-        !$acc routine seq 
+        !$ acc routine seq 
 
         s_L = min(vel_L(dir_idx(1)) - c_L, vel_R(dir_idx(1)) - c_R)
         s_R = max(vel_R(dir_idx(1)) + c_R, vel_L(dir_idx(1)) + c_L)
