@@ -215,7 +215,7 @@ program p_main
         ! print*, 'Write data files'
         ! Backing up the grid and conservative variables data
         if (mod(t_step - t_step_start, t_step_save) == 0) then
-            call s_write_data_files(q_cons_ts(1)%vf, t_step)
+            !call s_write_data_files(q_cons_ts(1)%vf, t_step)
         end if
 
         call system_clock(cpu_end)
