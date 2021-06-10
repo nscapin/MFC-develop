@@ -537,7 +537,6 @@ contains
             q_prim_qp%vf(iv%beg:iv%end), &
             qL_prim_ndqp(i), qR_prim_ndqp(i), i)
 
-        ! print*, 'finished weno'
 
         call s_hllc_riemann_solver( &
                               qR_prim_ndqp(i)%vf, &
@@ -2019,18 +2018,18 @@ contains
             is3%end = is3%end - weno_polyn
         end if
 
+        !call s_weno_alt(v_vf(iv%beg:iv%end), &
+        !            vL_qp%vf(iv%beg:iv%end), &
+        !            vR_qp%vf(iv%beg:iv%end), &
+        !            weno_dir,  &
+        !            is1, is2, is3)
 
-        call s_weno_alt(v_vf(iv%beg:iv%end), &
+        call s_weno(v_vf(iv%beg:iv%end), &
                     vL_qp%vf(iv%beg:iv%end), &
                     vR_qp%vf(iv%beg:iv%end), &
                     weno_dir,  &
                     is1, is2, is3)
 
-        ! call s_weno(v_vf(iv%beg:iv%end), &
-        !             vL_qp%vf(iv%beg:iv%end), &
-        !             vR_qp%vf(iv%beg:iv%end), &
-        !             weno_dir,  &
-        !             is1, is2, is3)
         ! ==================================================================
 
     end subroutine s_reconstruct_cell_boundary_values ! --------------------
