@@ -108,6 +108,16 @@ contains
             !$acc enter data create(v_rs_wsL(i)%vf)
         end do
 
+        ! Populate variable buffers at each point (for full stencil)
+        do i = -weno_polyn, weno_polyn
+            do j = 1, sys_size
+                allocate (v_rs_wsL(i)%vf(j)%sf(ix%beg:ix%end, &
+                                               iy%beg:iy%end, &
+                                              iz%beg:iz%end))
+                !$acc enter data create(v_rs_wsL(i)%vf(j)%sf)
+           end do
+        end do
+
         ! Allocating/Computing WENO Coefficients in x-direction ============
         ix%beg = -buff_size + weno_polyn; ix%end = m - ix%beg
 
@@ -187,8 +197,8 @@ contains
 
 
         k = 0; l = 0
-        !$acc data copyin(v_flat) copyout(vL_vf_flat,vR_vf_flat) present(v_rs_wsL_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef)
 
+        !$acc data copyin(v_flat) copyout(vL_vf_flat,vR_vf_flat) present(v_rs_wsL_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef)
         !$acc parallel loop collapse(3)
         do s = -weno_polyn, weno_polyn
             do i = 1, sys_size
@@ -475,21 +485,8 @@ contains
         
         integer :: i, j, k, l
 
-        ! Allocate space for full stencil variables
-        do i = -weno_polyn, weno_polyn
-            do j = 1, sys_size
-                allocate (v_rs_wsL(i)%vf(j)%sf(ix%beg:ix%end, &
-                                               iy%beg:iy%end, &
-                                              iz%beg:iz%end))
-                !$acc enter data create(v_rs_wsL(i)%vf(j)%sf)
-           end do
-        end do
-
-        ! Populate variable buffers at each point (for full stencil)
-
-        !$ acc data copyin(v_vf) copyout(vL_vf,vR_vf) present(v_rs_wsL, poly_L, poly_coef_R, D_L, D_R, beta_coef)
-        !$acc parallel loop collapse(3) 
-        ! present(v_rs_wsL(:),v_rs_wsL(:)%vf(:),v_rs_wsL(:)%vf(:)%sf(:,:,:))
+        !$acc data copyin(v_vf) copyout(vL_vf,vR_vf) present(v_rs_wsL, poly_coef_L, poly_coef_R, d_L, d_R, beta_coef)
+        !$acc parallel loop collapse(3) present(v_rs_wsL(:))
         do i = -weno_polyn, weno_polyn
             do j = 1, sys_size
                 do k = ix%beg, ix%end
@@ -500,11 +497,11 @@ contains
         end do
         !$acc end parallel loop
 
-        do i = 1, sys_size
-            do l = iz%beg, iz%end
-                do k = iy%beg, iy%end
-                    do j = ix%beg, ix%end
-
+        !$acc parallel loop gang vector collapse(3) private(dvd, poly, beta, alpha, omega)
+        do l = iz%beg, iz%end
+            do k = iy%beg, iy%end
+                do j = ix%beg, ix%end
+                   do i = 1, sys_size
                         dvd(1) = v_rs_wsL(2)%vf(i)%sf(j, k, l) &
                                  - v_rs_wsL(1)%vf(i)%sf(j, k, l)
                         dvd(0) = v_rs_wsL(1)%vf(i)%sf(j, k, l) &
@@ -581,6 +578,8 @@ contains
                 end do
             end do
         end do
+        !$acc end parallel loop 
+        !$acc end data
 
 !        do i = -weno_polyn, weno_polyn
 !            do j = 1, sys_size
