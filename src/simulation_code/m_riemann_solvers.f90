@@ -132,7 +132,6 @@ contains
                     call s_compute_arithmetic_average_state(j, k, l)
                     call s_compute_direct_wave_speeds(j, k, l)
 
-
                     s_M = min(0d0, s_L)
                     s_P = max(0d0, s_R)
 
