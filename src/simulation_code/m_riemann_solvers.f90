@@ -55,7 +55,6 @@ module m_riemann_solvers
 
 contains
 
-
     subroutine s_initialize_riemann_solvers_module() 
 
         integer :: i
@@ -133,13 +132,29 @@ contains
                                                    iz%beg:iz%end)
         end do
 
-
-        ! Computing HLLC flux and source flux for Euler system of equations
         do l = is3%beg, is3%end
             do k = is2%beg, is2%end
                 do j = is1%beg, is1%end
 
-                    call s_compute_arithmetic_average_state(j, k, l)
+                    do i = 1, cont_idx%end
+                        alpha_rho_L(i) = qL_prim_rs_vf(i)%sf(j, k, l)
+                        alpha_rho_R(i) = qR_prim_rs_vf(i)%sf(j + 1, k, l)
+                    end do
+
+                    do i = 1, num_dims
+                        vel_L(i) = qL_prim_rs_vf(cont_idx%end + i)%sf(j, k, l)
+                        vel_R(i) = qR_prim_rs_vf(cont_idx%end + i)%sf(j + 1, k, l)
+                    end do
+
+                    do i = 1,num_fluids
+                        alpha_L(i) = qL_prim_rs_vf(E_idx + i)%sf(j, k, l)
+                        alpha_R(i) = qR_prim_rs_vf(E_idx + i)%sf(j + 1, k, l)
+                    end do
+
+                    pres_L = qL_prim_rs_vf(E_idx)%sf(j, k, l)
+                    pres_R = qR_prim_rs_vf(E_idx)%sf(j + 1, k, l)
+
+                    call s_compute_arithmetic_average_state
                     call s_compute_direct_wave_speeds
 
                     s_M = min(0d0, s_L)
@@ -198,7 +213,7 @@ contains
 
                     ! Source for volume fraction advection equation
                     do i = 1, num_dims
-                        ! this only works in 1D for now
+                        ! This only works in 1D
                         flux_src_vf(adv_idx%beg)%sf(j, k, l) = &
                             xi_M*(vel_L(dir_idx(i)) + &
                                   dir_flg(dir_idx(i))* &
@@ -214,25 +229,8 @@ contains
     end subroutine s_hllc_riemann_solver 
 
 
-    subroutine s_compute_arithmetic_average_state(j, k, l) 
-
-        integer, intent(IN) :: j, k, l
-        integer :: i, q 
-
-        do i = 1, cont_idx%end
-            alpha_rho_L(i) = qL_prim_rs_vf(i)%sf(j, k, l)
-            alpha_rho_R(i) = qR_prim_rs_vf(i)%sf(j + 1, k, l)
-        end do
-
-        do i = 1, num_dims
-            vel_L(i) = qL_prim_rs_vf(cont_idx%end + i)%sf(j, k, l)
-            vel_R(i) = qR_prim_rs_vf(cont_idx%end + i)%sf(j + 1, k, l)
-        end do
-
-        do i = 1,num_fluids
-            alpha_L(i) = qL_prim_rs_vf(E_idx + i)%sf(j, k, l)
-            alpha_R(i) = qR_prim_rs_vf(E_idx + i)%sf(j + 1, k, l)
-        end do
+    subroutine s_compute_arithmetic_average_state
+        !$acc routine seq 
 
         call s_convert_species_to_mixture_variables_acc( &
                                             alpha_rho_L, alpha_L, &
@@ -249,15 +247,11 @@ contains
                                             gamma_R, &
                                             pi_inf_R)
 
-        pres_L = qL_prim_rs_vf(E_idx)%sf(j, k, l)
-        pres_R = qR_prim_rs_vf(E_idx)%sf(j + 1, k, l)
-
         E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*sum(vel_L**2d0)
         E_R = gamma_R*pres_R + pi_inf_R + 5d-1*rho_R*sum(vel_R**2d0)
 
         H_L = (E_L + pres_L)/rho_L
         H_R = (E_R + pres_R)/rho_R
-
 
         call s_compute_mixture_sound_speeds
 
@@ -301,8 +295,8 @@ contains
     end subroutine s_compute_mixture_sound_speeds 
 
 
-
     subroutine s_compute_direct_wave_speeds
+        !$acc routine seq 
 
         s_L = min(vel_L(dir_idx(1)) - c_L, vel_R(dir_idx(1)) - c_R)
         s_R = max(vel_R(dir_idx(1)) + c_R, vel_L(dir_idx(1)) + c_L)
@@ -332,67 +326,5 @@ contains
         deallocate (alpha_L, alpha_R)
 
     end subroutine s_finalize_riemann_solvers_module 
-
-
-    subroutine s_compute_arithmetic_average_state_orig(j, k, l) 
-
-        integer, intent(IN) :: j, k, l
-        integer :: i, q 
-
-        do i = 1, cont_idx%end
-            alpha_rho_L(i) = qL_prim_rs_vf(i)%sf(j, k, l)
-            alpha_rho_R(i) = qR_prim_rs_vf(i)%sf(j + 1, k, l)
-        end do
-
-        do i = 1, num_dims
-            vel_L(i) = qL_prim_rs_vf(cont_idx%end + i)%sf(j, k, l)
-            vel_R(i) = qR_prim_rs_vf(cont_idx%end + i)%sf(j + 1, k, l)
-        end do
-
-        call s_convert_species_to_mixture_variables( &
-                                            qL_prim_rs_vf, &
-                                            rho_L, gamma_L, &
-                                            pi_inf_L, &
-                                            j, k, l)
-
-        call s_convert_species_to_mixture_variables( &
-                                            qR_prim_rs_vf, &
-                                            rho_R, gamma_R, &
-                                            pi_inf_R,  &
-                                            j + 1, k, l)
-
-        pres_L = qL_prim_rs_vf(E_idx)%sf(j, k, l)
-        pres_R = qR_prim_rs_vf(E_idx)%sf(j + 1, k, l)
-
-        E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*sum(vel_L**2d0)
-        E_R = gamma_R*pres_R + pi_inf_R + 5d-1*rho_R*sum(vel_R**2d0)
-
-        H_L = (E_L + pres_L)/rho_L
-        H_R = (E_R + pres_R)/rho_R
-
-        do i = 1,num_fluids
-            alpha_L(i) = qL_prim_rs_vf(E_idx + i)%sf(j, k, l)
-            alpha_R(i) = qR_prim_rs_vf(E_idx + i)%sf(j + 1, k, l)
-        end do
-
-        call s_compute_mixture_sound_speeds
-
-        ! Arithmetic Average Riemann Problem State 
-        rho_avg = 5d-1*(rho_L + rho_R)
-        vel_avg = 5d-1*(vel_L + vel_R)
-        H_avg  = 5d-1*(H_L + H_R)
-        gamma_avg = 5d-1*(gamma_L + gamma_R)
-
-        if (mixture_err) then
-            if ((H_avg - 5d-1*sum(vel_avg**2d0)) < 0d0) then
-                c_avg = sgm_eps
-            else
-                c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
-            end if
-        else
-            c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
-        end if
-
-    end subroutine s_compute_arithmetic_average_state_orig
 
 end module m_riemann_solvers
