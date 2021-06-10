@@ -554,14 +554,14 @@ contains
         ! stop
 
         ! Configuring Coordinate Direction Indexes ======================
-        IF(i == 1) THEN
-            ix%beg = -1; iy%beg =  0; iz%beg =  0
-        ELSEIF(i == 2) THEN
-            ix%beg =  0; iy%beg = -1; iz%beg =  0
-        ELSE
-            ix%beg =  0; iy%beg =  0; iz%beg = -1
-        END IF
-        ix%end = m; iy%end = n; iz%end = p
+        ! IF(i == 1) THEN
+        !     ix%beg = -1; iy%beg =  0; iz%beg =  0
+        ! ELSEIF(i == 2) THEN
+        !     ix%beg =  0; iy%beg = -1; iz%beg =  0
+        ! ELSE
+        !     ix%beg =  0; iy%beg =  0; iz%beg = -1
+        ! END IF
+        ! ix%end = m; iy%end = n; iz%end = p
 
         call s_hllc_riemann_solver( &
                               qR_prim_ndqp(i)%vf, &
