@@ -521,6 +521,9 @@ contains
 
         call s_populate_conservative_variables_buffers()
 
+        i = 1 !Coordinate Index
+
+        !!$acc data
         call nvtxStartRange("RHS-Convert-to-Primitive")
         call s_convert_conservative_to_primitive_variables_acc( &
             q_cons_qp%vf, &
@@ -528,33 +531,25 @@ contains
             ix, iy, iz)
         call nvtxEndRange
 
-        if (t_step == t_step_stop) return
-
-        i = 1 !Coordinate Index
-
+        call nvtxStartRange("RHS-WENO")
         call s_reconstruct_cell_boundary_values( &
             q_prim_qp%vf(iv%beg:iv%end), &
             qL_prim_ndqp(i), qR_prim_ndqp(i), i)
+        call nvtxEndRange
 
-        do k = 1,sys_size-1
-            print*, 'Variable ', k 
-            do j = 0,m
-                print*, 'Prim, L, R: ', &
-                    q_prim_qp%vf(k)%sf(j,0,0), &
-                    qL_prim_ndqp(1)%vf(k)%sf(j,0,0),  &
-                    qR_prim_ndqp(1)%vf(k)%sf(j,0,0)
-            end do
-        end do
-
+        call nvtxStartRange("RHS-Riemann")
         call s_hllc_riemann_solver( &
                               qR_prim_ndqp(i)%vf, &
                               qL_prim_ndqp(i)%vf, &
                               flux_ndqp(i)%vf, &
                               flux_src_ndqp(i)%vf, &
                               i)
+        call nvtxEndRange
+        !!$acc end data
 
         ! ! do k = iv%beg, iv%end
 
+        if (t_step == t_step_stop) return
 
 
         ! stop
@@ -592,6 +587,16 @@ contains
         do i = 1, sys_size
             nullify (q_cons_qp%vf(i)%sf, q_prim_qp%vf(i)%sf)
         end do
+
+        ! do k = 1,sys_size-1
+        !     print*, 'Variable ', k 
+        !     do j = 0,m
+        !         print*, 'Prim, L, R: ', &
+        !             q_prim_qp%vf(k)%sf(j,0,0), &
+        !             qL_prim_ndqp(1)%vf(k)%sf(j,0,0),  &
+        !             qR_prim_ndqp(1)%vf(k)%sf(j,0,0)
+        !     end do
+        ! end do
 
     end subroutine s_alt_rhs
 
