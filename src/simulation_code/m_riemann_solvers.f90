@@ -46,11 +46,17 @@ module m_riemann_solvers
     real(kind(0d0))                               :: xi_L, xi_R
 
     type(bounds_info) :: is1, is2, is3
+    type(bounds_info) :: ix, iy, iz
+
+    integer :: xbeg, xend, ybeg, yend, zbeg, zend
+    integer :: s1beg, s1end, s2beg, s2end, s3beg, s3end
 
 contains
 
 
-    subroutine s_initialize_riemann_solvers_module() ! ---------------------
+    subroutine s_initialize_riemann_solvers_module() 
+
+        integer :: i
 
         allocate (qL_prim_rs_vf(1:sys_size), qR_prim_rs_vf(1:sys_size))
         allocate (alpha_rho_L(1:cont_idx%end), vel_L(1:num_dims))
@@ -59,36 +65,9 @@ contains
         allocate (alpha_L(1:num_fluids))
         allocate (alpha_R(1:num_fluids))
 
-    end subroutine s_initialize_riemann_solvers_module ! -------------------
-
-
-    !!  @param qL_prim_vf The left WENO-reconstructed cell-boundary values of the
-    !!      cell-average primitive variables
-    !!  @param qR_prim_vf The right WENO-reconstructed cell-boundary values of the cell-average primitive variables
-    !!  @param flux_vf Intra-cell fluxes
-    !!  @param flux_src_vf Intra-cell fluxes sources
-    !!  @param norm_dir Dir. splitting direction
-    subroutine s_hllc_riemann_solver(qL_prim_vf,  & 
-                                     qR_prim_vf,  &
-                                     flux_vf,     &
-                                     flux_src_vf, &
-                                     norm_dir, ix, iy, iz)
-
-        type(scalar_field), &
-            dimension(sys_size), &
-            intent(INOUT) :: qL_prim_vf, qR_prim_vf
-
-        type(scalar_field), &
-            dimension(sys_size), &
-            intent(INOUT) :: flux_vf, flux_src_vf
-
-        integer, intent(IN) :: norm_dir
-        type(bounds_info), intent(IN) :: ix, iy, iz
-
-        integer :: xbeg, xend, ybeg, yend, zbeg, zend
-        integer :: s1beg, s1end, s2beg, s2end, s3beg, s3end
-
-        integer :: i, j, k, l
+        ! For dir=1
+        ix%beg = -1; iy%beg =  0; iz%beg =  0
+        ix%end = m; iy%end = n; iz%end = p
 
         is1 = ix; is2 = iy; is3 = iz
         dir_idx = (/1, 2, 3/)
@@ -113,6 +92,27 @@ contains
                                           is2%beg:is2%end, &
                                           is3%beg:is3%end))
         end do
+
+    end subroutine s_initialize_riemann_solvers_module 
+
+
+    subroutine s_hllc_riemann_solver(qL_prim_vf,  & 
+                                     qR_prim_vf,  &
+                                     flux_vf,     &
+                                     flux_src_vf, &
+                                     norm_dir)
+
+        type(scalar_field), &
+            dimension(sys_size), &
+            intent(INOUT) :: qL_prim_vf, qR_prim_vf
+
+        type(scalar_field), &
+            dimension(sys_size), &
+            intent(INOUT) :: flux_vf, flux_src_vf
+
+        integer, intent(IN) :: norm_dir
+
+        integer :: i, j, k, l
 
         do i = 1, sys_size
             qL_prim_rs_vf(i)%sf = qL_prim_vf(i)%sf(ix%beg:ix%end, &
@@ -202,10 +202,6 @@ contains
             end do
         end do
 
-        do i = 1, sys_size
-            deallocate (qL_prim_rs_vf(i)%sf, qR_prim_rs_vf(i)%sf)
-        end do
-
     end subroutine s_hllc_riemann_solver 
 
 
@@ -215,7 +211,7 @@ contains
         real(kind(0d0)) :: blkmod1, blkmod2
         integer :: i 
 
-        if ((alt_soundspeed .or. regularization)) then
+        if (alt_soundspeed .or. regularization) then
             do i = 1, num_fluids
                 alpha_L(i) = qL_prim_rs_vf(E_idx + i)%sf(j, k, l)
                 alpha_R(i) = qR_prim_rs_vf(E_idx + i)%sf(j + 1, k, l)
@@ -291,7 +287,7 @@ contains
 
         call s_compute_mixture_sound_speeds(j, k, l)
 
-        ! Arithmetic Average Riemann Problem State =========================
+        ! Arithmetic Average Riemann Problem State 
         rho_avg = 5d-1*(rho_L + rho_R)
 
         vel_avg = 5d-1*(vel_L + vel_R)
@@ -310,17 +306,12 @@ contains
             c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
         end if
 
-    end subroutine s_compute_arithmetic_average_state ! --------------------
+    end subroutine s_compute_arithmetic_average_state 
 
 
-    subroutine s_compute_direct_wave_speeds(j, k, l) ! -----------------------
+    subroutine s_compute_direct_wave_speeds(j, k, l) 
 
         integer, intent(IN) :: j, k, l
-
-        real(kind(0d0)) :: denom
-
-        integer :: i !< Generic loop iterator
-
 
         s_L = min(vel_L(dir_idx(1)) - c_L, vel_R(dir_idx(1)) - c_R)
         s_R = max(vel_R(dir_idx(1)) + c_R, vel_L(dir_idx(1)) + c_L)
@@ -331,16 +322,17 @@ contains
                (s_R - vel_R(dir_idx(1)))) &
               /(rho_L*(s_L - vel_L(dir_idx(1))) - &
                 rho_R*(s_R - vel_R(dir_idx(1))))
-        denom = rho_L*(s_L - vel_L(dir_idx(1))) - rho_R*(s_R - vel_R(dir_idx(1)))
 
-
-    end subroutine s_compute_direct_wave_speeds ! --------------------------
-
-
-
+    end subroutine s_compute_direct_wave_speeds 
 
 
     subroutine s_finalize_riemann_solvers_module() 
+
+        integer :: i 
+
+        do i = 1, sys_size
+            deallocate (qL_prim_rs_vf(i)%sf, qR_prim_rs_vf(i)%sf)
+        end do
 
         deallocate (qL_prim_rs_vf, qR_prim_rs_vf)
         deallocate (alpha_rho_L, vel_L)

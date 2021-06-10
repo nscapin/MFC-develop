@@ -568,7 +568,7 @@ contains
                               qL_prim_ndqp(i)%vf, &
                               flux_ndqp(i)%vf, &
                               flux_src_ndqp(i)%vf, &
-                              i, ix, iy, iz)
+                              i)
 
 
         ! do j = 1, sys_size
