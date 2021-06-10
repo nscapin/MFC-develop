@@ -522,10 +522,9 @@ contains
         call s_populate_conservative_variables_buffers()
 
         call nvtxStartRange("RHS-Convert-to-Primitive")
-        call s_convert_conservative_to_primitive_variables( &
+        call s_convert_conservative_to_primitive_variables_acc( &
             q_cons_qp%vf, &
             q_prim_qp%vf, &
-            gm_alpha_qp%vf, &
             ix, iy, iz)
         call nvtxEndRange
 

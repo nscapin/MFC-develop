@@ -22,11 +22,13 @@ export PGI_ACC_NOTIFY=
 # jsrun -r1 -a2 -c2 -g1 ../../src/simulation_code/simulation
 
 ## Serial
-# jsrun -r1 -a1 -c1 -g1 ../../src/pre_process_code/pre_process
-# jsrun -r1 -a1 -c1 -g1 ../../src/simulation_code/simulation
+jsrun -r1 -a1 -c1 -g1 ../../src/pre_process_code/pre_process
+jsrun -r1 -a1 -c1 -g1 ../../src/simulation_code/simulation
 
 ## Profile 
-# jsrun -r1 -a1 -c1 -g1 ../../src/pre_process_code/pre_process
+# jsrun -r1 -a7 -c7 -g1 ../../src/pre_process_code/pre_process
+# jsrun -r1 -a7 -c7 -g1 nsys profile -o output-sys.prof_%q{OMPI_COMM_WORLD_RANK} --stats=true -t openacc,nvtx  --force-overwrite true ../../src/simulation_code/simulation
+
 # jsrun -r1 -a1 -c1 -g1 ../../src/simulation_code/simulation
 # jsrun -r1 -a1 -c1 -g1 nvprof --analysis-metrics -o output.nvvp  -f ../../src/simulation_code/simulation
 

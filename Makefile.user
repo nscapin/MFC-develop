@@ -15,7 +15,7 @@ FC = mpif90 -acc
 
 # FFLAGS = -cpp -c -w -O0
 #PGI_TERM=trace
-FFLAGS = -Minfo=accel -cpp -c -w -O3
+FFLAGS = -Minfo=accel -cpp -c -w -O0
 #-Mbounds -Mchkptr -Mchkstk -traceback
 
 # FFLAGS = -cpp -c -w -freal-4-real-8 -O0 -fallow-argument-mismatch -ffree-line-length-none

@@ -71,38 +71,30 @@ contains
                                      flux_src_vf, &
                                      norm_dir)
 
-        type(scalar_field), &
-            dimension(sys_size), &
-            intent(INOUT) :: qL_prim_vf, qR_prim_vf
-
-        type(scalar_field), &
-            dimension(sys_size), &
-            intent(INOUT) :: flux_vf, flux_src_vf
-
+        type(scalar_field), dimension(sys_size), intent(INOUT) :: qL_prim_vf, qR_prim_vf
+        type(scalar_field), dimension(sys_size), intent(INOUT) :: flux_vf, flux_src_vf
         integer, intent(IN) :: norm_dir
 
-        real(kind(0d0)), dimension(10)        :: alpha_rho_L, alpha_rho_R
-        real(kind(0d0))                               ::       rho_L, rho_R
-        real(kind(0d0)), dimension(10)          ::       vel_L, vel_R
-        real(kind(0d0))                               ::      pres_L, pres_R
-        real(kind(0d0))                               ::         E_L, E_R
-        real(kind(0d0))                               ::         H_L, H_R
-        real(kind(0d0)), dimension(10)        ::     alpha_L, alpha_R
-        real(kind(0d0))                               ::     gamma_L, gamma_R
-        real(kind(0d0))                               ::    pi_inf_L, pi_inf_R
-        real(kind(0d0))                               ::         c_L, c_R
-
-        real(kind(0d0))                               :: rho_avg
-        real(kind(0d0)), dimension(10)          :: vel_avg
-        real(kind(0d0))                               :: H_avg
-        real(kind(0d0))                               :: gamma_avg
-        real(kind(0d0))                               :: c_avg
-        real(kind(0d0))                               :: s_L, s_R, s_S
-        real(kind(0d0))                               :: s_M, s_P
-        real(kind(0d0))                               :: xi_M, xi_P
-        real(kind(0d0))                               :: xi_L, xi_R
-
-        real(kind(0d0)), dimension(10)        :: gammas, pi_infs
+        real(kind(0d0)), dimension(10)  :: alpha_rho_L, alpha_rho_R
+        real(kind(0d0))                 ::       rho_L, rho_R
+        real(kind(0d0)), dimension(10)  ::       vel_L, vel_R
+        real(kind(0d0))                 ::      pres_L, pres_R
+        real(kind(0d0))                 ::         E_L, E_R
+        real(kind(0d0))                 ::         H_L, H_R
+        real(kind(0d0)), dimension(10)  ::     alpha_L, alpha_R
+        real(kind(0d0))                 ::     gamma_L, gamma_R
+        real(kind(0d0))                 ::    pi_inf_L, pi_inf_R
+        real(kind(0d0))                 ::         c_L, c_R
+        real(kind(0d0))                 :: rho_avg
+        real(kind(0d0)), dimension(10)  :: vel_avg
+        real(kind(0d0))                 :: H_avg
+        real(kind(0d0))                 :: gamma_avg
+        real(kind(0d0))                 :: c_avg
+        real(kind(0d0))                 :: s_L, s_R, s_S
+        real(kind(0d0))                 :: s_M, s_P
+        real(kind(0d0))                 :: xi_M, xi_P
+        real(kind(0d0))                 :: xi_L, xi_R
+        real(kind(0d0)), dimension(10)  :: gammas, pi_infs
 
         integer :: ixb, ixe, iyb, iye, izb, ize
         integer :: cont_idx_e
@@ -312,11 +304,11 @@ contains
         !$acc end parallel loop 
         !$acc end data
 
-        do i = 1,1 !sys_size
-            do j = ixb, ixe
-                print*, 'rank,flux:',proc_rank,j,flux_vf_flat(j,0,0,i)
-            end do
-        end do
+        ! do i = 1,1 !sys_size
+        !     do j = ixb, ixe
+        !         print*, 'rank,flux:',proc_rank,j,flux_vf_flat(j,0,0,i)
+        !     end do
+        ! end do
 
         ! do j = ixb, ixe
         !     print*, 'rs:',j,flux_src_vf_flat(j,0,0,adv_idx_b)
