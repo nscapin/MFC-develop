@@ -51,6 +51,8 @@ module m_riemann_solvers
     integer :: xbeg, xend, ybeg, yend, zbeg, zend
     integer :: s1beg, s1end, s2beg, s2end, s3beg, s3end
 
+    real(kind(0d0)), allocatable, dimension(:)    :: gammas, pi_infs
+
 contains
 
 
@@ -64,6 +66,9 @@ contains
         allocate (vel_avg(1:num_dims))
         allocate (alpha_L(1:num_fluids))
         allocate (alpha_R(1:num_fluids))
+
+        allocate (gammas(1:num_fluids))
+        allocate (pi_infs(1:num_fluids))
 
         ! For dir=1
         ix%beg = -1; iy%beg =  0; iz%beg =  0
@@ -91,6 +96,11 @@ contains
             allocate (qR_prim_rs_vf(i)%sf(is1%beg + 1:is1%end + 1, &
                                           is2%beg:is2%end, &
                                           is3%beg:is3%end))
+        end do
+
+        do i = 1,num_fluids
+            gammas(i) = fluid_pp(i)%gamma
+            pi_infs(i) = fluid_pp(i)%pi_inf
         end do
 
     end subroutine s_initialize_riemann_solvers_module 
@@ -130,7 +140,7 @@ contains
                 do j = is1%beg, is1%end
 
                     call s_compute_arithmetic_average_state(j, k, l)
-                    call s_compute_direct_wave_speeds(j, k, l)
+                    call s_compute_direct_wave_speeds
 
                     s_M = min(0d0, s_L)
                     s_P = max(0d0, s_R)
@@ -204,37 +214,77 @@ contains
     end subroutine s_hllc_riemann_solver 
 
 
-    subroutine s_compute_mixture_sound_speeds(j, k, l) 
+    subroutine s_compute_arithmetic_average_state(j, k, l) 
 
         integer, intent(IN) :: j, k, l
-        real(kind(0d0)) :: blkmod1, blkmod2
-        integer :: i 
+        integer :: i, q 
 
-        if (alt_soundspeed .or. regularization) then
-            do i = 1, num_fluids
-                alpha_L(i) = qL_prim_rs_vf(E_idx + i)%sf(j, k, l)
-                alpha_R(i) = qR_prim_rs_vf(E_idx + i)%sf(j + 1, k, l)
-            end do
+        do i = 1, cont_idx%end
+            alpha_rho_L(i) = qL_prim_rs_vf(i)%sf(j, k, l)
+            alpha_rho_R(i) = qR_prim_rs_vf(i)%sf(j + 1, k, l)
+        end do
 
-            blkmod1 = ((fluid_pp(1)%gamma + 1d0)*pres_L + &
-                       fluid_pp(1)%pi_inf)/fluid_pp(1)%gamma
-            blkmod2 = ((fluid_pp(2)%gamma + 1d0)*pres_L + &
-                       fluid_pp(2)%pi_inf)/fluid_pp(2)%gamma
-            c_L = 1d0/(rho_L*(alpha_L(1)/blkmod1 + alpha_L(2)/blkmod2))
+        do i = 1, num_dims
+            vel_L(i) = qL_prim_rs_vf(cont_idx%end + i)%sf(j, k, l)
+            vel_R(i) = qR_prim_rs_vf(cont_idx%end + i)%sf(j + 1, k, l)
+        end do
 
-            blkmod1 = ((fluid_pp(1)%gamma + 1d0)*pres_R + &
-                       fluid_pp(1)%pi_inf)/fluid_pp(1)%gamma
-            blkmod2 = ((fluid_pp(2)%gamma + 1d0)*pres_R + &
-                       fluid_pp(2)%pi_inf)/fluid_pp(2)%gamma
-            c_R = 1d0/(rho_R*(alpha_R(1)/blkmod1 + alpha_R(2)/blkmod2))
+        do i = 1,num_fluids
+            alpha_L(i) = qL_prim_rs_vf(E_idx + i)%sf(j, k, l)
+            alpha_R(i) = qR_prim_rs_vf(E_idx + i)%sf(j + 1, k, l)
+        end do
+
+        call s_convert_species_to_mixture_variables_acc( &
+                                            alpha_rho_L, alpha_L, &
+                                            gammas, pi_infs, &
+                                            rho_L, &
+                                            gamma_L, &
+                                            pi_inf_L)
+
+
+        call s_convert_species_to_mixture_variables_acc( &
+                                            alpha_rho_R, alpha_R, &
+                                            gammas, pi_infs, &
+                                            rho_R, &
+                                            gamma_R, &
+                                            pi_inf_R)
+
+        pres_L = qL_prim_rs_vf(E_idx)%sf(j, k, l)
+        pres_R = qR_prim_rs_vf(E_idx)%sf(j + 1, k, l)
+
+        E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*sum(vel_L**2d0)
+        E_R = gamma_R*pres_R + pi_inf_R + 5d-1*rho_R*sum(vel_R**2d0)
+
+        H_L = (E_L + pres_L)/rho_L
+        H_R = (E_R + pres_R)/rho_R
+
+
+        call s_compute_mixture_sound_speeds
+
+        ! Arithmetic Average Riemann Problem State 
+        rho_avg = 5d-1*(rho_L + rho_R)
+        vel_avg = 5d-1*(vel_L + vel_R)
+        H_avg  = 5d-1*(H_L + H_R)
+        gamma_avg = 5d-1*(gamma_L + gamma_R)
+
+        if (mixture_err) then
+            if ((H_avg - 5d-1*sum(vel_avg**2d0)) < 0d0) then
+                c_avg = sgm_eps
+            else
+                c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
+            end if
         else
-            do i = 1, num_fluids
-                alpha_L(i) = qL_prim_rs_vf(E_idx + i)%sf(j, k, l)
-                alpha_R(i) = qR_prim_rs_vf(E_idx + i)%sf(j + 1, k, l)
-            end do
-            c_L = ((H_L - 5d-1*sum(vel_L**2d0))/gamma_L)
-            c_R = ((H_R - 5d-1*sum(vel_R**2d0))/gamma_R)
+            c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
         end if
+
+    end subroutine s_compute_arithmetic_average_state 
+
+
+    subroutine s_compute_mixture_sound_speeds
+        !$acc routine seq 
+
+        c_L = (H_L - 5d-1*sum(vel_L**2d0))/gamma_L
+        c_R = (H_R - 5d-1*sum(vel_R**2d0))/gamma_R
 
         if (mixture_err .and. c_L < 0d0) then
             c_L = 100.d0*sgm_eps
@@ -251,66 +301,8 @@ contains
     end subroutine s_compute_mixture_sound_speeds 
 
 
-    subroutine s_compute_arithmetic_average_state(j, k, l) 
 
-        integer, intent(IN) :: j, k, l
-        integer :: i, q 
-
-        do i = 1, cont_idx%end
-            alpha_rho_L(i) = qL_prim_rs_vf(i)%sf(j, k, l)
-            alpha_rho_R(i) = qR_prim_rs_vf(i)%sf(j + 1, k, l)
-        end do
-
-        do i = 1, num_dims
-            vel_L(i) = qL_prim_rs_vf(cont_idx%end + i)%sf(j, k, l)
-            vel_R(i) = qR_prim_rs_vf(cont_idx%end + i)%sf(j + 1, k, l)
-        end do
-
-        call s_convert_species_to_mixture_variables(qL_prim_rs_vf, &
-                                            rho_L, gamma_L, &
-                                            pi_inf_L, &
-                                            j, k, l)
-        call s_convert_species_to_mixture_variables(qR_prim_rs_vf, &
-                                            rho_R, gamma_R, &
-                                            pi_inf_R,  &
-                                            j + 1, k, l)
-
-        pres_L = qL_prim_rs_vf(E_idx)%sf(j, k, l)
-        pres_R = qR_prim_rs_vf(E_idx)%sf(j + 1, k, l)
-
-        E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*sum(vel_L**2d0)
-        E_R = gamma_R*pres_R + pi_inf_R + 5d-1*rho_R*sum(vel_R**2d0)
-
-        H_L = (E_L + pres_L)/rho_L
-        H_R = (E_R + pres_R)/rho_R
-
-        call s_compute_mixture_sound_speeds(j, k, l)
-
-        ! Arithmetic Average Riemann Problem State 
-        rho_avg = 5d-1*(rho_L + rho_R)
-
-        vel_avg = 5d-1*(vel_L + vel_R)
-
-        H_avg = 5d-1*(H_L + H_R)
-
-        gamma_avg = 5d-1*(gamma_L + gamma_R)
-
-        if (mixture_err) then
-            if ((H_avg - 5d-1*sum(vel_avg**2d0)) < 0d0) then
-                c_avg = sgm_eps
-            else
-                c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
-            end if
-        else
-            c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
-        end if
-
-    end subroutine s_compute_arithmetic_average_state 
-
-
-    subroutine s_compute_direct_wave_speeds(j, k, l) 
-
-        integer, intent(IN) :: j, k, l
+    subroutine s_compute_direct_wave_speeds
 
         s_L = min(vel_L(dir_idx(1)) - c_L, vel_R(dir_idx(1)) - c_R)
         s_R = max(vel_R(dir_idx(1)) + c_R, vel_L(dir_idx(1)) + c_L)
@@ -340,5 +332,67 @@ contains
         deallocate (alpha_L, alpha_R)
 
     end subroutine s_finalize_riemann_solvers_module 
+
+
+    subroutine s_compute_arithmetic_average_state_orig(j, k, l) 
+
+        integer, intent(IN) :: j, k, l
+        integer :: i, q 
+
+        do i = 1, cont_idx%end
+            alpha_rho_L(i) = qL_prim_rs_vf(i)%sf(j, k, l)
+            alpha_rho_R(i) = qR_prim_rs_vf(i)%sf(j + 1, k, l)
+        end do
+
+        do i = 1, num_dims
+            vel_L(i) = qL_prim_rs_vf(cont_idx%end + i)%sf(j, k, l)
+            vel_R(i) = qR_prim_rs_vf(cont_idx%end + i)%sf(j + 1, k, l)
+        end do
+
+        call s_convert_species_to_mixture_variables( &
+                                            qL_prim_rs_vf, &
+                                            rho_L, gamma_L, &
+                                            pi_inf_L, &
+                                            j, k, l)
+
+        call s_convert_species_to_mixture_variables( &
+                                            qR_prim_rs_vf, &
+                                            rho_R, gamma_R, &
+                                            pi_inf_R,  &
+                                            j + 1, k, l)
+
+        pres_L = qL_prim_rs_vf(E_idx)%sf(j, k, l)
+        pres_R = qR_prim_rs_vf(E_idx)%sf(j + 1, k, l)
+
+        E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*sum(vel_L**2d0)
+        E_R = gamma_R*pres_R + pi_inf_R + 5d-1*rho_R*sum(vel_R**2d0)
+
+        H_L = (E_L + pres_L)/rho_L
+        H_R = (E_R + pres_R)/rho_R
+
+        do i = 1,num_fluids
+            alpha_L(i) = qL_prim_rs_vf(E_idx + i)%sf(j, k, l)
+            alpha_R(i) = qR_prim_rs_vf(E_idx + i)%sf(j + 1, k, l)
+        end do
+
+        call s_compute_mixture_sound_speeds
+
+        ! Arithmetic Average Riemann Problem State 
+        rho_avg = 5d-1*(rho_L + rho_R)
+        vel_avg = 5d-1*(vel_L + vel_R)
+        H_avg  = 5d-1*(H_L + H_R)
+        gamma_avg = 5d-1*(gamma_L + gamma_R)
+
+        if (mixture_err) then
+            if ((H_avg - 5d-1*sum(vel_avg**2d0)) < 0d0) then
+                c_avg = sgm_eps
+            else
+                c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
+            end if
+        else
+            c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
+        end if
+
+    end subroutine s_compute_arithmetic_average_state_orig
 
 end module m_riemann_solvers
