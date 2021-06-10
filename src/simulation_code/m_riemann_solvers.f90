@@ -24,38 +24,12 @@ module m_riemann_solvers
     type(scalar_field), allocatable, dimension(:) :: qL_prim_rs_vf
     type(scalar_field), allocatable, dimension(:) :: qR_prim_rs_vf
 
-    real(kind(0d0)), allocatable, dimension(:)    :: alpha_rho_L, alpha_rho_R
-    real(kind(0d0))                               ::       rho_L, rho_R
-    real(kind(0d0)), allocatable, dimension(:)    ::       vel_L, vel_R
-    real(kind(0d0))                               ::      pres_L, pres_R
-    real(kind(0d0))                               ::         E_L, E_R
-    real(kind(0d0))                               ::         H_L, H_R
-    real(kind(0d0)), allocatable, dimension(:)    ::     alpha_L, alpha_R
-    real(kind(0d0))                               ::     gamma_L, gamma_R
-    real(kind(0d0))                               ::    pi_inf_L, pi_inf_R
-    real(kind(0d0))                               ::         c_L, c_R
-
-    real(kind(0d0))                               :: rho_avg
-    real(kind(0d0)), allocatable, dimension(:)    :: vel_avg
-    real(kind(0d0))                               :: H_avg
-    real(kind(0d0))                               :: gamma_avg
-    real(kind(0d0))                               :: c_avg
-    real(kind(0d0))                               :: s_L, s_R, s_S
-    real(kind(0d0))                               :: s_M, s_P
-    real(kind(0d0))                               :: xi_M, xi_P
-    real(kind(0d0))                               :: xi_L, xi_R
-
     type(bounds_info) :: is1, is2, is3
     type(bounds_info) :: ix, iy, iz
 
-    real(kind(0d0)), allocatable, dimension(:)    :: gammas, pi_infs
 
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: qL_prim_rs_vf_flat, qR_prim_rs_vf_flat
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: flux_vf_flat, flux_src_vf_flat
-
-    integer :: ixb, ixe, iyb, iye, izb, ize
-    integer :: cont_idx_e
-    integer :: adv_idx_b, adv_idx_e
 
 contains
 
@@ -63,33 +37,15 @@ contains
 
         integer :: i
 
-        cont_idx_e = cont_idx%end
-        adv_idx_b = adv_idx%beg
-        adv_idx_e = adv_idx%end
-
         allocate (qL_prim_rs_vf(1:sys_size), qR_prim_rs_vf(1:sys_size))
-        allocate (alpha_rho_L(1:cont_idx%end), vel_L(1:num_dims))
-        allocate (alpha_rho_R(1:cont_idx%end), vel_R(1:num_dims))
-        allocate (vel_avg(1:num_dims))
-        allocate (alpha_L(1:num_fluids))
-        allocate (alpha_R(1:num_fluids))
-
-        allocate (gammas(1:num_fluids))
-        allocate (pi_infs(1:num_fluids))
 
         ! For dir=1
         ix%beg = -1; iy%beg =  0; iz%beg =  0
         ix%end = m; iy%end = n; iz%end = p
 
         is1 = ix; is2 = iy; is3 = iz
-        dir_idx = (/1, 2, 3/)
-        dir_flg = (/1d0, 0d0, 0d0/)
 
-        ixb = is1%beg; ixe = is1%end
-        iyb = is2%beg; iye = is2%end
-        izb = is3%beg; ize = is3%end
-
-        ! Allocating Left, Right and Average Riemann Problem States ========
+        ! Allocating Left, Right and Average Riemann Problem States
         do i = 1, sys_size
             allocate (qL_prim_rs_vf(i)%sf(is1%beg:is1%end, &
                                           is2%beg:is2%end, &
@@ -105,10 +61,6 @@ contains
         allocate(flux_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size))
         allocate(flux_src_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size))
 
-        do i = 1,num_fluids
-            gammas(i) = fluid_pp(i)%gamma
-            pi_infs(i) = fluid_pp(i)%pi_inf
-        end do
 
     end subroutine s_initialize_riemann_solvers_module 
 
@@ -129,7 +81,50 @@ contains
 
         integer, intent(IN) :: norm_dir
 
+        real(kind(0d0)), dimension(num_fluids)        :: alpha_rho_L, alpha_rho_R
+        real(kind(0d0))                               ::       rho_L, rho_R
+        real(kind(0d0)), dimension(num_dims)          ::       vel_L, vel_R
+        real(kind(0d0))                               ::      pres_L, pres_R
+        real(kind(0d0))                               ::         E_L, E_R
+        real(kind(0d0))                               ::         H_L, H_R
+        real(kind(0d0)), dimension(num_fluids)        ::     alpha_L, alpha_R
+        real(kind(0d0))                               ::     gamma_L, gamma_R
+        real(kind(0d0))                               ::    pi_inf_L, pi_inf_R
+        real(kind(0d0))                               ::         c_L, c_R
+
+        real(kind(0d0))                               :: rho_avg
+        real(kind(0d0)), dimension(num_dims)          :: vel_avg
+        real(kind(0d0))                               :: H_avg
+        real(kind(0d0))                               :: gamma_avg
+        real(kind(0d0))                               :: c_avg
+        real(kind(0d0))                               :: s_L, s_R, s_S
+        real(kind(0d0))                               :: s_M, s_P
+        real(kind(0d0))                               :: xi_M, xi_P
+        real(kind(0d0))                               :: xi_L, xi_R
+
+        real(kind(0d0)), dimension(num_fluids)        :: gammas, pi_infs
+
+        integer :: ixb, ixe, iyb, iye, izb, ize
+        integer :: cont_idx_e
+        integer :: adv_idx_b, adv_idx_e
+
         integer :: i, j, k, l
+
+        cont_idx_e = cont_idx%end
+        adv_idx_b = adv_idx%beg
+        adv_idx_e = adv_idx%end
+
+        ixb = is1%beg; ixe = is1%end
+        iyb = is2%beg; iye = is2%end
+        izb = is3%beg; ize = is3%end
+
+        dir_idx = (/1, 2, 3/)
+        dir_flg = (/1d0, 0d0, 0d0/)
+
+        do i = 1,num_fluids
+            gammas(i) = fluid_pp(i)%gamma
+            pi_infs(i) = fluid_pp(i)%pi_inf
+        end do
 
         ! do i = 1, sys_size
         !     qL_prim_rs_vf(i)%sf = qL_prim_vf(i)%sf(ix%beg:ix%end, &
@@ -149,8 +144,8 @@ contains
                                                    iz%beg:iz%end)
         end do
 
-        !$acc data copyin(qL_prim_rs_vf_flat,qR_prim_rs_vf_flat,dir_idx,dir_flg) copyout(flux_vf_flat,flux_src_vf_flat) 
-        !$acc parallel loop gang vector private(alpha_rho_L, alpha_rho_R, vel_L, vel_R, alpha_L, alpha_R, pres_L, pres_R, s_M, s_P, xi_L, xi_R, xi_M, xi_P)
+        !$acc data copyin(qL_prim_rs_vf_flat,qR_prim_rs_vf_flat,dir_idx,dir_flg,gammas,pi_infs) copyout(flux_vf_flat,flux_src_vf_flat) 
+        !$acc parallel loop collapse(3) gang vector private(alpha_rho_L, alpha_rho_R, vel_L, vel_R, alpha_L, alpha_R)
         do l = izb, ize
             do k = iyb, iye
                 do j = ixb, ixe
@@ -173,8 +168,70 @@ contains
                     pres_L = qL_prim_rs_vf_flat(j, k, l, E_idx)
                     pres_R = qR_prim_rs_vf_flat(j + 1, k, l, E_idx)
 
-                    call s_compute_arithmetic_average_state
-                    call s_compute_direct_wave_speeds
+                    ! Compute average state
+                    call s_convert_species_to_mixture_variables_acc_shb( &
+                                                        alpha_rho_L, alpha_L, &
+                                                        gammas, pi_infs, &
+                                                        rho_L, &
+                                                        gamma_L, &
+                                                        pi_inf_L, num_fluids)
+
+
+                    call s_convert_species_to_mixture_variables_acc_shb( &
+                                                        alpha_rho_R, alpha_R, &
+                                                        gammas, pi_infs, &
+                                                        rho_R, &
+                                                        gamma_R, &
+                                                        pi_inf_R, num_fluids)
+
+                    E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*sum(vel_L**2d0)
+                    E_R = gamma_R*pres_R + pi_inf_R + 5d-1*rho_R*sum(vel_R**2d0)
+
+                    H_L = (E_L + pres_L)/rho_L
+                    H_R = (E_R + pres_R)/rho_R
+                    
+                    ! Compute sound speeds
+                    c_L = (H_L - 5d-1*sum(vel_L**2d0))/gamma_L
+                    c_R = (H_R - 5d-1*sum(vel_R**2d0))/gamma_R
+
+                    if (mixture_err .and. c_L < 0d0) then
+                        c_L = 100.d0*sgm_eps
+                    else
+                        c_L = sqrt(c_L)
+                    end if
+
+                    if (mixture_err .and. c_R < 0d0) then
+                        c_R = 100.d0*sgm_eps
+                    else
+                        c_R = sqrt(c_R)
+                    end if
+
+                    ! Arithmetic Average Riemann Problem State 
+                    rho_avg = 5d-1*(rho_L + rho_R)
+                    vel_avg = 5d-1*(vel_L + vel_R)
+                    H_avg  = 5d-1*(H_L + H_R)
+                    gamma_avg = 5d-1*(gamma_L + gamma_R)
+
+                    if (mixture_err) then
+                        if ((H_avg - 5d-1*sum(vel_avg**2d0)) < 0d0) then
+                            c_avg = sgm_eps
+                        else
+                            c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
+                        end if
+                    else
+                        c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
+                    end if
+
+                    ! Compute wavespeeds
+                    s_L = min(vel_L(dir_idx(1)) - c_L, vel_R(dir_idx(1)) - c_R)
+                    s_R = max(vel_R(dir_idx(1)) + c_R, vel_L(dir_idx(1)) + c_L)
+
+                    s_S = (pres_R - pres_L + rho_L*vel_L(dir_idx(1))* &
+                           (s_L - vel_L(dir_idx(1))) - &
+                           rho_R*vel_R(dir_idx(1))* &
+                           (s_R - vel_R(dir_idx(1)))) &
+                          /(rho_L*(s_L - vel_L(dir_idx(1))) - &
+                            rho_R*(s_R - vel_R(dir_idx(1))))
 
                     s_M = min(0d0, s_L)
                     s_P = max(0d0, s_R)
@@ -247,7 +304,6 @@ contains
         !$acc end parallel loop 
         !$acc end data
 
-
         ! do i = 1,sys_size
         !     do j = ixb, ixe
         !         print*, 'flux:',j,flux_vf_flat(j,0,0,i)
@@ -261,100 +317,19 @@ contains
     end subroutine s_hllc_riemann_solver 
 
 
-    subroutine s_compute_arithmetic_average_state
-        !$acc routine seq 
-
-        call s_convert_species_to_mixture_variables_acc_shb( &
-                                            alpha_rho_L, alpha_L, &
-                                            gammas, pi_infs, &
-                                            rho_L, &
-                                            gamma_L, &
-                                            pi_inf_L)
-
-
-        call s_convert_species_to_mixture_variables_acc_shb( &
-                                            alpha_rho_R, alpha_R, &
-                                            gammas, pi_infs, &
-                                            rho_R, &
-                                            gamma_R, &
-                                            pi_inf_R)
-
-        E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*sum(vel_L**2d0)
-        E_R = gamma_R*pres_R + pi_inf_R + 5d-1*rho_R*sum(vel_R**2d0)
-
-        H_L = (E_L + pres_L)/rho_L
-        H_R = (E_R + pres_R)/rho_R
-
-        call s_compute_mixture_sound_speeds
-
-        ! Arithmetic Average Riemann Problem State 
-        rho_avg = 5d-1*(rho_L + rho_R)
-        vel_avg = 5d-1*(vel_L + vel_R)
-        H_avg  = 5d-1*(H_L + H_R)
-        gamma_avg = 5d-1*(gamma_L + gamma_R)
-
-        if (mixture_err) then
-            if ((H_avg - 5d-1*sum(vel_avg**2d0)) < 0d0) then
-                c_avg = sgm_eps
-            else
-                c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
-            end if
-        else
-            c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
-        end if
-
-    end subroutine s_compute_arithmetic_average_state 
-
-
-    subroutine s_compute_mixture_sound_speeds
-        !$acc routine seq 
-
-        c_L = (H_L - 5d-1*sum(vel_L**2d0))/gamma_L
-        c_R = (H_R - 5d-1*sum(vel_R**2d0))/gamma_R
-
-        if (mixture_err .and. c_L < 0d0) then
-            c_L = 100.d0*sgm_eps
-        else
-            c_L = sqrt(c_L)
-        end if
-
-        if (mixture_err .and. c_R < 0d0) then
-            c_R = 100.d0*sgm_eps
-        else
-            c_R = sqrt(c_R)
-        end if
-
-    end subroutine s_compute_mixture_sound_speeds 
-
-
-    subroutine s_compute_direct_wave_speeds
-        !$acc routine seq 
-
-        s_L = min(vel_L(dir_idx(1)) - c_L, vel_R(dir_idx(1)) - c_R)
-        s_R = max(vel_R(dir_idx(1)) + c_R, vel_L(dir_idx(1)) + c_L)
-
-        s_S = (pres_R - pres_L + rho_L*vel_L(dir_idx(1))* &
-               (s_L - vel_L(dir_idx(1))) - &
-               rho_R*vel_R(dir_idx(1))* &
-               (s_R - vel_R(dir_idx(1)))) &
-              /(rho_L*(s_L - vel_L(dir_idx(1))) - &
-                rho_R*(s_R - vel_R(dir_idx(1))))
-
-    end subroutine s_compute_direct_wave_speeds 
-
-
     subroutine s_convert_species_to_mixture_variables_acc_shb(alpha_rho_K, &
                                                       alpha_K, &
                                                       gammas, pi_infs, &
                                                       rho_K, &
-                                                      gamma_K, pi_inf_K &
+                                                      gamma_K, pi_inf_K, &
+                                                      num_fluids &
                                                       )
         !$acc routine seq
 
-        real(kind(0d0)), dimension(num_fluids), intent(IN) :: alpha_rho_K, alpha_K 
-        real(kind(0d0)), dimension(num_fluids), intent(IN) :: gammas, pi_infs
+        real(kind(0d0)), dimension(num_fluids), intent(IN) :: alpha_rho_K, alpha_K, gammas, pi_infs
         real(kind(0d0)), intent(OUT) :: rho_K, gamma_K, pi_inf_K
         integer :: i
+        integer, intent(in) :: num_fluids
 
         rho_K = 0d0; gamma_K = 0d0; pi_inf_K = 0d0
 
@@ -376,10 +351,6 @@ contains
         end do
 
         deallocate (qL_prim_rs_vf, qR_prim_rs_vf)
-        deallocate (alpha_rho_L, vel_L)
-        deallocate (alpha_rho_R, vel_R)
-        deallocate (vel_avg)
-        deallocate (alpha_L, alpha_R)
 
         deallocate (qL_prim_rs_vf_flat)
         deallocate (qR_prim_rs_vf_flat)
