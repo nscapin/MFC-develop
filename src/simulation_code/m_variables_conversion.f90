@@ -55,16 +55,17 @@ module m_variables_conversion
     implicit none
 
     private; public :: s_initialize_variables_conversion_module, &
- s_convert_to_mixture_variables, &
- s_convert_mixture_to_mixture_variables, &
- s_convert_species_to_mixture_variables_bubbles, &
- s_convert_species_to_mixture_variables, &
- s_convert_conservative_to_primitive_variables, &
- s_convert_conservative_to_flux_variables, &
- s_convert_primitive_to_conservative_variables, &
- s_convert_primitive_to_flux_variables, &
- s_convert_primitive_to_flux_variables_bubbles, &
- s_finalize_variables_conversion_module
+         s_convert_to_mixture_variables, &
+         s_convert_mixture_to_mixture_variables, &
+         s_convert_species_to_mixture_variables_bubbles, &
+         s_convert_species_to_mixture_variables, &
+         s_convert_species_to_mixture_variables_acc, &
+         s_convert_conservative_to_primitive_variables, &
+         s_convert_conservative_to_flux_variables, &
+         s_convert_primitive_to_conservative_variables, &
+         s_convert_primitive_to_flux_variables, &
+         s_convert_primitive_to_flux_variables_bubbles, &
+         s_finalize_variables_conversion_module
 
     abstract interface ! =======================================================
 
@@ -292,79 +293,30 @@ contains
 
     end subroutine s_convert_species_to_mixture_variables ! ----------------
 
-    !> The goal of this subroutine is to calculate the Roe
-        !!      average density, velocity, enthalpy, mass fractions,
-        !!      specific heat ratio function and the speed of sound,
-        !!      at the cell-boundaries, from the left and the right
-        !!      cell-average variables.
-        !!  @param j Cell index
-        !!  @param k Cell index
-        !!  @param l Cell index
-    subroutine s_compute_roe_average_state(j, k, l) ! ------------------------
 
-        integer, intent(IN) :: j, k, l
+    subroutine s_convert_species_to_mixture_variables_acc(alpha_rho_K, &
+                                                      alpha_K, &
+                                                      gammas, pi_infs, &
+                                                      rho_K, &
+                                                      gamma_K, pi_inf_K &
+                                                      )
+
+        real(kind(0d0)), dimension(num_fluids), intent(IN) :: alpha_rho_K, alpha_K 
+        real(kind(0d0)), dimension(num_fluids), intent(IN) :: gammas, pi_infs
+        real(kind(0d0)), intent(OUT) :: rho_K, gamma_K, pi_inf_K
         integer :: i
 
-        rho_avg_sf(j, k, l) = sqrt(rho_L*rho_R)
+        rho_K = 0d0; gamma_K = 0d0; pi_inf_K = 0d0
 
-        vel_avg = (sqrt(rho_L)*vel_L + sqrt(rho_R)*vel_R)/ &
-                  (sqrt(rho_L) + sqrt(rho_R))
-
-        H_avg = (sqrt(rho_L)*H_L + sqrt(rho_R)*H_R)/ &
-                (sqrt(rho_L) + sqrt(rho_R))
-
-        do i = 1, cont_idx%end
-            mf_avg_vf(i)%sf(j, k, l) = (sqrt(rho_L)*mf_L(i) &
-                                        + sqrt(rho_R)*mf_R(i)) &
-                                       /(sqrt(rho_L) &
-                                         + sqrt(rho_R))
+        do i = 1, num_fluids
+            rho_K = rho_K + alpha_rho_K(i)
+            gamma_K = gamma_K + alpha_K(i)*gammas(i)
+            pi_inf_K = pi_inf_K + alpha_K(i)*pi_infs(i)
         end do
 
-        gamma_avg = (sqrt(rho_L)*gamma_L + sqrt(rho_R)*gamma_R)/ &
-                    (sqrt(rho_L) + sqrt(rho_R))
+    end subroutine s_convert_species_to_mixture_variables_acc
 
-        c_avg_sf(j, k, l) = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
 
-    end subroutine s_compute_roe_average_state ! ---------------------------
-
-    !>  The goal of this subroutine is to compute the arithmetic
-        !!      average density, velocity, enthalpy, mass fractions, the
-        !!      specific heat ratio function and the sound speed, at the
-        !!      cell-boundaries, from the left and right cell-averages.
-        !!  @param j Cell index
-        !!  @param k Cell index
-        !!  @param l Cell index
-    subroutine s_compute_arithmetic_average_state(j, k, l) ! -----------------
-
-        integer, intent(IN) :: j, k, l
-        integer :: i
-
-        rho_avg_sf(j, k, l) = 5d-1*(rho_L + rho_R)
-        vel_avg = 5d-1*(vel_L + vel_R)
-
-        do i = 1, cont_idx%end
-            mf_avg_vf(i)%sf(j, k, l) = 5d-1*(mf_L(i) + mf_R(i))
-        end do
-
-        H_avg = 5d-1*(H_L + H_R)
-
-        gamma_avg = 5d-1*(gamma_L + gamma_R)
-
-        alpha_avg = 5d-1*(alpha_L + alpha_R)
-        pres_avg = 5d-1*(pres_L + pres_R)
-
-        if (model_eqns .ne. 4) then
-            c_avg_sf(j, k, l) = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
-        else
-            ! For Tait EOS
-            c_avg_sf(j, k, l) = sqrt( &
-                                (1d0/fluid_pp(1)%gamma + 1d0)* &
-                                (pres_avg + fluid_pp(1)%pi_inf)/ &
-                                (rho_avg_sf(j, k, l)*(1d0 - alpha_avg)) &
-                                )
-        end if
-
-    end subroutine s_compute_arithmetic_average_state ! --------------------
 
     !>  The computation of parameters, the allocation of memory,
         !!      the association of pointers and/or the execution of any
@@ -397,14 +349,9 @@ contains
                                                              ix, iy, iz)
 
         !! This is the one that gets called
-
         type(scalar_field), &
             dimension(sys_size), &
-            intent(INOUT) :: qK_cons_vf
-
-        type(scalar_field), &
-            dimension(sys_size), &
-            intent(INOUT) :: qK_prim_vf
+            intent(INOUT) :: qK_cons_vf, qK_prim_vf
 
         type(scalar_field), &
             allocatable, dimension(:), &
@@ -412,26 +359,21 @@ contains
 
         type(bounds_info), intent(IN) :: ix, iy, iz
 
-        ! Density, dynamic pressure, surface energy, specific heat ratio
-        ! function, liquid stiffness function, shear and volume Reynolds
-        ! numbers and the Weber numbers
         real(kind(0d0))                                   ::      rho_K
         real(kind(0d0))                                   :: dyn_pres_K
         real(kind(0d0))                                   ::    gamma_K
         real(kind(0d0))                                   ::   pi_inf_K
         real(kind(0d0))                                   ::       nbub
-        real(kind(0d0)), dimension(nb) :: nRtmp
 
-        integer :: i, j, k, l !< Generic loop iterators
+        integer :: i, j, k, l 
 
-        ! Calculating the velocity and pressure from the momentum and energy
         do l = iz%beg, iz%end
             do k = iy%beg, iy%end
                 do j = ix%beg, ix%end
 
                     dyn_pres_K = 0d0
 
-                    call s_convert_to_mixture_variables(qK_cons_vf, rho_K, &
+                    call s_convert_species_to_mixture_variables(qK_cons_vf, rho_K, &
                                                         gamma_K, pi_inf_K, &
                                                         j, k, l)
 
@@ -442,11 +384,8 @@ contains
                                      *qK_prim_vf(i)%sf(j, k, l)
                     end do
 
-                    qK_prim_vf(E_idx)%sf(j, k, l) = &
-                        (qK_cons_vf(E_idx)%sf(j, k, l) &
-                         - dyn_pres_K &
-                         - pi_inf_K &
-                         )/gamma_K
+                    qK_prim_vf(E_idx)%sf(j, k, l) = ( &
+                        qK_cons_vf(E_idx)%sf(j, k, l) - dyn_pres_K - pi_inf_K )/gamma_K
                 end do
             end do
         end do
@@ -739,65 +678,6 @@ contains
 
     end subroutine s_convert_primitive_to_flux_variables_bubbles ! -----------------
 
-
-    subroutine s_solve_linear_system(A, b, sol, ndim)
-
-        integer, intent(IN) :: ndim
-        real(kind(0d0)), dimension(ndim, ndim), intent(INOUT) :: A
-        real(kind(0d0)), dimension(ndim), intent(INOUT) :: b
-        real(kind(0d0)), dimension(ndim), intent(OUT) :: sol
-
-!            INTEGER, DIMENSION(ndim) :: ipiv
-!            INTEGER :: nrhs, lda, ldb, info
-!            EXTERNAL DGESV
-
-        integer :: i, j, k
-
-        ! Solve linear system using Intel MKL (Hooke)
-!            nrhs = 1
-!            lda = ndim
-!            ldb = ndim
-!
-!            CALL DGESV(ndim, nrhs, A, lda, ipiv, b, ldb, info)
-!
-!            DO i = 1, ndim
-!                sol(i) = b(i)
-!            END DO
-!
-!            IF (info /= 0) THEN
-!                PRINT '(A)', 'Trouble solving linear system'
-!                CALL s_mpi_abort()
-!            END IF
-
-        ! Solve linear system using own linear solver (Thomson/Darter/Comet/Stampede)
-        ! Forward elimination
-        do i = 1, ndim
-            ! Pivoting
-            j = i - 1 + maxloc(abs(A(i:ndim, i)), 1)
-            sol = A(i, :)
-            A(i, :) = A(j, :)
-            A(j, :) = sol
-            sol(1) = b(i)
-            b(i) = b(j)
-            b(j) = sol(1)
-            ! Elimination
-            b(i) = b(i)/A(i, i)
-            A(i, :) = A(i, :)/A(i, i)
-            do k = i + 1, ndim
-                b(k) = b(k) - A(k, i)*b(i)
-                A(k, :) = A(k, :) - A(k, i)*A(i, :)
-            end do
-        end do
-
-        ! Backward substitution
-        do i = ndim, 1, -1
-            sol(i) = b(i)
-            do k = i + 1, ndim
-                sol(i) = sol(i) - A(i, k)*sol(k)
-            end do
-        end do
-
-    end subroutine s_solve_linear_system
 
     !> Module deallocation and/or disassociation procedures
     subroutine s_finalize_variables_conversion_module() ! ------------------
