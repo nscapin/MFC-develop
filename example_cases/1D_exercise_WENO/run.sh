@@ -11,14 +11,23 @@
 ## 42/6 = 7 where 42 = number of total cores (c)
 ## (a == c) usually
 
-# jsrun -r6 -a7 -c7 -g1 ../../src/pre_process_code/pre_process
-# jsrun -r6 -a7 -c7 -g1 ../../src/simulation_code/simulation
 export PGI_ACC_NOTIFY=
 
-jsrun -r1 -a1 -c1 -g1 ../../src/pre_process_code/pre_process
-# jsrun -r1 -a7 -c7 -g1 ../../src/simulation_code/simulation
+## Full node
+# jsrun -r6 -a7 -c7 -g1 ../../src/pre_process_code/pre_process
+# jsrun -r6 -a7 -c7 -g1 ../../src/simulation_code/simulation
 
-jsrun -r1 -a1 -c1 -g1 ../../src/simulation_code/simulation
+## Two cores
+# jsrun -r1 -a2 -c2 -g1 ../../src/pre_process_code/pre_process
+# jsrun -r1 -a2 -c2 -g1 ../../src/simulation_code/simulation
+
+## Serial
+# jsrun -r1 -a1 -c1 -g1 ../../src/pre_process_code/pre_process
+# jsrun -r1 -a1 -c1 -g1 ../../src/simulation_code/simulation
+
+## Profile 
+# jsrun -r1 -a1 -c1 -g1 ../../src/pre_process_code/pre_process
+# jsrun -r1 -a1 -c1 -g1 ../../src/simulation_code/simulation
 # jsrun -r1 -a1 -c1 -g1 nvprof --analysis-metrics -o output.nvvp  -f ../../src/simulation_code/simulation
 
 # jsrun -r1 -a1 -c1 -g1 ncu --kernel-regex s_weno_alt_177_gpu --launch-skip 3 --launch-count 9 --set full -o output.prof -f  ../../src/simulation_code/simulation

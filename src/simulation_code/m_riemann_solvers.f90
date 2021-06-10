@@ -81,19 +81,19 @@ contains
 
         integer, intent(IN) :: norm_dir
 
-        real(kind(0d0)), dimension(num_fluids)        :: alpha_rho_L, alpha_rho_R
+        real(kind(0d0)), dimension(10)        :: alpha_rho_L, alpha_rho_R
         real(kind(0d0))                               ::       rho_L, rho_R
-        real(kind(0d0)), dimension(num_dims)          ::       vel_L, vel_R
+        real(kind(0d0)), dimension(10)          ::       vel_L, vel_R
         real(kind(0d0))                               ::      pres_L, pres_R
         real(kind(0d0))                               ::         E_L, E_R
         real(kind(0d0))                               ::         H_L, H_R
-        real(kind(0d0)), dimension(num_fluids)        ::     alpha_L, alpha_R
+        real(kind(0d0)), dimension(10)        ::     alpha_L, alpha_R
         real(kind(0d0))                               ::     gamma_L, gamma_R
         real(kind(0d0))                               ::    pi_inf_L, pi_inf_R
         real(kind(0d0))                               ::         c_L, c_R
 
         real(kind(0d0))                               :: rho_avg
-        real(kind(0d0)), dimension(num_dims)          :: vel_avg
+        real(kind(0d0)), dimension(10)          :: vel_avg
         real(kind(0d0))                               :: H_avg
         real(kind(0d0))                               :: gamma_avg
         real(kind(0d0))                               :: c_avg
@@ -102,13 +102,16 @@ contains
         real(kind(0d0))                               :: xi_M, xi_P
         real(kind(0d0))                               :: xi_L, xi_R
 
-        real(kind(0d0)), dimension(num_fluids)        :: gammas, pi_infs
+        real(kind(0d0)), dimension(10)        :: gammas, pi_infs
 
         integer :: ixb, ixe, iyb, iye, izb, ize
         integer :: cont_idx_e
         integer :: adv_idx_b, adv_idx_e
 
         integer :: i, j, k, l
+
+        integer, dimension(3) :: dir_idx
+        real(kind(0d0)), dimension(3) :: dir_flg
 
         cont_idx_e = cont_idx%end
         adv_idx_b = adv_idx%beg
@@ -118,8 +121,13 @@ contains
         iyb = is2%beg; iye = is2%end
         izb = is3%beg; ize = is3%end
 
-        dir_idx = (/1, 2, 3/)
-        dir_flg = (/1d0, 0d0, 0d0/)
+        dir_idx(1) = 1
+        dir_idx(2) = 2
+        dir_idx(3) = 3
+
+        dir_flg(1) = 1d0
+        dir_flg(2) = 0
+        dir_flg(3) = 0
 
         do i = 1,num_fluids
             gammas(i) = fluid_pp(i)%gamma
@@ -304,11 +312,11 @@ contains
         !$acc end parallel loop 
         !$acc end data
 
-        ! do i = 1,sys_size
-        !     do j = ixb, ixe
-        !         print*, 'flux:',j,flux_vf_flat(j,0,0,i)
-        !     end do
-        ! end do
+        do i = 1,1 !sys_size
+            do j = ixb, ixe
+                print*, 'rank,flux:',proc_rank,j,flux_vf_flat(j,0,0,i)
+            end do
+        end do
 
         ! do j = ixb, ixe
         !     print*, 'rs:',j,flux_src_vf_flat(j,0,0,adv_idx_b)
