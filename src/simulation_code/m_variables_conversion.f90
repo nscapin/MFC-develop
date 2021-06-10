@@ -95,56 +95,11 @@ module m_variables_conversion
 
         end subroutine s_convert_abstract_to_mixture_variables
 
-        !> The abstract interface to the procedures that are used to compute the
-        !! Roe and the arithmetic average states. For additional information see:
-        !!                 1) s_compute_roe_average_state
-        !!                 2) s_compute_arithmetic_average_state
-        !! @param i Cell location first index
-        !! @param j Cell location second index
-        !! @param k Cell location third index
-        subroutine s_compute_abstract_average_state(i, j, k)
-
-            integer, intent(IN) :: i, j, k
-
-        end subroutine s_compute_abstract_average_state
-
     end interface ! ============================================================
 
-    !> @name  Left/right states
-    !> @{
-    real(kind(0d0))                              ::    rho_L, rho_R      !< left/right states density
-    real(kind(0d0)), allocatable, dimension(:)   ::    vel_L, vel_R      !< left/right states velocity
-    real(kind(0d0))                              ::   pres_L, pres_R      !< left/right states pressure
-    real(kind(0d0))                              ::      E_L, E_R      !< left/right states total energy
-    real(kind(0d0))                              ::      H_L, H_R      !< left/right states enthalpy
-    real(kind(0d0)), allocatable, dimension(:)   ::     mf_L, mf_R      !< left/right states mass fraction
-    real(kind(0d0))                              ::  gamma_L, gamma_R      !< left/right states specific heat ratio
-    real(kind(0d0))                              :: pi_inf_L, pi_inf_R      !< left/right states liquid stiffness
-    real(kind(0d0))                              ::   alpha_L, alpha_R    !< left/right states void fraction
-    !> @}
-
-    !> @name Averaged states
-    !> @{
-    real(kind(0d0)), allocatable, dimension(:, :, :) :: rho_avg_sf !< averaged (Roe/arithmetic) density
-    real(kind(0d0)), allocatable, dimension(:)     :: vel_avg    !< averaged (Roe/arithmetic) velocity
-    real(kind(0d0))                                   :: H_avg      !< averaged (Roe/arithmetic) enthalpy
-    type(scalar_field), allocatable, dimension(:)     :: mf_avg_vf  !< averaged (Roe/arithmetic) mass fraction
-    real(kind(0d0))                                   :: gamma_avg  !< averaged (Roe/arithmetic) specific heat ratio
-    real(kind(0d0)), allocatable, dimension(:, :, :) :: c_avg_sf   !< averaged (Roe/arithmetic) speed of sound
-
-    real(kind(0d0))                                   :: alpha_avg !< averaging for bubbly mixture speed of sound
-    real(kind(0d0))                                   :: pres_avg  !< averaging for bubble mixture speed of sound
-    !> @}
 
     procedure(s_convert_abstract_to_mixture_variables), &
         pointer :: s_convert_to_mixture_variables => null() !<
-    !! Pointer to the procedure utilized to convert either the mixture or the
-    !! species variables into the mixture variables, based on model equations
-
-    procedure(s_compute_abstract_average_state), &
-        pointer :: s_compute_average_state => null() !<
-    !! Pointer to the subroutine utilized to calculate either the Roe or the
-    !! arithmetic average state variables, based on the chosen average state
 
 contains
 
