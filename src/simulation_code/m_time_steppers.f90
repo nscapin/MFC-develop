@@ -63,6 +63,9 @@ module m_time_steppers
     type(scalar_field), private, allocatable, dimension(:) :: q_prim_vf !<
     !! Cell-average primitive variables at the current time-stage
 
+    !! OPEN ACC COMMAND
+    !$acc declare create(q_cons_ts,q_prim_vf)
+
     type(scalar_field), allocatable, dimension(:) :: rhs_vf !<
     !! Cell-average RHS variables at the current time-stage
 
@@ -80,7 +83,7 @@ contains
     subroutine s_initialize_time_steppers_module() ! -----------------------
 
         type(bounds_info) :: ix, iy, iz !<
-            !! Indical bounds in the x-, y- and z-directions
+        !! Indical bounds in the x-, y- and z-directions
 
         integer :: i, j !< Generic loop iterators
 
@@ -120,6 +123,7 @@ contains
 
         do i = 1, num_ts
             allocate (q_cons_ts(i)%vf(1:sys_size))
+            !$acc enter data create(q_cons_ts(i)%vf)
         end do
 
         do i = 1, num_ts
@@ -127,6 +131,7 @@ contains
                 allocate (q_cons_ts(i)%vf(j)%sf(ix%beg:ix%end, &
                                                 iy%beg:iy%end, &
                                                 iz%beg:iz%end))
+                !$acc enter data create(q_cons_ts(i)%vf(j)%sf)
             end do
         end do
 
@@ -154,6 +159,7 @@ contains
             allocate (q_prim_vf(i)%sf(ix%beg:ix%end, &
                                       iy%beg:iy%end, &
                                       iz%beg:iz%end))
+            !$acc enter data create(q_prim_vf(i)%sf)
         end do
 
         if (bubbles) then
@@ -161,6 +167,7 @@ contains
                 allocate (q_prim_vf(i)%sf(ix%beg:ix%end, &
                                           iy%beg:iy%end, &
                                           iz%beg:iz%end))
+                !$acc enter data create(q_prim_vf(i)%sf)
             end do
         end if
 
@@ -170,6 +177,7 @@ contains
                 allocate (q_prim_vf(i)%sf(ix%beg:ix%end, &
                                           iy%beg:iy%end, &
                                           iz%beg:iz%end))
+                !$acc enter data create(q_prim_vf(i)%sf)
             end do
         end if
 
@@ -198,18 +206,22 @@ contains
         ! Stage 1 of 1 =====================================================
         do i = 1, cont_idx%end
             q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
+            !$acc enter data copyin(q_prim_vf(i)%sf)
         end do
 
         if (adv_alphan) then
             do i = adv_idx%beg, adv_idx%end
                 q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
+                !$acc enter data copyin(q_prim_vf(i)%sf)
             end do
         else
             do i = adv_idx%beg, sys_size
                 q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
+                !$acc enter data copyin(q_prim_vf(i)%sf)
             end do
         end if
-
+        !$acc update device(q_cons_ts(1)%vf)
+       
         call s_alt_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
         if (DEBUG) print *, 'got rhs'
 
@@ -229,7 +241,6 @@ contains
                 q_cons_ts(1)%vf(i)%sf(0:m, 0:n, 0:p) &
                 + dt*rhs_vf(i)%sf
         end do
-
 
         if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(1)%vf)
 
@@ -261,10 +272,12 @@ contains
         ! Stage 1 of 2 =====================================================
         do i = 1, cont_idx%end
             q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
+            !$ acc enter data copyin(q_prim_vf(i)%sf)
         end do
 
         do i = adv_idx%beg, adv_idx%end
             q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
+            !$ acc enter data copyin(q_prim_vf(i)%sf)
         end do
 
         ! call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
@@ -292,10 +305,12 @@ contains
         ! Stage 2 of 2 =====================================================
         do i = 1, cont_idx%end
             q_prim_vf(i)%sf => q_cons_ts(2)%vf(i)%sf
+            !$ acc update device(q_prim_vf(i))
         end do
 
         do i = adv_idx%beg, adv_idx%end
             q_prim_vf(i)%sf => q_cons_ts(2)%vf(i)%sf
+            !$ acc update device(q_prim_vf(i))
         end do
 
         ! call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
@@ -332,10 +347,12 @@ contains
         ! Stage 1 of 3 =====================================================
         do i = 1, cont_idx%end
             q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
+            !$ acc enter data copyin(q_prim_vf(i)%sf)
         end do
 
         do i = adv_idx%beg, adv_idx%end
             q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
+            !$ acc enter data copyin(q_prim_vf(i)%sf)
         end do
 
         ! call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
@@ -364,10 +381,12 @@ contains
         ! Stage 2 of 3 =====================================================
         do i = 1, cont_idx%end
             q_prim_vf(i)%sf => q_cons_ts(2)%vf(i)%sf
+            !$ acc update device(q_prim_vf(i))
         end do
 
         do i = adv_idx%beg, adv_idx%end
             q_prim_vf(i)%sf => q_cons_ts(2)%vf(i)%sf
+            !$ acc update device(q_prim_vf(i))
         end do
 
         ! call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
@@ -555,10 +574,12 @@ contains
         ! Stage 1 of 4 =====================================================
         do i = 1, cont_idx%end
             q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
+            !$ acc enter data copyin(q_prim_vf(i)%sf)
         end do
 
         do i = adv_idx%beg, adv_idx%end
             q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
+            !$ acc enter data copyin(q_prim_vf(i)%sf)
         end do
 
         ! call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
@@ -591,10 +612,12 @@ contains
         ! Stage 2 of 4 =====================================================
         do i = 1, cont_idx%end
             q_prim_vf(i)%sf => q_cons_ts(2)%vf(i)%sf
+            !$ acc update device(q_prim_vf(i))
         end do
 
         do i = adv_idx%beg, adv_idx%end
             q_prim_vf(i)%sf => q_cons_ts(2)%vf(i)%sf
+            !$ acc update device(q_prim_vf(i))
         end do
 
         ! call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)

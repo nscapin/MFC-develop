@@ -67,9 +67,8 @@ module m_weno
     type(vector_field), allocatable, dimension(:) :: v_rs_wsL
     !$acc declare create(v_rs_wsL)
 
-    type(scalar_field), allocatable, dimension(:) :: v_vf
     type(scalar_field), allocatable, dimension(:) :: vL_vf, vR_vf
-    !$acc declare create(v_vf, vL_vf, vR_vf)
+    !$acc declare create(vL_vf, vR_vf)
 
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_L
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_R
@@ -475,14 +474,16 @@ contains
         type(bounds_info), intent(IN) :: ix, iy, iz
 
         real(kind(0d0)), dimension(-weno_polyn:weno_polyn-1) :: dvd 
-        real(kind(0d0)), dimension(0:weno_polyn) ::  poly
+        real(kind(0d0)), dimension(0:weno_polyn) :: poly
         real(kind(0d0)), dimension(0:weno_polyn) :: alpha
         real(kind(0d0)), dimension(0:weno_polyn) :: omega
         real(kind(0d0)), dimension(0:weno_polyn) :: beta 
         integer :: i, j, k, l
 
-        !$acc data copyin(v_vf) copyout(vL_vf,vR_vf) present(v_rs_wsL, poly_coef_L, poly_coef_R, d_L, d_R, beta_coef)
-        !$acc parallel loop collapse(3) present(v_rs_wsL(:))
+        ! Do we need to copyin v_vf? We do this earlier I believe
+        ! TODO come back to line 88 for the copyin
+        !$acc data copyout(vL_vf,vR_vf) present(v_rs_wsL, poly_coef_L, poly_coef_R, d_L, d_R, beta_coef)
+        !$acc parallel loop collapse(3) present(v_rs_wsL)
         do k = ix%beg, ix%end
            do j = 1, sys_size
               do i = -weno_polyn, weno_polyn
@@ -496,7 +497,7 @@ contains
         !$acc parallel loop gang vector collapse(3) private(dvd, poly, beta, alpha, omega)
         do l = iz%beg, iz%end
             do k = iy%beg, iy%end
-                do j = ixb, ixe
+                do j = ix%beg, ix%end
                    do i = 1, sys_size
                         dvd(1) = v_rs_wsL(2)%vf(i)%sf(j, k, l) &
                                  - v_rs_wsL(1)%vf(i)%sf(j, k, l)

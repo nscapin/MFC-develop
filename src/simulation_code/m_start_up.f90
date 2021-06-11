@@ -58,14 +58,14 @@ module m_start_up
     implicit none
 
     private; public :: s_initialize_start_up_module, &
- s_read_input_file, &
- s_check_input_file, &
- s_read_data_files, &
- s_read_serial_data_files, &
- s_read_parallel_data_files, &
- s_populate_grid_variables_buffers, &
- s_initialize_internal_energy_equations, &
- s_finalize_start_up_module
+                       s_read_input_file, &
+                       s_check_input_file, &
+                       s_read_data_files, &
+                       s_read_serial_data_files, &
+                       s_read_parallel_data_files, &
+                       s_populate_grid_variables_buffers, &
+                       s_initialize_internal_energy_equations, &
+                       s_finalize_start_up_module
 
     abstract interface ! ===================================================
 

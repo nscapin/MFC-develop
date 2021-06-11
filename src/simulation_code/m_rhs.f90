@@ -86,6 +86,8 @@ module m_rhs
     !! are calculated from the conservative variables and gradient magnitude (GM)
     !! of the volume fractions, q_cons_qp and gm_alpha_qp, respectively.
 
+    !$ acc declare create(q_cons_qp,q_prim_qp)
+
     !> @name The left (L) and the right (R) WENO-reconstructed cell-boundary values,
     !! including cell-boundary Gaussian quadrature points, of the cell-average
     !! conservative variables. The latter are stored in the variable q_cons_qp
@@ -206,9 +208,8 @@ contains
         ix%end = m - ix%beg; iy%end = n - iy%beg; iz%end = p - iz%beg
         ! ==================================================================
 
-
-        allocate (q_cons_qp%vf(1:sys_size))
-        allocate (q_prim_qp%vf(1:sys_size))
+        allocate (q_cons_qp%vf(1:sys_size),q_prim_qp%vf(1:sys_size))
+        !$acc enter data create(q_cons_qp%vf,q_prim_qp%vf)
 
         ! ==================================================================
 
@@ -503,7 +504,7 @@ contains
     !> The purpose of this procedure is to exercise the WENO functionality of 
       !! MFC in one spatial dimension (no RHS computation, just reconstruction)
     subroutine s_alt_rhs(q_cons_vf, q_prim_vf, rhs_vf, t_step) ! -------
-
+        use openacc
         type(scalar_field), dimension(sys_size), intent(INOUT) :: q_cons_vf
         type(scalar_field), dimension(sys_size), intent(INOUT) :: q_prim_vf
         type(scalar_field), dimension(sys_size), intent(INOUT) :: rhs_vf
@@ -514,10 +515,16 @@ contains
         ix%beg = -buff_size; ix%end = m - ix%beg; 
         iv%beg = 1; iv%end = adv_idx%end
 
+        print *,"present of q_prim_qp%vf(1): ",acc_is_present(q_prim_qp%vf(1),8)
+        print *,"present of q_cons_vf: ",acc_is_present(q_cons_vf,8)
+        print *,"present of q_prim_vf: ",acc_is_present(q_prim_vf,8)
         do i = 1, sys_size
             q_cons_qp%vf(i)%sf => q_cons_vf(i)%sf
             q_prim_qp%vf(i)%sf => q_prim_vf(i)%sf
         end do
+        print *,"present of q_prim_qp%vf(1): ",acc_is_present(q_prim_qp%vf(1),8)
+        print *,"present of q_cons_vf: ",acc_is_present(q_cons_vf,8)
+        print *,"present of q_prim_vf: ",acc_is_present(q_prim_vf,8)
 
         call s_populate_conservative_variables_buffers()
 
@@ -528,6 +535,8 @@ contains
             gm_alpha_qp%vf, &
             ix, iy, iz)
         call nvtxEndRange
+
+        !$ acc update device(q_prim_qp%vf(i)%sf)
 
         if (t_step == t_step_stop) return
 
@@ -1996,7 +2005,7 @@ contains
     subroutine s_reconstruct_cell_boundary_values(v_vf, vL_qp, vR_qp, norm_dir)
 
         type(scalar_field), dimension(iv%beg:iv%end), intent(IN) :: v_vf
-
+        
         type(vector_field), intent(INOUT) :: vL_qp, vR_qp
 
         integer, intent(IN) :: norm_dir

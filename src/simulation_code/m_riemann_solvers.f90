@@ -149,8 +149,8 @@ contains
                                                    iz%beg:iz%end)
         end do
 
-        !$acc data copyin(qL_prim_rs_vf_flat,qR_prim_rs_vf_flat,dir_idx,dir_flg) copyout(flux_vf_flat,flux_src_vf_flat) 
-        !$acc parallel loop gang vector private(alpha_rho_L, alpha_rho_R, vel_L, vel_R, alpha_L, alpha_R, pres_L, pres_R, s_M, s_P, xi_L, xi_R, xi_M, xi_P)
+        !$ acc data copyin(qL_prim_rs_vf_flat,qR_prim_rs_vf_flat,dir_idx,dir_flg) copyout(flux_vf_flat,flux_src_vf_flat) 
+        !$ acc parallel loop gang vector private(alpha_rho_L, alpha_rho_R, vel_L, vel_R, alpha_L, alpha_R, pres_L, pres_R, s_M, s_P, xi_L, xi_R, xi_M, xi_P)
         do l = izb, ize
             do k = iyb, iye
                 do j = ixb, ixe
@@ -244,8 +244,8 @@ contains
                 end do
             end do
         end do
-        !$acc end parallel loop 
-        !$acc end data
+        !$ acc end parallel loop 
+        !$ acc end data
 
 
         ! do i = 1,sys_size
@@ -349,7 +349,7 @@ contains
                                                       rho_K, &
                                                       gamma_K, pi_inf_K &
                                                       )
-        !$acc routine seq
+        !$ acc routine seq
 
         real(kind(0d0)), dimension(num_fluids), intent(IN) :: alpha_rho_K, alpha_K 
         real(kind(0d0)), dimension(num_fluids), intent(IN) :: gammas, pi_infs
