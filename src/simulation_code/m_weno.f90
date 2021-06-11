@@ -61,8 +61,9 @@ module m_weno
 
     ! implicit none
 
-    private; public :: s_initialize_weno_module, s_weno, &
+    private; public :: s_initialize_weno_module, &
                        s_finalize_weno_module, s_weno_alt
+                    ! s_weno, &
 
     type(vector_field), allocatable, dimension(:) :: v_rs_wsL
     !$acc declare create(v_rs_wsL)
@@ -583,11 +584,7 @@ contains
 !                deallocate (v_rs_wsL(i)%vf(j)%sf)
 !            end do
 !        end do
-
-
-
     end subroutine s_weno 
-
 
     subroutine s_compute_weno_coefficients(is) ! -------
 

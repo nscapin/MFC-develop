@@ -59,13 +59,18 @@ module m_variables_conversion
          s_convert_mixture_to_mixture_variables, &
          s_convert_species_to_mixture_variables_bubbles, &
          s_convert_species_to_mixture_variables, &
-         s_convert_species_to_mixture_variables_acc, &
          s_convert_conservative_to_primitive_variables, &
+         s_convert_conservative_to_primitive_variables_acc, &
          s_convert_conservative_to_flux_variables, &
          s_convert_primitive_to_conservative_variables, &
          s_convert_primitive_to_flux_variables, &
          s_convert_primitive_to_flux_variables_bubbles, &
          s_finalize_variables_conversion_module
+
+
+    real(kind(0d0)), allocatable, dimension(:,:,:,:) :: qK_cons_vf_flat
+    real(kind(0d0)), allocatable, dimension(:,:,:,:) :: qK_prim_vf_flat
+    type(bounds_info) :: is1, is2, is3
 
     abstract interface ! =======================================================
 
@@ -102,6 +107,41 @@ module m_variables_conversion
         pointer :: s_convert_to_mixture_variables => null() !<
 
 contains
+
+    !>  The computation of parameters, the allocation of memory,
+        !!      the association of pointers and/or the execution of any
+        !!      other procedures that are necessary to setup the module.
+    subroutine s_initialize_variables_conversion_module() ! ----------------
+
+
+
+        ! Associating the procedural pointer to the appropriate subroutine
+        ! that will be utilized in the conversion to the mixture variables
+        if (model_eqns == 1) then        ! gamma/pi_inf model
+            s_convert_to_mixture_variables => &
+                s_convert_mixture_to_mixture_variables
+        else                            ! Volume fraction model
+            s_convert_to_mixture_variables => &
+                s_convert_species_to_mixture_variables
+        end if
+
+        ! For dir=1
+        is1%beg = -buff_size
+        is1%end = m - is1%beg
+        ! print*, 'is: ', is1%beg, is1%end
+
+        ! stop
+
+        is2%beg =  0
+        is2%end = n
+
+        is3%beg =  0
+        is3%end = p
+
+        allocate( qK_prim_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size ) )
+        allocate( qK_cons_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size ) )
+
+    end subroutine s_initialize_variables_conversion_module ! --------------
 
     !> This procedure is used alongside with the gamma/pi_inf
         !!      model to transfer the density, the specific heat ratio
@@ -249,16 +289,106 @@ contains
     end subroutine s_convert_species_to_mixture_variables ! ----------------
 
 
-    subroutine s_convert_species_to_mixture_variables_acc(alpha_rho_K, &
+
+
+
+    subroutine s_convert_conservative_to_primitive_variables_acc( &
+                                                             qK_cons_vf, &
+                                                             qK_prim_vf, &
+                                                             ix, iy, iz)
+
+        type(scalar_field), dimension(sys_size), intent(INOUT) :: qK_cons_vf, qK_prim_vf
+        type(bounds_info), intent(IN) :: ix, iy, iz
+
+        real(kind(0d0)), dimension(10) :: alpha_rho
+        real(kind(0d0)), dimension(10) :: alpha
+        real(kind(0d0)), dimension(10) :: gammas, pi_infs
+        real(kind(0d0)) ::      rho_K
+        real(kind(0d0)) :: dyn_pres_K
+        real(kind(0d0)) ::    gamma_K
+        real(kind(0d0)) ::   pi_inf_K
+
+        integer :: ixb, ixe, iyb, iye, izb, ize
+        integer :: adv_idx_b, mom_idx_b, mom_idx_e
+        integer :: i, j, k, l 
+
+        adv_idx_b = adv_idx%beg
+        mom_idx_b = mom_idx%beg
+        mom_idx_e = mom_idx%end
+
+        ixb = ix%beg; ixe = ix%end
+        iyb = iy%beg; iye = iy%end
+        izb = iz%beg; ize = iz%end
+
+        do i = 1, num_fluids
+            gammas(i) = fluid_pp(i)%gamma
+            pi_infs(i) = fluid_pp(i)%pi_inf
+        end do
+
+        do i = 1, sys_size
+            qK_cons_vf_flat(:,:,:,i) = qK_cons_vf(i)%sf(:,:,:)
+        end do
+
+        !$acc data copyin(qK_cons_vf_flat,gammas,pi_infs) copyout(qK_prim_vf_flat) 
+        !$acc parallel loop collapse(3) gang vector private(alpha_rho, alpha)
+        do l = izb, ize
+            do k = iyb, iye
+                do j = ixb, ixe
+
+                    do i = 1, num_fluids
+                        alpha_rho(i) = qK_cons_vf_flat(j, k, l, i)
+                        alpha(i) = qK_cons_vf_flat(j, k, l, adv_idx_b + i - 1)
+                    end do
+
+                    call s_convert_species_to_mixture_variables_acc( &
+                                                      alpha_rho, &
+                                                      alpha, &
+                                                      gammas, pi_infs, &
+                                                      rho_K, &
+                                                      gamma_K, pi_inf_K, &
+                                                      num_fluids &
+                                                      )
+
+
+                    dyn_pres_K = 0d0
+                    do i = mom_idx_b, mom_idx_e
+                        qK_prim_vf_flat(j, k, l, i) = &
+                            qK_cons_vf_flat(j, k, l, i)/max(rho_K, sgm_eps)
+                        dyn_pres_K = dyn_pres_K + 5d-1*qK_cons_vf_flat(j, k, l, i) & 
+                            * qK_prim_vf_flat(j, k, l, i)
+                    end do
+
+                    qK_prim_vf_flat(j, k, l, E_idx) = ( &
+                        qK_cons_vf_flat(j, k, l, E_idx) - dyn_pres_K - pi_inf_K )/gamma_K
+
+                end do
+            end do
+        end do
+        !$acc end parallel loop 
+        !$acc end data
+
+        do i = mom_idx%beg,E_idx
+            qK_prim_vf(i)%sf(:,:,:) = qK_prim_vf_flat(:,:,:,i)
+        end do
+
+
+    end subroutine s_convert_conservative_to_primitive_variables_acc
+
+
+    subroutine s_convert_species_to_mixture_variables_acc( &
+                                                      alpha_rho_K, &
                                                       alpha_K, &
                                                       gammas, pi_infs, &
                                                       rho_K, &
-                                                      gamma_K, pi_inf_K &
+                                                      gamma_K, pi_inf_K, &
+                                                      num_fluids &
                                                       )
+        !$acc routine seq
 
         real(kind(0d0)), dimension(num_fluids), intent(IN) :: alpha_rho_K, alpha_K 
         real(kind(0d0)), dimension(num_fluids), intent(IN) :: gammas, pi_infs
         real(kind(0d0)), intent(OUT) :: rho_K, gamma_K, pi_inf_K
+        integer, intent(IN) :: num_fluids
         integer :: i
 
         rho_K = 0d0; gamma_K = 0d0; pi_inf_K = 0d0
@@ -270,25 +400,6 @@ contains
         end do
 
     end subroutine s_convert_species_to_mixture_variables_acc
-
-
-
-    !>  The computation of parameters, the allocation of memory,
-        !!      the association of pointers and/or the execution of any
-        !!      other procedures that are necessary to setup the module.
-    subroutine s_initialize_variables_conversion_module() ! ----------------
-
-        ! Associating the procedural pointer to the appropriate subroutine
-        ! that will be utilized in the conversion to the mixture variables
-        if (model_eqns == 1) then        ! gamma/pi_inf model
-            s_convert_to_mixture_variables => &
-                s_convert_mixture_to_mixture_variables
-        else                            ! Volume fraction model
-            s_convert_to_mixture_variables => &
-                s_convert_species_to_mixture_variables
-        end if
-
-    end subroutine s_initialize_variables_conversion_module ! --------------
 
     !> The following procedure handles the conversion between
         !!      the conservative variables and the primitive variables.
@@ -303,7 +414,6 @@ contains
                                                              gm_alphaK_vf, &
                                                              ix, iy, iz)
 
-        !! This is the one that gets called
         type(scalar_field), &
             dimension(sys_size), &
             intent(INOUT) :: qK_cons_vf, qK_prim_vf
@@ -640,6 +750,9 @@ contains
         ! Disassociating the pointer to the procedure that was utilized to
         ! to convert mixture or species variables to the mixture variables
         s_convert_to_mixture_variables => null()
+
+        deallocate( qK_prim_vf_flat )
+        deallocate( qK_cons_vf_flat )
 
     end subroutine s_finalize_variables_conversion_module ! ----------------
 

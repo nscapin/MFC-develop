@@ -119,17 +119,6 @@ program p_main
     call s_initialize_time_steppers_module()
     if (qbmm) call s_initialize_qbmm_module()
 
-!!!@acc ngpus = acc_get_num_devices(acc_device_default)
-!!!@acc if (proc_rank == 0) then
-!!!@acc   print *,"number of devices: ",ngpus
-!!!@acc   print *,"number of ranks: ", num_procs
-!!!@acc end if
-!!!@acc if (ngpus .lt. num_procs) then
-!!!@acc    write(*,*) "Need one GPU per rank.  Exiting."
-!!!@acc    write(*,*) "test FAILED"
-!!!@acc    return
-!!!@acc endif
-
 
     ! Associate pointers for serial or parallel I/O
     if (parallel_io .neqv. .true.) then
