@@ -86,8 +86,6 @@ module m_rhs
     !! are calculated from the conservative variables and gradient magnitude (GM)
     !! of the volume fractions, q_cons_qp and gm_alpha_qp, respectively.
 
-    !$ acc declare create(q_cons_qp,q_prim_qp)
-
     !> @name The left (L) and the right (R) WENO-reconstructed cell-boundary values,
     !! including cell-boundary Gaussian quadrature points, of the cell-average
     !! conservative variables. The latter are stored in the variable q_cons_qp
@@ -190,6 +188,9 @@ module m_rhs
 
     character(50) :: file_path !< Local file path for saving debug files
 
+    real(kind(0d0)), allocatable, dimension(:,:,:,:) :: qK_cons_vf_flat
+    real(kind(0d0)), allocatable, dimension(:,:,:,:) :: qK_prim_vf_flat
+
 contains
 
     !> The computation of parameters, the allocation of memory,
@@ -208,8 +209,9 @@ contains
         ix%end = m - ix%beg; iy%end = n - iy%beg; iz%end = p - iz%beg
         ! ==================================================================
 
-        allocate (q_cons_qp%vf(1:sys_size),q_prim_qp%vf(1:sys_size))
-        !$acc enter data create(q_cons_qp%vf,q_prim_qp%vf)
+
+        allocate (q_cons_qp%vf(1:sys_size))
+        allocate (q_prim_qp%vf(1:sys_size))
 
         ! ==================================================================
 
@@ -498,55 +500,62 @@ contains
                 s_convert_species_to_mixture_variables
         end if
 
+        is1%beg = -buff_size
+        is1%end = m - is1%beg
+
+        is2%beg = 0
+        is2%end = n
+
+        is3%beg = 0
+        is3%end = p
+
+        allocate( qK_cons_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size ) )
+        allocate( qK_prim_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size ) )
+
+        allocate(vL_vf_flat(is1%beg:is1%end, is2%beg:is2%end, is3%beg:is3%end, 1:sys_size))
+        allocate(vR_vf_flat(is1%beg:is1%end, is2%beg:is2%end, is3%beg:is3%end, 1:sys_size))
+
     end subroutine s_initialize_rhs_module ! -------------------------------
 
 
     !> The purpose of this procedure is to exercise the WENO functionality of 
       !! MFC in one spatial dimension (no RHS computation, just reconstruction)
     subroutine s_alt_rhs(q_cons_vf, q_prim_vf, rhs_vf, t_step) ! -------
-        use openacc
+
         type(scalar_field), dimension(sys_size), intent(INOUT) :: q_cons_vf
         type(scalar_field), dimension(sys_size), intent(INOUT) :: q_prim_vf
         type(scalar_field), dimension(sys_size), intent(INOUT) :: rhs_vf
         integer, intent(IN) :: t_step
 
         integer :: i, j, k
+        real(kind(0d0)), dimension(10) :: gammas, pi_infs
 
         ix%beg = -buff_size; ix%end = m - ix%beg; 
         iv%beg = 1; iv%end = adv_idx%end
 
-        print *,"present of q_prim_qp%vf(1): ",acc_is_present(q_prim_qp%vf(1),8)
-        print *,"present of q_cons_vf: ",acc_is_present(q_cons_vf,8)
-        print *,"present of q_prim_vf: ",acc_is_present(q_prim_vf,8)
         do i = 1, sys_size
             q_cons_qp%vf(i)%sf => q_cons_vf(i)%sf
             q_prim_qp%vf(i)%sf => q_prim_vf(i)%sf
         end do
-        print *,"present of q_prim_qp%vf(1): ",acc_is_present(q_prim_qp%vf(1),8)
-        print *,"present of q_cons_vf: ",acc_is_present(q_cons_vf,8)
-        print *,"present of q_prim_vf: ",acc_is_present(q_prim_vf,8)
 
         call s_populate_conservative_variables_buffers()
 
         i = 1 !Coordinate Index
 
-        !!$acc data
+        do i = 1, sys_size
+            qK_cons_vf_flat(:,:,:,i) = q_cons_vf(i)%sf(:,:,:)
+        end do
+
+        !$acc data copyin(qK_cons_vf_flat) copyout(flux_vf_flat,flux_src_vf_flat) create(qK_prim_vf_flat)
         call nvtxStartRange("RHS-Convert-to-Primitive")
         call s_convert_conservative_to_primitive_variables_acc( &
-            q_cons_qp%vf, &
-            q_prim_qp%vf, &
+            qk_cons_vf_flat, qK_prim_vf_flat, &
             ix, iy, iz)
         call nvtxEndRange
 
-        !$ acc update device(q_prim_qp%vf(i)%sf)
-
-        if (t_step == t_step_stop) return
-
-        i = 1 !Coordinate Index
-
         call nvtxStartRange("RHS-WENO")
         call s_reconstruct_cell_boundary_values( &
-            q_prim_qp%vf(iv%beg:iv%end), &
+            qK_prim_vf_flat, &
             qL_prim_ndqp(i), qR_prim_ndqp(i), i)
         call nvtxEndRange
 
@@ -558,7 +567,7 @@ contains
                               flux_src_ndqp(i)%vf, &
                               i)
         call nvtxEndRange
-        !!$acc end data
+        !$acc end data
 
         ! ! do k = iv%beg, iv%end
 
@@ -2013,7 +2022,7 @@ contains
     subroutine s_reconstruct_cell_boundary_values(v_vf, vL_qp, vR_qp, norm_dir)
 
         type(scalar_field), dimension(iv%beg:iv%end), intent(IN) :: v_vf
-        
+
         type(vector_field), intent(INOUT) :: vL_qp, vR_qp
 
         integer, intent(IN) :: norm_dir
@@ -2041,7 +2050,6 @@ contains
                     vR_qp%vf(iv%beg:iv%end), &
                     weno_dir,  &
                     is1, is2, is3)
-
 
         ! call s_weno(v_vf(iv%beg:iv%end), &
                     ! vL_qp%vf(iv%beg:iv%end), &

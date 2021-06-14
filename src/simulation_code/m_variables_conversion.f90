@@ -293,11 +293,13 @@ contains
 
 
     subroutine s_convert_conservative_to_primitive_variables_acc( &
-                                                             qK_cons_vf, &
-                                                             qK_prim_vf, &
+                                                             qK_cons_vf_flat, &
+                                                             qK_prim_vf_flat, &
                                                              ix, iy, iz)
 
-        type(scalar_field), dimension(sys_size), intent(INOUT) :: qK_cons_vf, qK_prim_vf
+        real(kind(0d0)), dimension(:,:,:,:), intent(INOUT) :: qK_cons_vf_flat
+        real(kind(0d0)), dimension(:,:,:,:), intent(INOUT) :: qK_prim_vf_flat
+
         type(bounds_info), intent(IN) :: ix, iy, iz
 
         real(kind(0d0)), dimension(10) :: alpha_rho
@@ -325,12 +327,8 @@ contains
             pi_infs(i) = fluid_pp(i)%pi_inf
         end do
 
-        do i = 1, sys_size
-            qK_cons_vf_flat(:,:,:,i) = qK_cons_vf(i)%sf(:,:,:)
-        end do
-
-        !$acc data copyin(qK_cons_vf_flat,gammas,pi_infs) copyout(qK_prim_vf_flat) 
-        !$acc parallel loop collapse(3) gang vector private(alpha_rho, alpha)
+        !$acc data copyin(gammas,pi_infs) present(qK_cons_vf_flat, qK_prim_vf_flat)
+        !$acc parallel loop collapse(3) gang vector private(alpha_rho, alpha) 
         do l = izb, ize
             do k = iyb, iye
                 do j = ixb, ixe
@@ -361,15 +359,25 @@ contains
                     qK_prim_vf_flat(j, k, l, E_idx) = ( &
                         qK_cons_vf_flat(j, k, l, E_idx) - dyn_pres_K - pi_inf_K )/gamma_K
 
+                    do i = 1, cons_idx_e
+                        qK_prim_vf_flat(j, k, l, i) = qK_cons_vf_flat(j, k, l, i)
+                    end do
+
+                    do i = adv_idx_b, adv_idx_e
+                        qK_prim_vf_flat(j, k, l, i) = qK_cons_vf_flat(j, k, l, i)
+                    end do
+
                 end do
             end do
         end do
         !$acc end parallel loop 
-        !$acc end data
 
-        do i = mom_idx%beg,E_idx
-            qK_prim_vf(i)%sf(:,:,:) = qK_prim_vf_flat(:,:,:,i)
-        end do
+
+        !!!$acc end data
+
+        ! do i = mom_idx%beg,E_idx
+        !     qK_prim_vf(i)%sf(:,:,:) = qK_prim_vf_flat(:,:,:,i)
+        ! end do
 
 
     end subroutine s_convert_conservative_to_primitive_variables_acc

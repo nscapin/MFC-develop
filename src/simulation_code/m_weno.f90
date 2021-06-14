@@ -68,8 +68,9 @@ module m_weno
     type(vector_field), allocatable, dimension(:) :: v_rs_wsL
     !$acc declare create(v_rs_wsL)
 
+    type(scalar_field), allocatable, dimension(:) :: v_vf
     type(scalar_field), allocatable, dimension(:) :: vL_vf, vR_vf
-    !$acc declare create(vL_vf, vR_vf)
+    !$acc declare create(v_vf, vL_vf, vR_vf)
 
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_L
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_R
@@ -82,8 +83,8 @@ module m_weno
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: beta_coef
     !$acc declare create (beta_coef)
 
-    real(kind(0d0)), target, allocatable, dimension(:,:,:,:) :: v_flat
-    real(kind(0d0)), target, allocatable, dimension(:,:,:,:) :: vL_vf_flat, vR_vf_flat
+    ! real(kind(0d0)), target, allocatable, dimension(:,:,:,:) :: v_flat
+    ! real(kind(0d0)), target, allocatable, dimension(:,:,:,:) :: vL_vf_flat, vR_vf_flat
 
     ! These are variables that are only on GPU
     real(kind(0d0)), target, allocatable, dimension(:,:,:,:,:) :: v_rs_wsL_flat
@@ -140,10 +141,9 @@ contains
         ixb_full = -buff_size; ixe_full = m + buff_size
         ! print*, 'buff_size: ', buff_size
 
-        allocate(v_flat(ixb_full:ixe_full, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
-
-        allocate(vL_vf_flat(ixb_full:ixe_full, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
-        allocate(vR_vf_flat(ixb_full:ixe_full, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
+        ! allocate(v_flat(ixb_full:ixe_full, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
+        ! allocate(vL_vf_flat(ixb_full:ixe_full, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
+        ! allocate(vR_vf_flat(ixb_full:ixe_full, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
 
         call s_compute_weno_coefficients(ix)
 
@@ -151,10 +151,11 @@ contains
 
 
 
-    subroutine s_weno_alt(v_vf, vL_vf, vR_vf, weno_dir_dummy, ix, iy, iz)
+    subroutine s_weno_alt(qK_prim_vf_flat,vL_vf_flat,vR_vf_flat, weno_dir_dummy, ix, iy, iz)
 
-        type(scalar_field), dimension(:), intent(IN) :: v_vf
-        type(scalar_field), dimension(:), intent(INOUT) :: vL_vf, vR_vf
+        real(kind(0d0)), dimension(:,:,:,:), intent(INOUT) :: qK_prim_vf_flat
+        real(kind(0d0)), dimension(:,:,:,:), intent(INOUT) :: vL_vf_flat, vR_vf_flat
+
         integer, intent(IN) :: weno_dir_dummy
         type(bounds_info), intent(IN) :: ix, iy, iz
 
@@ -184,26 +185,18 @@ contains
         real(kind(0d0)), parameter :: alpha_mp = 2d0
         real(kind(0d0)), parameter :: beta_mp = 4d0/3d0
 
-        ! v_weno_global_var%vf(i)%sf(j,k,l) = v_vf(i)%sf(j,k,l)
-        !! call acc_map_data? 
-
         ixb = ix%beg
         ixe = ix%end
 
-        do j = 1,sys_size
-            v_flat(:,:,:,j) = v_vf(j)%sf(:,:,:)
-        end do
-
-
         k = 0; l = 0
 
-        !$acc data copyin(v_flat) copyout(vL_vf_flat,vR_vf_flat) present(v_rs_wsL_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef)
+        !$acc data present(qK_prim_vf_flat, v_rs_wsL_flat, vL_vf_flat, vR_vf_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef)
         !$acc parallel loop collapse(3)
         do s = -weno_polyn, weno_polyn
             do i = 1, sys_size
                 do j = ixb, ixe
                     v_rs_wsL_flat(j, k, l, s, i) = &
-                       v_flat(s + j, k, l, i)
+                       qK_prim_vf_flat(s + j, k, l, i)
                 end do
             end do
         end do
@@ -428,7 +421,7 @@ contains
 
         ! do i = ixb, ixe
         !     print*, 'v,vL,vR', &
-        !         v_flat(i,0,0,1), &
+        !         qK_prim_vf_flat(i,0,0,1), &
         !         vL_vf_flat(i,0,0,1), &
         !         vR_vf_flat(i,0,0,1)
         ! end do
@@ -475,16 +468,14 @@ contains
     !    type(bounds_info), intent(IN) :: ix, iy, iz
 
     !    real(kind(0d0)), dimension(-weno_polyn:weno_polyn-1) :: dvd 
-    !    real(kind(0d0)), dimension(0:weno_polyn) :: poly
+    !    real(kind(0d0)), dimension(0:weno_polyn) ::  poly
     !    real(kind(0d0)), dimension(0:weno_polyn) :: alpha
     !    real(kind(0d0)), dimension(0:weno_polyn) :: omega
     !    real(kind(0d0)), dimension(0:weno_polyn) :: beta 
     !    integer :: i, j, k, l
 
-    !    ! Do we need to copyin v_vf? We do this earlier I believe
-    !    ! TODO come back to line 88 for the copyin
-    !    !$acc data copyout(vL_vf,vR_vf) present(v_rs_wsL, poly_coef_L, poly_coef_R, d_L, d_R, beta_coef)
-    !    !$acc parallel loop collapse(3) present(v_rs_wsL)
+    !    !$acc data copyin(v_vf) copyout(vL_vf,vR_vf) present(v_rs_wsL, poly_coef_L, poly_coef_R, d_L, d_R, beta_coef)
+    !    !$acc parallel loop collapse(3) present(v_rs_wsL(:))
     !    do k = ix%beg, ix%end
     !       do j = 1, sys_size
     !          do i = -weno_polyn, weno_polyn
@@ -498,7 +489,7 @@ contains
     !    !$acc parallel loop gang vector collapse(3) private(dvd, poly, beta, alpha, omega)
     !    do l = iz%beg, iz%end
     !        do k = iy%beg, iy%end
-    !            do j = ix%beg, ix%end
+    !            do j = ixb, ixe
     !               do i = 1, sys_size
     !                    dvd(1) = v_rs_wsL(2)%vf(i)%sf(j, k, l) &
     !                             - v_rs_wsL(1)%vf(i)%sf(j, k, l)
@@ -584,7 +575,11 @@ contains
 !!                deallocate (v_rs_wsL(i)%vf(j)%sf)
 !!            end do
 !!        end do
+
+
+
     !end subroutine s_weno 
+
 
     subroutine s_compute_weno_coefficients(is) ! -------
 
@@ -735,9 +730,9 @@ contains
         deallocate (beta_coef)
 
         deallocate(v_rs_wsL_flat)
-        deallocate(v_flat)
-        deallocate(vL_vf_flat)
-        deallocate(vR_vf_flat)
+        ! deallocate(v_flat)
+        ! deallocate(vL_vf_flat)
+        ! deallocate(vR_vf_flat)
 
     end subroutine s_finalize_weno_module ! --------------------------------
 
