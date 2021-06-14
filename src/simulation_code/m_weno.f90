@@ -99,7 +99,7 @@ contains
 
         type(bounds_info) :: ix, iy, iz !< Indical bounds in the x-, y- and z-directions
         integer :: i
-        integer :: ixb_full, ixe_full
+        ! integer :: ixb_full, ixe_full
         ix%beg = -buff_size + weno_polyn; ix%end = m - ix%beg
 
         ! Allocating WENO-stencil for the variables to be WENO-reconstructed
@@ -138,7 +138,7 @@ contains
 
         allocate(v_rs_wsL_flat( ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end, -weno_polyn:weno_polyn, 1:sys_size))
 
-        ixb_full = -buff_size; ixe_full = m + buff_size
+        ! ixb_full = -buff_size; ixe_full = m + buff_size
         ! print*, 'buff_size: ', buff_size
 
         ! allocate(v_flat(ixb_full:ixe_full, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
@@ -151,12 +151,11 @@ contains
 
 
 
-    subroutine s_weno_alt(qK_prim_vf_flat,vL_vf_flat,vR_vf_flat, weno_dir_dummy, ix, iy, iz)
+    subroutine s_weno_alt(qK_prim_vf_flat, vL_vf_flat, vR_vf_flat, ix, iy, iz)
 
         real(kind(0d0)), dimension(:,:,:,:), intent(INOUT) :: qK_prim_vf_flat
         real(kind(0d0)), dimension(:,:,:,:), intent(INOUT) :: vL_vf_flat, vR_vf_flat
 
-        integer, intent(IN) :: weno_dir_dummy
         type(bounds_info), intent(IN) :: ix, iy, iz
 
         real(kind(0d0)), dimension(-2:1) :: dvd 
@@ -171,19 +170,17 @@ contains
         
         integer :: t1, t2, c_rate, c_max
 
-        ! MP_WENO
+        ! For MP_WENO
         real(kind(0d0)), dimension(-1:1) :: d
-
         real(kind(0d0)) :: d_MD, d_LC
-
         real(kind(0d0)) :: vL_UL, vR_UL
         real(kind(0d0)) :: vL_MD, vR_MD
         real(kind(0d0)) :: vL_LC, vR_LC
         real(kind(0d0)) :: vL_min, vR_min
         real(kind(0d0)) :: vL_max, vR_max
-
         real(kind(0d0)), parameter :: alpha_mp = 2d0
         real(kind(0d0)), parameter :: beta_mp = 4d0/3d0
+
 
         ixb = ix%beg
         ixe = ix%end
@@ -426,12 +423,12 @@ contains
         !         vR_vf_flat(i,0,0,1)
         ! end do
 
-        do j = 1,sys_size
-            do i = ixb,ixe
-                vL_vf(j)%sf(i,0,0) = vL_vf_flat(i,0,0,j)
-                vR_vf(j)%sf(i,0,0) = vR_vf_flat(i,0,0,j)
-            end do
-        end do
+        ! do j = 1,sys_size
+        !     do i = ixb,ixe
+        !         vL_vf(j)%sf(i,0,0) = vL_vf_flat(i,0,0,j)
+        !         vR_vf(j)%sf(i,0,0) = vR_vf_flat(i,0,0,j)
+        !     end do
+        ! end do
 
         ! do i = ixb, ixe
         !     print*, '** vL, vR ', &
@@ -460,125 +457,6 @@ contains
 
     end subroutine s_map_nonlinear_weights ! -------------------------------
 
-
-    !subroutine s_weno(v_vf, vL_vf, vR_vf, weno_dir_dummy, ix, iy, iz)
-    !    type(scalar_field), dimension(:), intent(IN) :: v_vf
-    !    type(scalar_field), dimension(:), intent(INOUT) :: vL_vf, vR_vf
-    !    integer, intent(IN) :: weno_dir_dummy
-    !    type(bounds_info), intent(IN) :: ix, iy, iz
-
-    !    real(kind(0d0)), dimension(-weno_polyn:weno_polyn-1) :: dvd 
-    !    real(kind(0d0)), dimension(0:weno_polyn) ::  poly
-    !    real(kind(0d0)), dimension(0:weno_polyn) :: alpha
-    !    real(kind(0d0)), dimension(0:weno_polyn) :: omega
-    !    real(kind(0d0)), dimension(0:weno_polyn) :: beta 
-    !    integer :: i, j, k, l
-
-    !    !$acc data copyin(v_vf) copyout(vL_vf,vR_vf) present(v_rs_wsL, poly_coef_L, poly_coef_R, d_L, d_R, beta_coef)
-    !    !$acc parallel loop collapse(3) present(v_rs_wsL(:))
-    !    do k = ix%beg, ix%end
-    !       do j = 1, sys_size
-    !          do i = -weno_polyn, weno_polyn
-    !                v_rs_wsL(i)%vf(j)%sf(k, :, :) = &
-    !                    v_vf(j)%sf(i + k, iy%beg:iy%end, iz%beg:iz%end)
-    !            end do
-    !        end do
-    !    end do
-    !    !$acc end parallel loop
-
-    !    !$acc parallel loop gang vector collapse(3) private(dvd, poly, beta, alpha, omega)
-    !    do l = iz%beg, iz%end
-    !        do k = iy%beg, iy%end
-    !            do j = ixb, ixe
-    !               do i = 1, sys_size
-    !                    dvd(1) = v_rs_wsL(2)%vf(i)%sf(j, k, l) &
-    !                             - v_rs_wsL(1)%vf(i)%sf(j, k, l)
-    !                    dvd(0) = v_rs_wsL(1)%vf(i)%sf(j, k, l) &
-    !                            - v_rs_wsL(0)%vf(i)%sf(j, k, l)
-    !                    dvd(-1) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-    !                            - v_rs_wsL(-1)%vf(i)%sf(j, k, l)
-    !                    dvd(-2) = v_rs_wsL(-1)%vf(i)%sf(j, k, l) &
-    !                            - v_rs_wsL(-2)%vf(i)%sf(j, k, l)
-
-    !                    poly(0) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-    !                              + poly_coef_L(0, 0, j)*dvd(1) &
-    !                              + poly_coef_L(0, 1, j)*dvd(0)
-    !                    poly(1) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-    !                              + poly_coef_L(1, 0, j)*dvd(0) &
-    !                              + poly_coef_L(1, 1, j)*dvd(-1)
-    !                    poly(2) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-    !                              + poly_coef_L(2, 0, j)*dvd(-1) &
-    !                              + poly_coef_L(2, 1, j)*dvd(-2)
-
-    !                    beta(0) = beta_coef(0, 0, j)*dvd(1)*dvd(1) &
-    !                            + beta_coef(0, 1, j)*dvd(1)*dvd(0) &
-    !                            + beta_coef(0, 2, j)*dvd(0)*dvd(0) &
-    !                            + weno_eps
-    !                    beta(1) = beta_coef(1, 0, j)*dvd(0)*dvd(0) &
-    !                            + beta_coef(1, 1, j)*dvd(0)*dvd(-1) &
-    !                            + beta_coef(1, 2, j)*dvd(-1)*dvd(-1) &
-    !                            + weno_eps
-    !                    beta(2) = beta_coef(2, 0, j)*dvd(-1)*dvd(-1) &
-    !                            + beta_coef(2, 1, j)*dvd(-1)*dvd(-2) &
-    !                            + beta_coef(2, 2, j)*dvd(-2)*dvd(-2) &
-    !                            + weno_eps
-
-    !                    alpha  = d_L(:, j)/(beta*beta)
-    !                    omega  = alpha/sum(alpha)
-    !                    vL_vf(i)%sf(j, k, l) = sum(omega*poly)
-
-    !                    dvd(1) = v_rs_wsL(2)%vf(i)%sf(j, k, l) &
-    !                           - v_rs_wsL(1)%vf(i)%sf(j, k, l)
-    !                    dvd(0) = v_rs_wsL(1)%vf(i)%sf(j, k, l) &
-    !                           - v_rs_wsL(0)%vf(i)%sf(j, k, l)
-    !                    dvd(-1) = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-    !                            - v_rs_wsL(-1)%vf(i)%sf(j, k, l)
-    !                    dvd(-2) = v_rs_wsL(-1)%vf(i)%sf(j, k, l) &
-    !                            - v_rs_wsL(-2)%vf(i)%sf(j, k, l)
-
-    !                    poly(0)   = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-    !                              + poly_coef_R(0, 0, j)*dvd(1) &
-    !                              + poly_coef_R(0, 1, j)*dvd(0)
-    !                    poly(1)   = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-    !                              + poly_coef_R(1, 0, j)*dvd(0) &
-    !                              + poly_coef_R(1, 1, j)*dvd(-1)
-    !                    poly(2)   = v_rs_wsL(0)%vf(i)%sf(j, k, l) &
-    !                              + poly_coef_R(2, 0, j)*dvd(-1) &
-    !                              + poly_coef_R(2, 1, j)*dvd(-2)
-
-    !                    beta(0) = beta_coef(0, 0, j)*dvd(1)*dvd(1) &
-    !                            + beta_coef(0, 1, j)*dvd(1)*dvd(0) &
-    !                            + beta_coef(0, 2, j)*dvd(0)*dvd(0) &
-    !                            + weno_eps
-    !                    beta(1) = beta_coef(1, 0, j)*dvd(0)*dvd(0) &
-    !                            + beta_coef(1, 1, j)*dvd(0)*dvd(-1) &
-    !                            + beta_coef(1, 2, j)*dvd(-1)*dvd(-1) &
-    !                            + weno_eps
-    !                    beta(2) = beta_coef(2, 0, j)*dvd(-1)*dvd(-1) &
-    !                            + beta_coef(2, 1, j)*dvd(-1)*dvd(-2) &
-    !                            + beta_coef(2, 2, j)*dvd(-2)*dvd(-2) &
-    !                            + weno_eps
-
-    !                    alpha   = d_R(:, j)/(beta*beta)
-    !                    omega   = alpha/sum(alpha)
-    !                    vR_vf(i)%sf(j, k, l) = sum(omega*poly)
-
-    !                end do
-    !            end do
-    !        end do
-    !    end do
-    !    !$acc end parallel loop 
-    !    !$acc end data
-
-!!        do i = -weno_polyn, weno_polyn
-!!            do j = 1, sys_size
-!!                deallocate (v_rs_wsL(i)%vf(j)%sf)
-!!            end do
-!!        end do
-
-
-
-    !end subroutine s_weno 
 
 
     subroutine s_compute_weno_coefficients(is) ! -------

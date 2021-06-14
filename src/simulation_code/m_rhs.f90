@@ -191,6 +191,12 @@ module m_rhs
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: qK_cons_vf_flat
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: qK_prim_vf_flat
 
+    real(kind(0d0)), allocatable, dimension(:,:,:,:) :: vL_vf_flat
+    real(kind(0d0)), allocatable, dimension(:,:,:,:) :: vR_vf_flat
+
+
+
+
 contains
 
     !> The computation of parameters, the allocation of memory,
@@ -198,6 +204,7 @@ contains
         !!      other procedures that are necessary to setup the module.
     subroutine s_initialize_rhs_module() ! ---------------------------------
 
+        type(bounds_info) :: is1, is2, is3
         integer :: i, j, k, l !< Generic loop iterators
 
 
@@ -509,11 +516,14 @@ contains
         is3%beg = 0
         is3%end = p
 
+        ! Var conv input
         allocate( qK_cons_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size ) )
+        ! Var conv output, WENO input
         allocate( qK_prim_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size ) )
 
-        allocate(vL_vf_flat(is1%beg:is1%end, is2%beg:is2%end, is3%beg:is3%end, 1:sys_size))
-        allocate(vR_vf_flat(is1%beg:is1%end, is2%beg:is2%end, is3%beg:is3%end, 1:sys_size))
+        ! WENO output
+        allocate( vL_vf_flat(is1%beg:is1%end, is2%beg:is2%end, is3%beg:is3%end, 1:sys_size) )
+        allocate( vR_vf_flat(is1%beg:is1%end, is2%beg:is2%end, is3%beg:is3%end, 1:sys_size) )
 
     end subroutine s_initialize_rhs_module ! -------------------------------
 
@@ -528,7 +538,9 @@ contains
         integer, intent(IN) :: t_step
 
         integer :: i, j, k
+
         real(kind(0d0)), dimension(10) :: gammas, pi_infs
+        type(bounds_info) :: is1_weno, is2_weno, is3_weno
 
         ix%beg = -buff_size; ix%end = m - ix%beg; 
         iv%beg = 1; iv%end = adv_idx%end
@@ -542,32 +554,47 @@ contains
 
         i = 1 !Coordinate Index
 
+        ! Flatten
         do i = 1, sys_size
             qK_cons_vf_flat(:,:,:,i) = q_cons_vf(i)%sf(:,:,:)
         end do
 
-        !$acc data copyin(qK_cons_vf_flat) copyout(flux_vf_flat,flux_src_vf_flat) create(qK_prim_vf_flat)
-        call nvtxStartRange("RHS-Convert-to-Primitive")
+        !! $acc data copyin(qK_cons_vf_flat) copyout(flux_vf_flat,flux_src_vf_flat) create(qK_prim_vf_flat)
+
+        !$acc data copyin(qK_cons_vf_flat) copyout(vL_vf_flat,vR_vf_flat) create(qK_prim_vf_flat)
+        ! call nvtxStartRange("RHS-Convert-to-Primitive")
         call s_convert_conservative_to_primitive_variables_acc( &
-            qk_cons_vf_flat, qK_prim_vf_flat, &
+            qK_cons_vf_flat, qK_prim_vf_flat, &
             ix, iy, iz)
-        call nvtxEndRange
+        ! call nvtxEndRange
 
-        call nvtxStartRange("RHS-WENO")
-        call s_reconstruct_cell_boundary_values( &
-            qK_prim_vf_flat, &
-            qL_prim_ndqp(i), qR_prim_ndqp(i), i)
-        call nvtxEndRange
+        ! call nvtxStartRange("RHS-WENO")
+        ! call s_reconstruct_cell_boundary_values( &
+        !     qK_prim_vf_flat, &
+        !     vL_vf_flat, &
+        !     vR_vf_flat, i)
 
-        call nvtxStartRange("RHS-Riemann")
-        call s_hllc_riemann_solver( &
-                              qR_prim_ndqp(i)%vf, &
-                              qL_prim_ndqp(i)%vf, &
-                              flux_ndqp(i)%vf, &
-                              flux_src_ndqp(i)%vf, &
-                              i)
-        call nvtxEndRange
+        is1_weno = ix; is2_weno = iy; is3_weno = iz
+        is1_weno%beg = is1_weno%beg + weno_polyn
+        is1_weno%end = is1_weno%end - weno_polyn
+
+        call s_weno_alt( &
+                    qK_prim_vf_flat, &
+                    vL_vf_flat, vR_vf_flat, &
+                    is1_weno, is2_weno, is3_weno)
+
+        ! call nvtxEndRange
         !$acc end data
+
+        ! call nvtxStartRange("RHS-Riemann")
+        ! call s_hllc_riemann_solver( &
+        !                       qR_prim_ndqp(i)%vf, &
+        !                       qL_prim_ndqp(i)%vf, &
+        !                       flux_ndqp(i)%vf, &
+        !                       flux_src_ndqp(i)%vf, &
+        !                       i)
+        ! call nvtxEndRange
+
 
         ! ! do k = iv%beg, iv%end
 
@@ -2019,47 +2046,47 @@ contains
         !!  @param vR_qp Right WENO-reconstructed, cell-boundary values including
         !!          the values at the quadrature points, of the cell-average variables
         !!  @param norm_dir Splitting coordinate direction
-    subroutine s_reconstruct_cell_boundary_values(v_vf, vL_qp, vR_qp, norm_dir)
+    ! subroutine s_reconstruct_cell_boundary_values(v_vf, vL_qp, vR_qp, norm_dir)
 
-        type(scalar_field), dimension(iv%beg:iv%end), intent(IN) :: v_vf
+    !     type(scalar_field), dimension(iv%beg:iv%end), intent(IN) :: v_vf
 
-        type(vector_field), intent(INOUT) :: vL_qp, vR_qp
+    !     type(vector_field), intent(INOUT) :: vL_qp, vR_qp
 
-        integer, intent(IN) :: norm_dir
+    !     integer, intent(IN) :: norm_dir
 
-        integer :: weno_dir !< Coordinate direction of the WENO reconstruction
+    !     integer :: weno_dir !< Coordinate direction of the WENO reconstruction
 
-        type(bounds_info) :: is1, is2, is3 !< Indical bounds in the s1-, s2- and s3-directions
+    !     type(bounds_info) :: is1, is2, is3 !< Indical bounds in the s1-, s2- and s3-directions
 
-        ! Reconstruction in s1-direction ===================================
-        is1 = ix; is2 = iy; is3 = iz
+    !     ! Reconstruction in s1-direction ===================================
+    !     is1 = ix; is2 = iy; is3 = iz
 
-        if (norm_dir == 1) then
-            weno_dir = 1; is1%beg = is1%beg + weno_polyn
-            is1%end = is1%end - weno_polyn
-        elseif (norm_dir == 2) then
-            weno_dir = 2; is2%beg = is2%beg + weno_polyn
-            is2%end = is2%end - weno_polyn
-        else
-            weno_dir = 3; is3%beg = is3%beg + weno_polyn
-            is3%end = is3%end - weno_polyn
-        end if
+    !     if (norm_dir == 1) then
+    !         weno_dir = 1; is1%beg = is1%beg + weno_polyn
+    !         is1%end = is1%end - weno_polyn
+    !     elseif (norm_dir == 2) then
+    !         weno_dir = 2; is2%beg = is2%beg + weno_polyn
+    !         is2%end = is2%end - weno_polyn
+    !     else
+    !         weno_dir = 3; is3%beg = is3%beg + weno_polyn
+    !         is3%end = is3%end - weno_polyn
+    !     end if
 
-        call s_weno_alt(v_vf(iv%beg:iv%end), &
-                    vL_qp%vf(iv%beg:iv%end), &
-                    vR_qp%vf(iv%beg:iv%end), &
-                    weno_dir,  &
-                    is1, is2, is3)
+    !     call s_weno_alt(v_vf(iv%beg:iv%end), &
+    !                 vL_qp%vf(iv%beg:iv%end), &
+    !                 vR_qp%vf(iv%beg:iv%end), &
+    !                 weno_dir,  &
+    !                 is1, is2, is3)
 
-        ! call s_weno(v_vf(iv%beg:iv%end), &
-                    ! vL_qp%vf(iv%beg:iv%end), &
-                    ! vR_qp%vf(iv%beg:iv%end), &
-                    ! weno_dir,  &
-                    ! is1, is2, is3)
+    !     ! call s_weno(v_vf(iv%beg:iv%end), &
+    !                 ! vL_qp%vf(iv%beg:iv%end), &
+    !                 ! vR_qp%vf(iv%beg:iv%end), &
+    !                 ! weno_dir,  &
+    !                 ! is1, is2, is3)
 
-        ! ==================================================================
+    !     ! ==================================================================
 
-    end subroutine s_reconstruct_cell_boundary_values ! --------------------
+    ! end subroutine s_reconstruct_cell_boundary_values ! --------------------
 
 
     !>  The purpose of this subroutine is to employ the inputted
@@ -2474,6 +2501,12 @@ contains
         ! Disassociating the pointer to the procedure that was utilized to
         ! to convert mixture or species variables to the mixture variables
         s_convert_to_mixture_variables => null()
+
+        deallocate( vL_vf_flat )
+        deallocate( vR_vf_flat )
+
+        deallocate( qK_prim_vf_flat )
+        deallocate( qK_cons_vf_flat )
 
     end subroutine s_finalize_rhs_module ! ---------------------------------
 

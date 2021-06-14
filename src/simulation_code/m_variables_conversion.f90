@@ -311,10 +311,14 @@ contains
         real(kind(0d0)) ::   pi_inf_K
 
         integer :: ixb, ixe, iyb, iye, izb, ize
-        integer :: adv_idx_b, mom_idx_b, mom_idx_e
+        integer :: cont_idx_e
+        integer :: adv_idx_b, adv_idx_e
+        integer :: mom_idx_b, mom_idx_e
         integer :: i, j, k, l 
 
+        cont_idx_e = cont_idx%end
         adv_idx_b = adv_idx%beg
+        adv_idx_e = adv_idx%end
         mom_idx_b = mom_idx%beg
         mom_idx_e = mom_idx%end
 
@@ -359,7 +363,7 @@ contains
                     qK_prim_vf_flat(j, k, l, E_idx) = ( &
                         qK_cons_vf_flat(j, k, l, E_idx) - dyn_pres_K - pi_inf_K )/gamma_K
 
-                    do i = 1, cons_idx_e
+                    do i = 1, cont_idx_e
                         qK_prim_vf_flat(j, k, l, i) = qK_cons_vf_flat(j, k, l, i)
                     end do
 
@@ -371,9 +375,7 @@ contains
             end do
         end do
         !$acc end parallel loop 
-
-
-        !!!$acc end data
+        !$acc end data
 
         ! do i = mom_idx%beg,E_idx
         !     qK_prim_vf(i)%sf(:,:,:) = qK_prim_vf_flat(:,:,:,i)
