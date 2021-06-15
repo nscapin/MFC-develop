@@ -67,11 +67,6 @@ module m_variables_conversion
          s_convert_primitive_to_flux_variables_bubbles, &
          s_finalize_variables_conversion_module
 
-
-    real(kind(0d0)), allocatable, dimension(:,:,:,:) :: qK_cons_vf_flat
-    real(kind(0d0)), allocatable, dimension(:,:,:,:) :: qK_prim_vf_flat
-    type(bounds_info) :: is1, is2, is3
-
     abstract interface ! =======================================================
 
         !> The abstract interface to the procedures that are utilized to convert
@@ -124,22 +119,6 @@ contains
             s_convert_to_mixture_variables => &
                 s_convert_species_to_mixture_variables
         end if
-
-        ! For dir=1
-        is1%beg = -buff_size
-        is1%end = m - is1%beg
-        ! print*, 'is: ', is1%beg, is1%end
-
-        ! stop
-
-        is2%beg =  0
-        is2%end = n
-
-        is3%beg =  0
-        is3%end = p
-
-        allocate( qK_prim_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size ) )
-        allocate( qK_cons_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size ) )
 
     end subroutine s_initialize_variables_conversion_module ! --------------
 
@@ -289,16 +268,15 @@ contains
     end subroutine s_convert_species_to_mixture_variables ! ----------------
 
 
-
-
-
     subroutine s_convert_conservative_to_primitive_variables_acc( &
                                                              qK_cons_vf_flat, &
                                                              qK_prim_vf_flat, &
                                                              ix, iy, iz)
 
-        real(kind(0d0)), dimension(:,:,:,:), intent(INOUT) :: qK_cons_vf_flat
-        real(kind(0d0)), dimension(:,:,:,:), intent(INOUT) :: qK_prim_vf_flat
+        !! This -4 is because you can't pass arrays with negative indexing consistently
+        !! and it only applys to WENO5 (buffsize = 4), also the other directions start/end at 0
+        real(kind(0d0)), dimension(-4:,0:,0:,1:), intent(INOUT) :: qK_cons_vf_flat
+        real(kind(0d0)), dimension(-4:,0:,0:,1:), intent(INOUT) :: qK_prim_vf_flat
 
         type(bounds_info), intent(IN) :: ix, iy, iz
 
@@ -325,6 +303,11 @@ contains
         ixb = ix%beg; ixe = ix%end
         iyb = iy%beg; iye = iy%end
         izb = iz%beg; ize = iz%end
+
+        ! print*, '-1 idx', qK_cons_vf_flat(-1,0,0,1)
+
+        ! print*, 'c2p: ixb,ixe', ixb, ixe
+        ! print*, 'shape qK_cons_vf_flat:', shape(qK_cons_vf_flat)
 
         do i = 1, num_fluids
             gammas(i) = fluid_pp(i)%gamma
@@ -376,10 +359,6 @@ contains
         end do
         !$acc end parallel loop 
         !$acc end data
-
-        ! do i = mom_idx%beg,E_idx
-        !     qK_prim_vf(i)%sf(:,:,:) = qK_prim_vf_flat(:,:,:,i)
-        ! end do
 
 
     end subroutine s_convert_conservative_to_primitive_variables_acc
@@ -760,9 +739,6 @@ contains
         ! Disassociating the pointer to the procedure that was utilized to
         ! to convert mixture or species variables to the mixture variables
         s_convert_to_mixture_variables => null()
-
-        deallocate( qK_prim_vf_flat )
-        deallocate( qK_cons_vf_flat )
 
     end subroutine s_finalize_variables_conversion_module ! ----------------
 

@@ -66,11 +66,9 @@ module m_weno
                     ! s_weno, &
 
     type(vector_field), allocatable, dimension(:) :: v_rs_wsL
-    !$acc declare create(v_rs_wsL)
 
     type(scalar_field), allocatable, dimension(:) :: v_vf
     type(scalar_field), allocatable, dimension(:) :: vL_vf, vR_vf
-    !$acc declare create(v_vf, vL_vf, vR_vf)
 
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_L
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: poly_coef_R
@@ -107,7 +105,6 @@ contains
 
         do i = -weno_polyn, weno_polyn
             allocate (v_rs_wsL(i)%vf(1:sys_size) )
-            !$acc enter data create(v_rs_wsL(i)%vf)
         end do
 
         ! Populate variable buffers at each point (for full stencil)
@@ -116,7 +113,6 @@ contains
                 allocate (v_rs_wsL(i)%vf(j)%sf(ix%beg:ix%end, &
                                                iy%beg:iy%end, &
                                               iz%beg:iz%end))
-                !$acc enter data create(v_rs_wsL(i)%vf(j)%sf)
            end do
         end do
 
@@ -153,8 +149,10 @@ contains
 
     subroutine s_weno_alt(qK_prim_vf_flat, vL_vf_flat, vR_vf_flat, ix, iy, iz)
 
-        real(kind(0d0)), dimension(:,:,:,:), intent(INOUT) :: qK_prim_vf_flat
-        real(kind(0d0)), dimension(:,:,:,:), intent(INOUT) :: vL_vf_flat, vR_vf_flat
+        !! This -4 is because you can't pass arrays with negative indexing consistently
+        !! and it only applys to WENO5 (buffsize = 4), also the other directions start/end at 0
+        real(kind(0d0)), dimension(-4:,0:,0:,1:), intent(INOUT) :: qK_prim_vf_flat, &
+            vL_vf_flat, vR_vf_flat
 
         type(bounds_info), intent(IN) :: ix, iy, iz
 
@@ -179,7 +177,7 @@ contains
         real(kind(0d0)) :: vL_min, vR_min
         real(kind(0d0)) :: vL_max, vR_max
         real(kind(0d0)), parameter :: alpha_mp = 2d0
-        real(kind(0d0)), parameter :: beta_mp = 4d0/3d0
+        real(kind(0d0)), parameter :: beta_mp  = 4d0/3d0
 
 
         ixb = ix%beg

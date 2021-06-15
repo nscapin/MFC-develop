@@ -194,6 +194,9 @@ module m_rhs
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: vL_vf_flat
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: vR_vf_flat
 
+    real(kind(0d0)), allocatable, dimension(:,:,:,:) :: flux_vf_flat
+    real(kind(0d0)), allocatable, dimension(:,:,:,:) :: flux_src_vf_flat
+
 
 
 
@@ -507,8 +510,10 @@ contains
                 s_convert_species_to_mixture_variables
         end if
 
+
         is1%beg = -buff_size
         is1%end = m - is1%beg
+        ! print*, 'rhs qK is1:', is1%beg, is1%end
 
         is2%beg = 0
         is2%end = n
@@ -524,6 +529,14 @@ contains
         ! WENO output
         allocate( vL_vf_flat(is1%beg:is1%end, is2%beg:is2%end, is3%beg:is3%end, 1:sys_size) )
         allocate( vR_vf_flat(is1%beg:is1%end, is2%beg:is2%end, is3%beg:is3%end, 1:sys_size) )
+
+        ! For Riemann solver
+        is1%beg = -1; is2%beg =  0; is3%beg =  0
+        is1%end = m; is2%end = n; is3%end = p
+
+        ! Riemann solver output
+        allocate(flux_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size))
+        allocate(flux_src_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size))
 
     end subroutine s_initialize_rhs_module ! -------------------------------
 
@@ -550,30 +563,30 @@ contains
             q_prim_qp%vf(i)%sf => q_prim_vf(i)%sf
         end do
 
+        call nvtxStartRange("Populate cons var buffers")
         call s_populate_conservative_variables_buffers()
+        call nvtxEndRange
 
         i = 1 !Coordinate Index
 
         ! Flatten
+        call nvtxStartRange("Flatten input")
         do i = 1, sys_size
-            qK_cons_vf_flat(:,:,:,i) = q_cons_vf(i)%sf(:,:,:)
+            ! qK_cons_vf_flat(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end,i) = q_cons_vf(i)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end)
+            do j = ix%beg,ix%end
+                qK_cons_vf_flat(j,0,0,i) = q_cons_vf(i)%sf(j,0,0)
+            end do
         end do
+        call nvtxEndRange
 
-        !! $acc data copyin(qK_cons_vf_flat) copyout(flux_vf_flat,flux_src_vf_flat) create(qK_prim_vf_flat)
-
-        !$acc data copyin(qK_cons_vf_flat) copyout(vL_vf_flat,vR_vf_flat) create(qK_prim_vf_flat)
-        ! call nvtxStartRange("RHS-Convert-to-Primitive")
+        !$acc data copyin(qK_cons_vf_flat) copyout(flux_vf_flat,flux_src_vf_flat) create(qK_prim_vf_flat, vL_vf_flat, vR_vf_flat)
+        call nvtxStartRange("RHS-Convert-to-Primitive")
         call s_convert_conservative_to_primitive_variables_acc( &
             qK_cons_vf_flat, qK_prim_vf_flat, &
             ix, iy, iz)
-        ! call nvtxEndRange
+        call nvtxEndRange
 
-        ! call nvtxStartRange("RHS-WENO")
-        ! call s_reconstruct_cell_boundary_values( &
-        !     qK_prim_vf_flat, &
-        !     vL_vf_flat, &
-        !     vR_vf_flat, i)
-
+        call nvtxStartRange("RHS-WENO")
         is1_weno = ix; is2_weno = iy; is3_weno = iz
         is1_weno%beg = is1_weno%beg + weno_polyn
         is1_weno%end = is1_weno%end - weno_polyn
@@ -582,21 +595,15 @@ contains
                     qK_prim_vf_flat, &
                     vL_vf_flat, vR_vf_flat, &
                     is1_weno, is2_weno, is3_weno)
+        call nvtxEndRange
 
-        ! call nvtxEndRange
+        call nvtxStartRange("RHS-Riemann")
+        call s_hllc_riemann_solver( &
+                              vR_vf_flat, vL_vf_flat, &
+                              flux_vf_flat, &
+                              flux_src_vf_flat )
+        call nvtxEndRange
         !$acc end data
-
-        ! call nvtxStartRange("RHS-Riemann")
-        ! call s_hllc_riemann_solver( &
-        !                       qR_prim_ndqp(i)%vf, &
-        !                       qL_prim_ndqp(i)%vf, &
-        !                       flux_ndqp(i)%vf, &
-        !                       flux_src_ndqp(i)%vf, &
-        !                       i)
-        ! call nvtxEndRange
-
-
-        ! ! do k = iv%beg, iv%end
 
         if (t_step == t_step_stop) return
 
@@ -2036,58 +2043,6 @@ contains
 
     end subroutine s_populate_conservative_variables_buffers ! -------------
 
-    !>  The purpose of this subroutine is to WENO-reconstruct the
-        !!      left and the right cell-boundary values, including values
-        !!      at the Gaussian quadrature points, from the cell-averaged
-        !!      variables.
-        !!  @param v_vf Cell-average variables
-        !!  @param vL_qp Left WENO-reconstructed, cell-boundary values including
-        !!          the values at the quadrature points, of the cell-average variables
-        !!  @param vR_qp Right WENO-reconstructed, cell-boundary values including
-        !!          the values at the quadrature points, of the cell-average variables
-        !!  @param norm_dir Splitting coordinate direction
-    ! subroutine s_reconstruct_cell_boundary_values(v_vf, vL_qp, vR_qp, norm_dir)
-
-    !     type(scalar_field), dimension(iv%beg:iv%end), intent(IN) :: v_vf
-
-    !     type(vector_field), intent(INOUT) :: vL_qp, vR_qp
-
-    !     integer, intent(IN) :: norm_dir
-
-    !     integer :: weno_dir !< Coordinate direction of the WENO reconstruction
-
-    !     type(bounds_info) :: is1, is2, is3 !< Indical bounds in the s1-, s2- and s3-directions
-
-    !     ! Reconstruction in s1-direction ===================================
-    !     is1 = ix; is2 = iy; is3 = iz
-
-    !     if (norm_dir == 1) then
-    !         weno_dir = 1; is1%beg = is1%beg + weno_polyn
-    !         is1%end = is1%end - weno_polyn
-    !     elseif (norm_dir == 2) then
-    !         weno_dir = 2; is2%beg = is2%beg + weno_polyn
-    !         is2%end = is2%end - weno_polyn
-    !     else
-    !         weno_dir = 3; is3%beg = is3%beg + weno_polyn
-    !         is3%end = is3%end - weno_polyn
-    !     end if
-
-    !     call s_weno_alt(v_vf(iv%beg:iv%end), &
-    !                 vL_qp%vf(iv%beg:iv%end), &
-    !                 vR_qp%vf(iv%beg:iv%end), &
-    !                 weno_dir,  &
-    !                 is1, is2, is3)
-
-    !     ! call s_weno(v_vf(iv%beg:iv%end), &
-    !                 ! vL_qp%vf(iv%beg:iv%end), &
-    !                 ! vR_qp%vf(iv%beg:iv%end), &
-    !                 ! weno_dir,  &
-    !                 ! is1, is2, is3)
-
-    !     ! ==================================================================
-
-    ! end subroutine s_reconstruct_cell_boundary_values ! --------------------
-
 
     !>  The purpose of this subroutine is to employ the inputted
         !!      left and right cell-boundary integral-averaged variables
@@ -2507,6 +2462,9 @@ contains
 
         deallocate( qK_prim_vf_flat )
         deallocate( qK_cons_vf_flat )
+
+        deallocate(flux_vf_flat)
+        deallocate(flux_src_vf_flat)
 
     end subroutine s_finalize_rhs_module ! ---------------------------------
 

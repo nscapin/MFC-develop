@@ -28,8 +28,11 @@ module m_riemann_solvers
     type(bounds_info) :: ix, iy, iz
 
 
+    ! These are variables that are only on GPU
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: qL_prim_rs_vf_flat, qR_prim_rs_vf_flat
-    real(kind(0d0)), allocatable, dimension(:,:,:,:) :: flux_vf_flat, flux_src_vf_flat
+    !$acc declare create (qL_prim_rs_vf_flat, qR_prim_rs_vf_flat)
+
+    ! real(kind(0d0)), allocatable, dimension(:,:,:,:) :: flux_vf_flat, flux_src_vf_flat
 
 contains
 
@@ -58,22 +61,22 @@ contains
         allocate(qL_prim_rs_vf_flat(is1%beg  :is1%end  ,is2%beg:is2%end,is3%beg:is3%end,1:sys_size))
         allocate(qR_prim_rs_vf_flat(is1%beg+1:is1%end+1,is2%beg:is2%end,is3%beg:is3%end,1:sys_size))
 
-        allocate(flux_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size))
-        allocate(flux_src_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size))
-
+        ! allocate(flux_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size))
+        ! allocate(flux_src_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size))
 
     end subroutine s_initialize_riemann_solvers_module 
 
 
     subroutine s_hllc_riemann_solver(qL_prim_vf,  & 
                                      qR_prim_vf,  &
-                                     flux_vf,     &
-                                     flux_src_vf, &
-                                     norm_dir)
+                                     flux_vf_flat,     &
+                                     flux_src_vf_flat  &
+                                     )
 
-        type(scalar_field), dimension(sys_size), intent(INOUT) :: qL_prim_vf, qR_prim_vf
-        type(scalar_field), dimension(sys_size), intent(INOUT) :: flux_vf, flux_src_vf
-        integer, intent(IN) :: norm_dir
+        !! This -4 is because you can't pass arrays with negative indexing consistently
+        !! and it only applys to WENO5 (buffsize = 4), also the other directions start/end at 0
+        real(kind(0d0)), dimension(-4:,0:,0:,1:), intent(INOUT) :: qL_prim_vf, qR_prim_vf
+        real(kind(0d0)), dimension(-1:,0:,0:,1:), intent(INOUT) :: flux_vf_flat, flux_src_vf_flat
 
         real(kind(0d0)), dimension(10)  :: alpha_rho_L, alpha_rho_R
         real(kind(0d0))                 ::       rho_L, rho_R
@@ -113,6 +116,8 @@ contains
         iyb = is2%beg; iye = is2%end
         izb = is3%beg; ize = is3%end
 
+        ! print*, 'Riemann solver ix limit', ixb, ixe
+
         dir_idx(1) = 1
         dir_idx(2) = 2
         dir_idx(3) = 3
@@ -126,26 +131,22 @@ contains
             pi_infs(i) = fluid_pp(i)%pi_inf
         end do
 
-        ! do i = 1, sys_size
-        !     qL_prim_rs_vf(i)%sf = qL_prim_vf(i)%sf(ix%beg:ix%end, &
-        !                                            iy%beg:iy%end, &
-        !                                            iz%beg:iz%end)
-        !     qR_prim_rs_vf(i)%sf = qR_prim_vf(i)%sf(ix%beg + 1:ix%end + 1, &
-        !                                            iy%beg:iy%end, &
-        !                                            iz%beg:iz%end)
-        ! end do
+        !$acc data copyin(dir_idx, dir_flg, gammas, pi_infs) present(qL_prim_rs_vf_flat, qR_prim_rs_vf_flat, qL_prim_vf, qR_prim_vf, flux_vf_flat, flux_src_vf_flat)
 
-        do i = 1, sys_size
-            qL_prim_rs_vf_flat(:,:,:,i) = qL_prim_vf(i)%sf(ix%beg:ix%end, &
-                                                   iy%beg:iy%end, &
-                                                   iz%beg:iz%end)
-            qR_prim_rs_vf_flat(:,:,:,i) = qR_prim_vf(i)%sf(ix%beg + 1:ix%end + 1, &
-                                                   iy%beg:iy%end, &
-                                                   iz%beg:iz%end)
+        !$acc parallel loop collapse(3) 
+        do l = izb, ize
+            do k = iyb, iye
+                do j = ixb, ixe
+                    do i = 1,sys_size
+                        qL_prim_rs_vf_flat(j, k, l, i) = qL_prim_vf(j, k, l, i)
+                        qR_prim_rs_vf_flat(j + 1, k, l, i) = qR_prim_vf(j, k, l, i)
+                    end do
+                end do
+            end do
         end do
+        !$acc end parallel loop
 
-        !$ acc data copyin(qL_prim_rs_vf_flat,qR_prim_rs_vf_flat,dir_idx,dir_flg,gammas,pi_infs) copyout(flux_vf_flat,flux_src_vf_flat) 
-        !$ acc parallel loop collapse(3) gang vector private(alpha_rho_L, alpha_rho_R, vel_L, vel_R, alpha_L, alpha_R)
+        !$acc parallel loop collapse(3) gang vector private(alpha_rho_L, alpha_rho_R, vel_L, vel_R, alpha_L, alpha_R)
         do l = izb, ize
             do k = iyb, iye
                 do j = ixb, ixe
@@ -301,8 +302,9 @@ contains
                 end do
             end do
         end do
-        !$ acc end parallel loop 
-        !$ acc end data
+        !$acc end parallel loop 
+
+        !$acc end data
 
         ! do i = 1,1 !sys_size
         !     do j = ixb, ixe
@@ -324,7 +326,7 @@ contains
                                                       gamma_K, pi_inf_K, &
                                                       num_fluids &
                                                       )
-        !$ acc routine seq
+        !$acc routine seq
 
         real(kind(0d0)), dimension(num_fluids), intent(IN) :: alpha_rho_K, alpha_K, gammas, pi_infs
         real(kind(0d0)), intent(OUT) :: rho_K, gamma_K, pi_inf_K
@@ -355,8 +357,8 @@ contains
         deallocate (qL_prim_rs_vf_flat)
         deallocate (qR_prim_rs_vf_flat)
 
-        deallocate (flux_vf_flat)
-        deallocate (flux_src_vf_flat)
+        ! deallocate (flux_vf_flat)
+        ! deallocate (flux_src_vf_flat)
 
     end subroutine s_finalize_riemann_solvers_module 
 
