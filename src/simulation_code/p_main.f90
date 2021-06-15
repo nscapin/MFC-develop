@@ -74,6 +74,8 @@ program p_main
 
     use openacc
 
+    use nvtx
+
     ! ==========================================================================
 
     ! implicit none
@@ -159,6 +161,7 @@ program p_main
 
     ! Time-stepping Loop =======================================================
     do
+        call nvtxStartRange("Main loop")
         if (proc_rank == 0) then
             if (time_stepper == 23) then
                 print *, '------------', mytime/finaltime*100d0, 'percent done'
@@ -187,6 +190,7 @@ program p_main
         end if
 
         ! Time-stepping loop controls
+        call nvtxEndRange
         if (time_stepper /= 23) then
             if (t_step == t_step_stop) then
                 exit
@@ -209,6 +213,7 @@ program p_main
         end if
 
         call system_clock(cpu_end)
+
     end do
     ! ==========================================================================
 

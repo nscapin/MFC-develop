@@ -53,6 +53,8 @@ module m_time_steppers
     use m_bubbles              !< Bubble dynamics routines
 
     use m_mpi_proxy            !< Message passing interface (MPI) module proxy
+
+    use nvtx
     ! ==========================================================================
 
     implicit none
@@ -196,6 +198,7 @@ contains
         integer :: i !< Generic loop iterator
 
         ! Stage 1 of 1 =====================================================
+        call nvtxStartRange("1st order RK")
         do i = 1, cont_idx%end
             q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
         end do
@@ -224,11 +227,15 @@ contains
 
         if (t_step == t_step_stop) return
 
-        do i = 1, sys_size
-            q_cons_ts(1)%vf(i)%sf(0:m, 0:n, 0:p) = &
-                q_cons_ts(1)%vf(i)%sf(0:m, 0:n, 0:p) &
-                + dt*rhs_vf(i)%sf
-        end do
+        ! call nvtxStartRange("Add RHS to vars")
+        ! do i = 1, sys_size
+        !     q_cons_ts(1)%vf(i)%sf(0:m, 0:n, 0:p) = &
+        !         q_cons_ts(1)%vf(i)%sf(0:m, 0:n, 0:p) &
+        !         + dt*rhs_vf(i)%sf
+        ! end do
+        ! call nvtxEndRange
+
+        call nvtxEndRange
 
         if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(1)%vf)
 

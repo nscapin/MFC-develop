@@ -3,8 +3,7 @@
 MFC_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 ### Compiler command ###
-FC = mpif90
-# -acc
+FC = mpif90 -acc
 #FC = tau_f90.sh
 #FC = mpiifort
    
@@ -17,7 +16,7 @@ FC = mpif90
 # FFLAGS = -cpp -c -w -O0
 #PGI_TERM=trace
 FFLAGS = -Minfo=accel -cpp -c -w -O3
-#0 -Mbounds -Mchkptr -Mchkstk -traceback
+# 0 -Mbounds -Mchkptr -Mchkstk -traceback
 
 # FFLAGS = -cpp -c -w -freal-4-real-8 -O0 -fallow-argument-mismatch -ffree-line-length-none
 # FFLAGS = -cpp -c -w -freal-4-real-8 -O0 -ffree-line-length-none

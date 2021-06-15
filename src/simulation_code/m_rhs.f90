@@ -191,6 +191,8 @@ module m_rhs
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: qK_cons_vf_flat
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: qK_prim_vf_flat
 
+    real(kind(0d0)), allocatable, dimension(:,:,:,:) :: rhs_vf_flat
+
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: vL_vf_flat
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: vR_vf_flat
 
@@ -523,6 +525,7 @@ contains
 
         ! Var conv input
         allocate( qK_cons_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size ) )
+
         ! Var conv output, WENO input
         allocate( qK_prim_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size ) )
 
@@ -537,6 +540,9 @@ contains
         ! Riemann solver output
         allocate(flux_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size))
         allocate(flux_src_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size))
+
+        ! Compute rhs
+        allocate(rhs_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size)  )
 
     end subroutine s_initialize_rhs_module ! -------------------------------
 
@@ -555,8 +561,15 @@ contains
         real(kind(0d0)), dimension(10) :: gammas, pi_infs
         type(bounds_info) :: is1_weno, is2_weno, is3_weno
 
+        integer :: adv_idx_b, adv_idx_e
+        real(kind(0d0)) :: start_time, end_time
+
+
         ix%beg = -buff_size; ix%end = m - ix%beg; 
         iv%beg = 1; iv%end = adv_idx%end
+
+        adv_idx_b = adv_idx%beg
+        adv_idx_e = adv_idx%end
 
         do i = 1, sys_size
             q_cons_qp%vf(i)%sf => q_cons_vf(i)%sf
@@ -578,6 +591,8 @@ contains
             end do
         end do
         call nvtxEndRange
+
+        start_time = mpi_wtime()
 
         !$acc data copyin(qK_cons_vf_flat) copyout(flux_vf_flat,flux_src_vf_flat) create(qK_prim_vf_flat, vL_vf_flat, vR_vf_flat)
         call nvtxStartRange("RHS-Convert-to-Primitive")
@@ -615,40 +630,35 @@ contains
         call nvtxEndRange
         !$acc end data
 
-        if (t_step == t_step_stop) return
+        end_time = mpi_wtime()
+        if (proc_rank == 0) then
+            print*, 'RHS Eval Time [s]:', end_time - start_time
+        end if
 
+        ! if (t_step == t_step_stop) return
 
-        ! stop
-
-        ! Configuring Coordinate Direction Indexes ======================
-        ! IF(i == 1) THEN
-        !     ix%beg = -1; iy%beg =  0; iz%beg =  0
-        ! ELSEIF(i == 2) THEN
-        !     ix%beg =  0; iy%beg = -1; iz%beg =  0
-        ! ELSE
-        !     ix%beg =  0; iy%beg =  0; iz%beg = -1
-        ! END IF
-        ! ix%end = m; iy%end = n; iz%end = p
-
-
+        ! call nvtxStartRange("RHS-Diff fluxes")
         ! do j = 1, sys_size
         !     do k = 0, m
-        !         rhs_vf(j)%sf(k, :, :) = 1d0/dx(k)* &
-        !             (flux_ndqp(i)%vf(j)%sf(k - 1, 0:n, 0:p) &
-        !              - flux_ndqp(i)%vf(j)%sf(k, 0:n, 0:p))
+        !         rhs_vf_flat(k,0,0,j) = 1d0/dx(k)* &
+        !             (flux_vf_flat(k-1,0,0,j) &
+        !            - flux_vf_flat(k  ,0,0,j))
         !     end do
         ! end do
+        ! call nvtxEndRange
 
         ! Apply source terms to RHS of advection equations
-        ! do j = adv_idx%beg, adv_idx%end
+        ! call nvtxStartRange("RHS-Add srcs")
+        ! do j = adv_idx_b, adv_idx_e
         !     do k = 0, m
-        !         rhs_vf(j)%sf(k,:,:) = &
-        !             rhs_vf(j)%sf(k,:,:) + 1d0/dx(k) * &
-        !             q_cons_qp%vf(j)%sf(k, 0:n, 0:p)   * &
-        !              (flux_src_ndqp(i)%vf(j)%sf(k,0:n,0:p) &
-        !             - flux_src_ndqp(i)%vf(j)%sf(k-1,0:n,0:p))
+        !         rhs_vf_flat(k,0,0,j) = &
+        !             rhs_vf_flat(k,0,0,j) + 1d0/dx(k) * &
+        !             qK_cons_vf_flat(k,0,0,j) * &
+        !              (flux_src_vf_flat(k  ,0,0,j) &
+        !             - flux_src_vf_flat(k-1,0,0,j))
         !     end do
         ! end do
+        ! call nvtxEndRange
 
         do i = 1, sys_size
             nullify (q_cons_qp%vf(i)%sf, q_prim_qp%vf(i)%sf)
@@ -2467,6 +2477,10 @@ contains
 
         deallocate(flux_vf_flat)
         deallocate(flux_src_vf_flat)
+
+        deallocate(rhs_vf_flat)
+
+
 
     end subroutine s_finalize_rhs_module ! ---------------------------------
 
