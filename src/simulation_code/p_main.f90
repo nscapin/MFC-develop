@@ -103,6 +103,7 @@ program p_main
     call s_initialize_parallel_io()
     call s_mpi_decompose_computational_domain()
     print *, 'Broadcast'
+    print*, 'Number of MPI ranks:', num_procs
 
 
     ! Computation of parameters, allocation of memory, association of pointers,

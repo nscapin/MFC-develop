@@ -597,6 +597,16 @@ contains
                     is1_weno, is2_weno, is3_weno)
         call nvtxEndRange
 
+        ! do k = 1,sys_size-1
+        !     print*, 'Variable ', k 
+        !     do j = 0,m
+        !         print*, 'Prim, L, R: ', &
+        !             qK_prim_vf_flat(j,0,0,k), &
+        !             vL_vf_flat(j,0,0,k),  &
+        !             vR_vf_flat(j,0,0,k)
+        !     end do
+        ! end do
+
         call nvtxStartRange("RHS-Riemann")
         call s_hllc_riemann_solver( &
                               vR_vf_flat, vL_vf_flat, &
@@ -644,15 +654,7 @@ contains
             nullify (q_cons_qp%vf(i)%sf, q_prim_qp%vf(i)%sf)
         end do
 
-        ! do k = 1,sys_size-1
-        !     print*, 'Variable ', k 
-        !     do j = 0,m
-        !         print*, 'Prim, L, R: ', &
-        !             q_prim_qp%vf(k)%sf(j,0,0), &
-        !             qL_prim_ndqp(1)%vf(k)%sf(j,0,0),  &
-        !             qR_prim_ndqp(1)%vf(k)%sf(j,0,0)
-        !     end do
-        ! end do
+
 
     end subroutine s_alt_rhs
 

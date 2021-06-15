@@ -139,12 +139,18 @@ contains
                 do j = ixb, ixe
                     do i = 1,sys_size
                         qL_prim_rs_vf_flat(j, k, l, i) = qL_prim_vf(j, k, l, i)
-                        qR_prim_rs_vf_flat(j + 1, k, l, i) = qR_prim_vf(j, k, l, i)
+                        qR_prim_rs_vf_flat(j + 1, k, l, i) = qR_prim_vf(j + 1, k, l, i)
                     end do
                 end do
             end do
         end do
         !$acc end parallel loop
+
+        ! do i = 1,1 !sys_size
+        !     do j = ixb, ixe
+        !         print*, 'rank,re:',j,qL_prim_rs_vf_flat(j,0,0,i),qR_prim_rs_vf_flat(j+1,0,0,i)
+        !     end do
+        ! end do
 
         !$acc parallel loop collapse(3) gang vector private(alpha_rho_L, alpha_rho_R, vel_L, vel_R, alpha_L, alpha_R)
         do l = izb, ize
@@ -308,7 +314,7 @@ contains
 
         ! do i = 1,1 !sys_size
         !     do j = ixb, ixe
-        !         print*, 'rank,flux:',proc_rank,j,flux_vf_flat(j,0,0,i)
+        !         print*, 'rank,flux:',j,flux_vf_flat(j,0,0,i)
         !     end do
         ! end do
 
