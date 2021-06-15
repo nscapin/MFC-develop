@@ -576,14 +576,14 @@ contains
             q_prim_qp%vf(i)%sf => q_prim_vf(i)%sf
         end do
 
-        call nvtxStartRange("Populate cons var buffers")
+        call nvtxStartRange("RHS-Pop. var. buffers")
         call s_populate_conservative_variables_buffers()
         call nvtxEndRange
 
         i = 1 !Coordinate Index
 
         ! Flatten
-        call nvtxStartRange("Flatten input")
+        call nvtxStartRange("RHS-Flatten input")
         do i = 1, sys_size
             ! qK_cons_vf_flat(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end,i) = q_cons_vf(i)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end)
             do j = ix%beg,ix%end
@@ -594,8 +594,8 @@ contains
 
         start_time = mpi_wtime()
 
-        !$acc data copyin(qK_cons_vf_flat) copyout(flux_vf_flat,flux_src_vf_flat) create(qK_prim_vf_flat, vL_vf_flat, vR_vf_flat)
-        call nvtxStartRange("RHS-Convert-to-Primitive")
+        !$acc data copyin(qK_cons_vf_flat) copyout(rhs_vf_flat) create(qK_prim_vf_flat, vL_vf_flat, vR_vf_flat, flux_vf_flat, flux_src_vf_flat)
+        call nvtxStartRange("RHS-Convert to prim")
         call s_convert_conservative_to_primitive_variables_acc( &
             qK_cons_vf_flat, qK_prim_vf_flat, &
             ix, iy, iz)
@@ -628,37 +628,45 @@ contains
                               flux_vf_flat, &
                               flux_src_vf_flat )
         call nvtxEndRange
+
+
+
+
+        ! if (t_step == t_step_stop) return
+
+        call nvtxStartRange("RHS-Diff fluxes")
+        !$acc parallel loop 
+        do k = 0, m
+            do j = 1, sys_size
+                rhs_vf_flat(k,0,0,j) = 1d0/dx(k)* &
+                    (flux_vf_flat(k-1,0,0,j) &
+                   - flux_vf_flat(k  ,0,0,j))
+            end do
+        end do
+        !$acc end parallel loop
+        call nvtxEndRange
+
+        ! Apply source terms to RHS of advection equations
+        call nvtxStartRange("RHS-Add srcs")
+        !$acc parallel loop 
+        do k = 0, m
+            do j = adv_idx_b, adv_idx_e
+                rhs_vf_flat(k,0,0,j) = &
+                    rhs_vf_flat(k,0,0,j) + 1d0/dx(k) * &
+                    qK_cons_vf_flat(k,0,0,j) * &
+                     (flux_src_vf_flat(k  ,0,0,j) &
+                    - flux_src_vf_flat(k-1,0,0,j))
+            end do
+        end do
+        !$acc end parallel loop
+        call nvtxEndRange
+
         !$acc end data
 
         end_time = mpi_wtime()
         if (proc_rank == 0) then
             print*, 'RHS Eval Time [s]:', end_time - start_time
         end if
-
-        ! if (t_step == t_step_stop) return
-
-        ! call nvtxStartRange("RHS-Diff fluxes")
-        ! do j = 1, sys_size
-        !     do k = 0, m
-        !         rhs_vf_flat(k,0,0,j) = 1d0/dx(k)* &
-        !             (flux_vf_flat(k-1,0,0,j) &
-        !            - flux_vf_flat(k  ,0,0,j))
-        !     end do
-        ! end do
-        ! call nvtxEndRange
-
-        ! Apply source terms to RHS of advection equations
-        ! call nvtxStartRange("RHS-Add srcs")
-        ! do j = adv_idx_b, adv_idx_e
-        !     do k = 0, m
-        !         rhs_vf_flat(k,0,0,j) = &
-        !             rhs_vf_flat(k,0,0,j) + 1d0/dx(k) * &
-        !             qK_cons_vf_flat(k,0,0,j) * &
-        !              (flux_src_vf_flat(k  ,0,0,j) &
-        !             - flux_src_vf_flat(k-1,0,0,j))
-        !     end do
-        ! end do
-        ! call nvtxEndRange
 
         do i = 1, sys_size
             nullify (q_cons_qp%vf(i)%sf, q_prim_qp%vf(i)%sf)

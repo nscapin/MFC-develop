@@ -185,7 +185,7 @@ contains
 
         k = 0; l = 0
 
-        !$acc data present(qK_prim_vf_flat, v_rs_wsL_flat, vL_vf_flat, vR_vf_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef)
+        !$acc data present(qK_prim_vf_flat, v_rs_wsL_flat, vL_vf_flat, vR_vf_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef, dx)
         !$acc parallel loop collapse(3)
         do s = -weno_polyn, weno_polyn
             do i = 1, sys_size

@@ -96,10 +96,11 @@ module m_global_parameters
     real(kind(0d0)), target, allocatable, dimension(:) :: x_cc, y_cc, z_cc
     !> @}
 
-    !> @name Cell-width distributions in the x-, y- and z-directions, respectively
-    !> @{
-    real(kind(0d0)), target, allocatable, dimension(:) :: dx, dy, dz
-    !> @}
+    real(kind(0d0)), target, allocatable, dimension(:) :: dx
+    !$acc declare create (dx)
+
+    real(kind(0d0)), target, allocatable, dimension(:) :: dy, dz
+
 
     real(kind(0d0)) :: dt !< Size of the time-step
 
