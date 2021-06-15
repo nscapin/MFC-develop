@@ -544,6 +544,7 @@ contains
         ! Compute rhs
         allocate(rhs_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size)  )
 
+
     end subroutine s_initialize_rhs_module ! -------------------------------
 
 
@@ -558,7 +559,6 @@ contains
 
         integer :: i, j, k
 
-        real(kind(0d0)), dimension(10) :: gammas, pi_infs
         type(bounds_info) :: is1_weno, is2_weno, is3_weno
 
         integer :: adv_idx_b, adv_idx_e
@@ -635,7 +635,7 @@ contains
         ! if (t_step == t_step_stop) return
 
         call nvtxStartRange("RHS-Diff fluxes")
-        !$acc parallel loop 
+        !$acc parallel loop collapse (2) gang vector
         do k = 0, m
             do j = 1, sys_size
                 rhs_vf_flat(k,0,0,j) = 1d0/dx(k)* &
@@ -648,7 +648,7 @@ contains
 
         ! Apply source terms to RHS of advection equations
         call nvtxStartRange("RHS-Add srcs")
-        !$acc parallel loop 
+        !$acc parallel loop collapse(2) gang vector
         do k = 0, m
             do j = adv_idx_b, adv_idx_e
                 rhs_vf_flat(k,0,0,j) = &

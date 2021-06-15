@@ -102,6 +102,10 @@ module m_global_parameters
     real(kind(0d0)), target, allocatable, dimension(:) :: dy, dz
 
 
+    real(kind(0d0)), dimension(10) :: gammas, pi_infs
+    !$acc declare create (gammas, pi_infs)
+
+
     real(kind(0d0)) :: dt !< Size of the time-step
 
     !> @name Starting time-step iteration, stopping time-step iteration and the number
@@ -706,6 +710,14 @@ contains
         if (p == 0) return; allocate (z_cb(-1 - buff_size:p + buff_size))
         allocate (z_cc(-buff_size:p + buff_size))
         allocate (dz(-buff_size:p + buff_size))
+
+
+        do i = 1,num_fluids
+            gammas(i) = fluid_pp(i)%gamma
+            pi_infs(i) = fluid_pp(i)%pi_inf
+        end do
+
+        !$acc update device( gammas, pi_infs )
 
     end subroutine s_initialize_global_parameters_module ! -----------------
 

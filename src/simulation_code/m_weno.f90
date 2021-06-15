@@ -156,11 +156,11 @@ contains
 
         type(bounds_info), intent(IN) :: ix, iy, iz
 
-        real(kind(0d0)), dimension(-2:1) :: dvd 
+        real(kind(0d0)), dimension(-2:1) :: dvd
         real(kind(0d0)), dimension(0:2) ::  poly
         real(kind(0d0)), dimension(0:2) :: alpha
         real(kind(0d0)), dimension(0:2) :: omega
-        real(kind(0d0)), dimension(0:2) :: beta 
+        real(kind(0d0)), dimension(0:2) :: beta
         real(kind(0d0)), pointer :: beta_p(:)
 
         integer :: i, j, k, l, r, s
@@ -186,7 +186,7 @@ contains
         k = 0; l = 0
 
         !$acc data present(qK_prim_vf_flat, v_rs_wsL_flat, vL_vf_flat, vR_vf_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef, dx)
-        !$acc parallel loop collapse(3)
+        !$acc parallel loop collapse(3) gang vector
         do s = -weno_polyn, weno_polyn
             do i = 1, sys_size
                 do j = ixb, ixe
@@ -197,7 +197,7 @@ contains
         end do
         !$acc end parallel loop
 
-        !$acc parallel loop gang vector private(dvd, poly, beta, alpha, omega)
+        !$acc parallel loop collapse (2) gang vector private(dvd, poly, beta, alpha, omega)
         do j = ixb, ixe
             do i = 1, sys_size
 
@@ -289,7 +289,7 @@ contains
         !$acc end parallel loop 
 
         if (mp_weno) then
-        !$acc parallel loop gang vector private(d)
+        !$acc parallel loop collapse (2) gang vector private(d)
         do j = ixb, ixe
             do i = 1, sys_size
 
@@ -604,11 +604,7 @@ contains
         deallocate (poly_coef_L, poly_coef_R)
         deallocate (d_L, d_R)
         deallocate (beta_coef)
-
         deallocate(v_rs_wsL_flat)
-        ! deallocate(v_flat)
-        ! deallocate(vL_vf_flat)
-        ! deallocate(vR_vf_flat)
 
     end subroutine s_finalize_weno_module ! --------------------------------
 

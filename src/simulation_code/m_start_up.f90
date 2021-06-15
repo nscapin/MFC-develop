@@ -727,6 +727,8 @@ contains
         end if
         ! ==================================================================
 
+        !$acc update device( dx )
+
     end subroutine s_read_serial_data_files ! -------------------------------------
 
         !! @param q_cons_vf Conservative variables
@@ -880,6 +882,8 @@ contains
             print '(A)', 'File ', trim(file_loc), ' is missing. Exiting...'
             call s_mpi_abort()
         end if
+
+
 
         deallocate (x_cb_glb, y_cb_glb, z_cb_glb)
     end subroutine s_read_parallel_data_files ! -------------------------------
@@ -1093,6 +1097,8 @@ contains
         end do
 
         ! END: Population of Buffers in z-direction ========================
+
+        !$acc update device( dx )
 
     end subroutine s_populate_grid_variables_buffers ! ---------------------
 

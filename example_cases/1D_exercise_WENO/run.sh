@@ -11,7 +11,11 @@
 ## 42/6 = 7 where 42 = number of total cores (c)
 ## (a == c) usually
 
-export PGI_ACC_NOTIFY=2
+# export PGI_ACC_NOTIFY=2
+# export NV_ACC_NOTIFY=3
+# export NV_ACC_TIME=1
+# export NV_ACC_DEBUG=1
+
 
 ## Full node
 # jsrun -r6 -a7 -c7 -g1 ../../src/pre_process_code/pre_process
@@ -27,7 +31,6 @@ export PGI_ACC_NOTIFY=2
 
 mpirun -n 1 ../../src/pre_process_code/pre_process
 mpirun -n 1 ../../src/simulation_code/simulation
-
 # mpirun -n 1 nsys profile -o output-sys.prof --stats=true -t openacc,nvtx  --force-overwrite true ../../src/simulation_code/simulation
 
 ## Profile 

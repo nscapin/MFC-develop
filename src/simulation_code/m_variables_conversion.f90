@@ -282,7 +282,7 @@ contains
 
         real(kind(0d0)), dimension(10) :: alpha_rho
         real(kind(0d0)), dimension(10) :: alpha
-        real(kind(0d0)), dimension(10) :: gammas, pi_infs
+        ! real(kind(0d0)), dimension(10) :: gammas, pi_infs
         real(kind(0d0)) ::      rho_K
         real(kind(0d0)) :: dyn_pres_K
         real(kind(0d0)) ::    gamma_K
@@ -309,12 +309,8 @@ contains
         ! print*, 'c2p: ixb,ixe', ixb, ixe
         ! print*, 'shape qK_cons_vf_flat:', shape(qK_cons_vf_flat)
 
-        do i = 1, num_fluids
-            gammas(i) = fluid_pp(i)%gamma
-            pi_infs(i) = fluid_pp(i)%pi_inf
-        end do
 
-        !$acc data copyin(gammas,pi_infs) present(qK_cons_vf_flat, qK_prim_vf_flat)
+        !$acc data present(qK_cons_vf_flat, qK_prim_vf_flat)
         !$acc parallel loop collapse(3) gang vector private(alpha_rho, alpha) 
         do l = izb, ize
             do k = iyb, iye
@@ -328,7 +324,6 @@ contains
                     call s_convert_species_to_mixture_variables_acc( &
                                                       alpha_rho, &
                                                       alpha, &
-                                                      gammas, pi_infs, &
                                                       rho_K, &
                                                       gamma_K, pi_inf_K, &
                                                       num_fluids &
@@ -367,7 +362,6 @@ contains
     subroutine s_convert_species_to_mixture_variables_acc( &
                                                       alpha_rho_K, &
                                                       alpha_K, &
-                                                      gammas, pi_infs, &
                                                       rho_K, &
                                                       gamma_K, pi_inf_K, &
                                                       num_fluids &
@@ -375,7 +369,6 @@ contains
         !$acc routine seq
 
         real(kind(0d0)), dimension(num_fluids), intent(IN) :: alpha_rho_K, alpha_K 
-        real(kind(0d0)), dimension(num_fluids), intent(IN) :: gammas, pi_infs
         real(kind(0d0)), intent(OUT) :: rho_K, gamma_K, pi_inf_K
         integer, intent(IN) :: num_fluids
         integer :: i
