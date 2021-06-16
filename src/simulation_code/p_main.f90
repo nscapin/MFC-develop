@@ -191,26 +191,13 @@ program p_main
 
         ! Time-stepping loop controls
         call nvtxEndRange
-        if (time_stepper /= 23) then
-            if (t_step == t_step_stop) then
-                exit
-            else
-                t_step = t_step + 1
-            end if
-        else
-            if (mytime >= finaltime) then
-                exit
-            else
-                if ((mytime + dt) >= finaltime) dt = finaltime - mytime
-                t_step = t_step + 1
-            end if
-        end if
 
-        ! print*, 'Write data files'
-        ! Backing up the grid and conservative variables data
-        if (mod(t_step - t_step_start, t_step_save) == 0) then
-            !call s_write_data_files(q_cons_ts(1)%vf, t_step)
-        end if
+        exit
+        ! if (t_step == t_step_stop) then
+        !     exit
+        ! else
+        !     t_step = t_step + 1
+        ! end if
 
         call system_clock(cpu_end)
 

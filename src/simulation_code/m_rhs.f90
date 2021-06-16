@@ -548,22 +548,19 @@ contains
     end subroutine s_initialize_rhs_module ! -------------------------------
 
 
-    !> The purpose of this procedure is to exercise the WENO functionality of 
-      !! MFC in one spatial dimension (no RHS computation, just reconstruction)
-    subroutine s_alt_rhs(q_cons_vf, q_prim_vf, rhs_vf, t_step) ! -------
+    subroutine s_alt_rhs(q_cons_vf, q_prim_vf, rhs_vf, t_step)
 
         type(scalar_field), dimension(sys_size), intent(INOUT) :: q_cons_vf
         type(scalar_field), dimension(sys_size), intent(INOUT) :: q_prim_vf
         type(scalar_field), dimension(sys_size), intent(INOUT) :: rhs_vf
         integer, intent(IN) :: t_step
 
-        integer :: i, j, k
+        integer :: i, j, k, it_t
 
         type(bounds_info) :: is1_weno, is2_weno, is3_weno
 
         integer :: adv_idx_b, adv_idx_e
         real(kind(0d0)) :: start_time, end_time
-
 
         ix%beg = -buff_size; ix%end = m - ix%beg; 
         iv%beg = 1; iv%end = adv_idx%end
@@ -580,99 +577,94 @@ contains
         call s_populate_conservative_variables_buffers()
         call nvtxEndRange
 
-        i = 1 !Coordinate Index
-
         ! Flatten
         call nvtxStartRange("RHS-Flatten input")
         do i = 1, sys_size
-            ! qK_cons_vf_flat(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end,i) = q_cons_vf(i)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end)
             do j = ix%beg,ix%end
                 qK_cons_vf_flat(j,0,0,i) = q_cons_vf(i)%sf(j,0,0)
             end do
         end do
         call nvtxEndRange
 
-        start_time = mpi_wtime()
-
         !$acc data copyin(qK_cons_vf_flat) copyout(rhs_vf_flat) create(qK_prim_vf_flat, vL_vf_flat, vR_vf_flat, flux_vf_flat, flux_src_vf_flat)
-        call nvtxStartRange("RHS-Convert to prim")
-        call s_convert_conservative_to_primitive_variables_acc( &
-            qK_cons_vf_flat, qK_prim_vf_flat, &
-            ix, iy, iz)
-        call nvtxEndRange
+        do it_t = 1,t_step_stop
 
-        call nvtxStartRange("RHS-WENO")
-        is1_weno = ix; is2_weno = iy; is3_weno = iz
-        is1_weno%beg = is1_weno%beg + weno_polyn
-        is1_weno%end = is1_weno%end - weno_polyn
+            start_time = mpi_wtime()
 
-        call s_weno_alt( &
-                    qK_prim_vf_flat, &
-                    vL_vf_flat, vR_vf_flat, &
-                    is1_weno, is2_weno, is3_weno)
-        call nvtxEndRange
+            call nvtxStartRange("RHS-Convert to prim")
+            call s_convert_conservative_to_primitive_variables_acc( &
+                qK_cons_vf_flat, qK_prim_vf_flat, &
+                ix, iy, iz)
+            call nvtxEndRange
 
-        ! do k = 1,sys_size-1
-        !     print*, 'Variable ', k 
-        !     do j = 0,m
-        !         print*, 'Prim, L, R: ', &
-        !             qK_prim_vf_flat(j,0,0,k), &
-        !             vL_vf_flat(j,0,0,k),  &
-        !             vR_vf_flat(j,0,0,k)
-        !     end do
-        ! end do
+            call nvtxStartRange("RHS-WENO")
+            is1_weno = ix; is2_weno = iy; is3_weno = iz
+            is1_weno%beg = is1_weno%beg + weno_polyn
+            is1_weno%end = is1_weno%end - weno_polyn
 
-        call nvtxStartRange("RHS-Riemann")
-        call s_hllc_riemann_solver( &
-                              vR_vf_flat, vL_vf_flat, &
-                              flux_vf_flat, &
-                              flux_src_vf_flat )
-        call nvtxEndRange
+            call s_weno_alt( &
+                        qK_prim_vf_flat, &
+                        vL_vf_flat, vR_vf_flat, &
+                        is1_weno, is2_weno, is3_weno)
+            call nvtxEndRange
+
+            ! do k = 1,sys_size-1
+            !     print*, 'Variable ', k 
+            !     do j = 0,m
+            !         print*, 'Prim, L, R: ', &
+            !             qK_prim_vf_flat(j,0,0,k), &
+            !             vL_vf_flat(j,0,0,k),  &
+            !             vR_vf_flat(j,0,0,k)
+            !     end do
+            ! end do
+
+            call nvtxStartRange("RHS-Riemann")
+            call s_hllc_riemann_solver( &
+                                  vR_vf_flat, vL_vf_flat, &
+                                  flux_vf_flat, &
+                                  flux_src_vf_flat )
+            call nvtxEndRange
 
 
-
-
-        ! if (t_step == t_step_stop) return
-
-        call nvtxStartRange("RHS-Diff fluxes")
-        !$acc parallel loop collapse (2) gang vector
-        do k = 0, m
-            do j = 1, sys_size
-                rhs_vf_flat(k,0,0,j) = 1d0/dx(k)* &
-                    (flux_vf_flat(k-1,0,0,j) &
-                   - flux_vf_flat(k  ,0,0,j))
+            call nvtxStartRange("RHS-Diff fluxes")
+            !$acc parallel loop collapse (2) gang vector
+            do k = 0, m
+                do j = 1, sys_size
+                    rhs_vf_flat(k,0,0,j) = 1d0/dx(k)* &
+                        (flux_vf_flat(k-1,0,0,j) &
+                       - flux_vf_flat(k  ,0,0,j))
+                end do
             end do
-        end do
-        !$acc end parallel loop
-        call nvtxEndRange
+            !$acc end parallel loop
+            call nvtxEndRange
 
-        ! Apply source terms to RHS of advection equations
-        call nvtxStartRange("RHS-Add srcs")
-        !$acc parallel loop collapse(2) gang vector
-        do k = 0, m
-            do j = adv_idx_b, adv_idx_e
-                rhs_vf_flat(k,0,0,j) = &
-                    rhs_vf_flat(k,0,0,j) + 1d0/dx(k) * &
-                    qK_cons_vf_flat(k,0,0,j) * &
-                     (flux_src_vf_flat(k  ,0,0,j) &
-                    - flux_src_vf_flat(k-1,0,0,j))
+            ! Apply source terms to RHS of advection equations
+            call nvtxStartRange("RHS-Add srcs")
+            !$acc parallel loop collapse(2) gang vector
+            do k = 0, m
+                do j = adv_idx_b, adv_idx_e
+                    rhs_vf_flat(k,0,0,j) = &
+                        rhs_vf_flat(k,0,0,j) + 1d0/dx(k) * &
+                        qK_cons_vf_flat(k,0,0,j) * &
+                         (flux_src_vf_flat(k  ,0,0,j) &
+                        - flux_src_vf_flat(k-1,0,0,j))
+                end do
             end do
-        end do
-        !$acc end parallel loop
-        call nvtxEndRange
+            !$acc end parallel loop
+            call nvtxEndRange
 
+            end_time = mpi_wtime()
+            if (proc_rank == 0) then
+                print*, 'RHS Eval Time [s]:', end_time - start_time
+            end if
+            if (it_t == t_step_stop) exit
+        end do
         !$acc end data
-
-        end_time = mpi_wtime()
-        if (proc_rank == 0) then
-            print*, 'RHS Eval Time [s]:', end_time - start_time
-        end if
 
         do i = 1, sys_size
             nullify (q_cons_qp%vf(i)%sf, q_prim_qp%vf(i)%sf)
         end do
-
-
+        
 
     end subroutine s_alt_rhs
 
@@ -1827,239 +1819,6 @@ contains
 
         end if
 
-        ! END: Population of Buffers in x-direction ========================
-
-        ! Population of Buffers in y-direction =============================
-
-        if (n == 0) then
-
-            return
-
-        elseif (bc_y%beg <= -3 .and. bc_y%beg /= -13) then     ! Ghost-cell extrap. BC at beginning
-
-            do i = 1, sys_size
-                do j = 1, buff_size
-                    q_cons_qp%vf(i)%sf(:, -j, 0:p) = &
-                        q_cons_qp%vf(i)%sf(:, 0, 0:p)
-                end do
-            end do
-
-        elseif (bc_y%beg == -13) then    ! Axis BC at beginning
-
-            do j = 1, buff_size
-                do k = 0, p
-                    if (z_cc(k) < pi) then
-                        do i = 1, mom_idx%beg
-                            q_cons_qp%vf(i)%sf(:, -j, k) = &
-                                q_cons_qp%vf(i)%sf(:, j - 1, k + ((p + 1)/2))
-                        end do
-
-                        q_cons_qp%vf(mom_idx%beg + 1)%sf(:, -j, k) = &
-                            -q_cons_qp%vf(mom_idx%beg + 1)%sf(:, j - 1, k + ((p + 1)/2))
-
-                        q_cons_qp%vf(mom_idx%end)%sf(:, -j, k) = &
-                            -q_cons_qp%vf(mom_idx%end)%sf(:, j - 1, k + ((p + 1)/2))
-
-                        do i = E_idx, sys_size
-                            q_cons_qp%vf(i)%sf(:, -j, k) = &
-                                q_cons_qp%vf(i)%sf(:, j - 1, k + ((p + 1)/2))
-                        end do
-                    else
-                        do i = 1, mom_idx%beg
-                            q_cons_qp%vf(i)%sf(:, -j, k) = &
-                                q_cons_qp%vf(i)%sf(:, j - 1, k - ((p + 1)/2))
-                        end do
-
-                        q_cons_qp%vf(mom_idx%beg + 1)%sf(:, -j, k) = &
-                            -q_cons_qp%vf(mom_idx%beg + 1)%sf(:, j - 1, k - ((p + 1)/2))
-
-                        q_cons_qp%vf(mom_idx%end)%sf(:, -j, k) = &
-                            -q_cons_qp%vf(mom_idx%end)%sf(:, j - 1, k - ((p + 1)/2))
-
-                        do i = E_idx, sys_size
-                            q_cons_qp%vf(i)%sf(:, -j, k) = &
-                                q_cons_qp%vf(i)%sf(:, j - 1, k - ((p + 1)/2))
-                        end do
-                    end if
-                end do
-            end do
-
-        elseif (bc_y%beg == -2) then     ! Symmetry BC at beginning
-
-            do j = 1, buff_size
-
-                do i = 1, mom_idx%beg
-                    q_cons_qp%vf(i)%sf(:, -j, 0:p) = &
-                        q_cons_qp%vf(i)%sf(:, j - 1, 0:p)
-                end do
-
-                q_cons_qp%vf(mom_idx%beg + 1)%sf(:, -j, 0:p) = &
-                    -q_cons_qp%vf(mom_idx%beg + 1)%sf(:, j - 1, 0:p)
-
-                do i = mom_idx%beg + 2, sys_size
-                    q_cons_qp%vf(i)%sf(:, -j, 0:p) = &
-                        q_cons_qp%vf(i)%sf(:, j - 1, 0:p)
-                end do
-
-            end do
-
-        elseif (bc_y%beg == -1) then     ! Periodic BC at beginning
-
-            do i = 1, sys_size
-                do j = 1, buff_size
-                    q_cons_qp%vf(i)%sf(:, -j, 0:p) = &
-                        q_cons_qp%vf(i)%sf(:, n - (j - 1), 0:p)
-                end do
-            end do
-
-        else                            ! Processor BC at beginning
-
-            call s_mpi_sendrecv_conservative_variables_buffers( &
-                q_cons_qp%vf, 2, -1)
-
-        end if
-
-        if (bc_y%end <= -3) then         ! Ghost-cell extrap. BC at end
-
-            do i = 1, sys_size
-                do j = 1, buff_size
-                    q_cons_qp%vf(i)%sf(:, n + j, 0:p) = &
-                        q_cons_qp%vf(i)%sf(:, n, 0:p)
-                end do
-            end do
-
-        elseif (bc_y%end == -2) then     ! Symmetry BC at end
-
-            do j = 1, buff_size
-
-                do i = 1, mom_idx%beg
-                    q_cons_qp%vf(i)%sf(:, n + j, 0:p) = &
-                        q_cons_qp%vf(i)%sf(:, n - (j - 1), 0:p)
-                end do
-
-                q_cons_qp%vf(mom_idx%beg + 1)%sf(:, n + j, 0:p) = &
-                    -q_cons_qp%vf(mom_idx%beg + 1)%sf(:, n - (j - 1), 0:p)
-
-                do i = mom_idx%beg + 2, sys_size
-                    q_cons_qp%vf(i)%sf(:, n + j, 0:p) = &
-                        q_cons_qp%vf(i)%sf(:, n - (j - 1), 0:p)
-                end do
-
-            end do
-
-        elseif (bc_y%end == -1) then     ! Periodic BC at end
-
-            do i = 1, sys_size
-                do j = 1, buff_size
-                    q_cons_qp%vf(i)%sf(:, n + j, 0:p) = &
-                        q_cons_qp%vf(i)%sf(:, j - 1, 0:p)
-                end do
-            end do
-
-        else                            ! Processor BC at end
-
-            call s_mpi_sendrecv_conservative_variables_buffers( &
-                q_cons_qp%vf, 2, 1)
-
-        end if
-
-        ! END: Population of Buffers in y-direction ========================
-
-        ! Population of Buffers in z-direction =============================
-
-        if (p == 0) then
-
-            return
-
-        elseif (bc_z%beg <= -3) then     ! Ghost-cell extrap. BC at beginning
-
-            do i = 1, sys_size
-                do j = 1, buff_size
-                    q_cons_qp%vf(i)%sf(:, :, -j) = &
-                        q_cons_qp%vf(i)%sf(:, :, 0)
-                end do
-            end do
-
-        elseif (bc_z%beg == -2) then     ! Symmetry BC at beginning
-
-            do j = 1, buff_size
-
-                do i = 1, mom_idx%beg + 1
-                    q_cons_qp%vf(i)%sf(:, :, -j) = &
-                        q_cons_qp%vf(i)%sf(:, :, j - 1)
-                end do
-
-                q_cons_qp%vf(mom_idx%end)%sf(:, :, -j) = &
-                    -q_cons_qp%vf(mom_idx%end)%sf(:, :, j - 1)
-
-                do i = E_idx, sys_size
-                    q_cons_qp%vf(i)%sf(:, :, -j) = &
-                        q_cons_qp%vf(i)%sf(:, :, j - 1)
-                end do
-
-            end do
-
-        elseif (bc_z%beg == -1) then     ! Periodic BC at beginning
-
-            do i = 1, sys_size
-                do j = 1, buff_size
-                    q_cons_qp%vf(i)%sf(:, :, -j) = &
-                        q_cons_qp%vf(i)%sf(:, :, p - (j - 1))
-                end do
-            end do
-
-        else                            ! Processor BC at beginning
-
-            call s_mpi_sendrecv_conservative_variables_buffers( &
-                q_cons_qp%vf, 3, -1)
-
-        end if
-
-        if (bc_z%end <= -3) then         ! Ghost-cell extrap. BC at end
-
-            do i = 1, sys_size
-                do j = 1, buff_size
-                    q_cons_qp%vf(i)%sf(:, :, p + j) = &
-                        q_cons_qp%vf(i)%sf(:, :, p)
-                end do
-            end do
-
-        elseif (bc_z%end == -2) then     ! Symmetry BC at end
-
-            do j = 1, buff_size
-
-                do i = 1, mom_idx%beg + 1
-                    q_cons_qp%vf(i)%sf(:, :, p + j) = &
-                        q_cons_qp%vf(i)%sf(:, :, p - (j - 1))
-                end do
-
-                q_cons_qp%vf(mom_idx%end)%sf(:, :, p + j) = &
-                    -q_cons_qp%vf(mom_idx%end)%sf(:, :, p - (j - 1))
-
-                do i = E_idx, sys_size
-                    q_cons_qp%vf(i)%sf(:, :, p + j) = &
-                        q_cons_qp%vf(i)%sf(:, :, p - (j - 1))
-                end do
-
-            end do
-
-        elseif (bc_z%end == -1) then     ! Periodic BC at end
-
-            do i = 1, sys_size
-                do j = 1, buff_size
-                    q_cons_qp%vf(i)%sf(:, :, p + j) = &
-                        q_cons_qp%vf(i)%sf(:, :, j - 1)
-                end do
-            end do
-
-        else                            ! Processor BC at end
-
-            call s_mpi_sendrecv_conservative_variables_buffers( &
-                q_cons_qp%vf, 3, 1)
-
-        end if
-
-        ! END: Population of Buffers in z-direction ========================
 
     end subroutine s_populate_conservative_variables_buffers ! -------------
 

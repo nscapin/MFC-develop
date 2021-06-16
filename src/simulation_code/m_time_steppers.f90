@@ -199,6 +199,7 @@ contains
 
         ! Stage 1 of 1 =====================================================
         call nvtxStartRange("1st order RK")
+
         do i = 1, cont_idx%end
             q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
         end do
@@ -214,18 +215,16 @@ contains
         end if
        
         call s_alt_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
-        if (DEBUG) print *, 'got rhs'
 
-        if (run_time_info) then
-            call s_write_run_time_information(q_prim_vf, t_step)
-        end if
-        if (DEBUG) print *, 'wrote runtime info'
+        ! if (run_time_info) then
+        !     call s_write_run_time_information(q_prim_vf, t_step)
+        ! end if
 
-        if (any(com_wrt) .or. any(cb_wrt) .or. probe_wrt) then
-            call s_time_step_cycling(t_step)
-        end if
+        ! if (any(com_wrt) .or. any(cb_wrt) .or. probe_wrt) then
+        !     call s_time_step_cycling(t_step)
+        ! end if
 
-        if (t_step == t_step_stop) return
+        ! if (t_step == t_step_stop) return
 
         ! call nvtxStartRange("Add RHS to vars")
         ! do i = 1, sys_size
@@ -237,21 +236,21 @@ contains
 
         call nvtxEndRange
 
-        if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(1)%vf)
+        ! if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(1)%vf)
 
-        do i = 1, cont_idx%end
-            q_prim_vf(i)%sf => null()
-        end do
+        ! do i = 1, cont_idx%end
+        !     q_prim_vf(i)%sf => null()
+        ! end do
 
-        if (adv_alphan) then
-            do i = adv_idx%beg, adv_idx%end
-                q_prim_vf(i)%sf => null()
-            end do
-        else
-            do i = adv_idx%beg, sys_size ! adv_idx%end
-                q_prim_vf(i)%sf => null()
-            end do
-        end if
+        ! if (adv_alphan) then
+        !     do i = adv_idx%beg, adv_idx%end
+        !         q_prim_vf(i)%sf => null()
+        !     end do
+        ! else
+        !     do i = adv_idx%beg, sys_size
+        !         q_prim_vf(i)%sf => null()
+        !     end do
+        ! end if
         ! ==================================================================
 
     end subroutine s_1st_order_tvd_rk ! ------------------------------------
