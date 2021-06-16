@@ -198,7 +198,7 @@ contains
         integer :: i !< Generic loop iterator
 
         ! Stage 1 of 1 =====================================================
-        call nvtxStartRange("1st order RK")
+        ! call nvtxStartRange("1st order RK")
 
         do i = 1, cont_idx%end
             q_prim_vf(i)%sf => q_cons_ts(1)%vf(i)%sf
@@ -234,7 +234,7 @@ contains
         ! end do
         ! call nvtxEndRange
 
-        call nvtxEndRange
+        ! call nvtxEndRange
 
         ! if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(1)%vf)
 

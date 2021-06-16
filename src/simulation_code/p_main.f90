@@ -161,7 +161,7 @@ program p_main
 
     ! Time-stepping Loop =======================================================
     do
-        call nvtxStartRange("Main loop")
+        ! call nvtxStartRange("Main loop")
         if (proc_rank == 0) then
             if (time_stepper == 23) then
                 print *, '------------', mytime/finaltime*100d0, 'percent done'
@@ -190,7 +190,7 @@ program p_main
         end if
 
         ! Time-stepping loop controls
-        call nvtxEndRange
+        ! call nvtxEndRange
 
         exit
         ! if (t_step == t_step_stop) then

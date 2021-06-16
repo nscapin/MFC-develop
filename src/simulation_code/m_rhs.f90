@@ -588,6 +588,7 @@ contains
 
         !$acc data copyin(qK_cons_vf_flat) copyout(rhs_vf_flat) create(qK_prim_vf_flat, vL_vf_flat, vR_vf_flat, flux_vf_flat, flux_src_vf_flat)
         do it_t = 1,t_step_stop
+            call nvtxStartRange("Time step")
 
             start_time = mpi_wtime()
 
@@ -653,10 +654,23 @@ contains
             !$acc end parallel loop
             call nvtxEndRange
 
+            call nvtxStartRange("RHS-Add RHS to Cons")
+            !$acc parallel loop collapse (2) gang vector
+            do k = 0, m
+                do j = 1, sys_size
+                    qK_cons_vf_flat(k,0,0,j) = &
+                        qK_cons_vf_flat(k,0,0,j) + &
+                        0d0 * dt * rhs_vf_flat(k,0,0,j) 
+                end do
+            end do
+            !$acc end parallel loop
+            call nvtxEndRange
+
             end_time = mpi_wtime()
             if (proc_rank == 0) then
                 print*, 'RHS Eval Time [s]:', end_time - start_time
             end if
+            call nvtxEndRange
             if (it_t == t_step_stop) exit
         end do
         !$acc end data
