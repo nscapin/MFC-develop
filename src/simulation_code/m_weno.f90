@@ -179,23 +179,10 @@ contains
         real(kind(0d0)), parameter :: alpha_mp = 2d0
         real(kind(0d0)), parameter :: beta_mp  = 4d0/3d0
 
-
         ixb = ix%beg
         ixe = ix%end
 
         k = 0; l = 0
-
-        !!!!$acc data present(qK_prim_vf_flat, v_rs_wsL_flat, vL_vf_flat, vR_vf_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef, dx)
-        !!!!$acc parallel loop collapse(3) gang vector
-        !do s = -weno_polyn, weno_polyn
-        !    do i = 1, sys_size
-        !        do j = ixb, ixe
-        !            v_rs_wsL_flat(j, k, l, s, i) = &
-        !               qK_prim_vf_flat(s + j, k, l, i)
-        !        end do
-        !    end do
-        !end do
-        !!$acc end parallel loop
 
         !$acc data present(qK_prim_vf_flat, vL_vf_flat, vR_vf_flat, poly_coef_L, poly_coef_R, D_L, D_R, beta_coef, dx)
         !$acc parallel loop collapse (2) gang vector private(dvd, poly, beta, alpha, omega)
@@ -203,9 +190,9 @@ contains
             do i = 1, sys_size
 
                 !!! L Reconstruction
-                dvd(1) = qK_prim_vf_flat(j + 2, k, l, i) &
-                         - qK_prim_vf_flat(j + 1, k, l, i)
-                dvd(0) = qK_prim_vf_flat(j + 1, k, l, i) &
+                dvd(1)  = qK_prim_vf_flat(j + 2, k, l, i) &
+                        - qK_prim_vf_flat(j + 1, k, l, i)
+                dvd(0)  = qK_prim_vf_flat(j + 1, k, l, i) &
                         - qK_prim_vf_flat(j, k, l, i)
                 dvd(-1) = qK_prim_vf_flat(j, k, l, i) &
                         - qK_prim_vf_flat(j - 1, k, l, i)
@@ -213,14 +200,14 @@ contains
                         - qK_prim_vf_flat(j - 2, k, l, i)
 
                 poly(0) = qK_prim_vf_flat(j, k, l, i) &
-                          + poly_coef_L(0, 0, j)*dvd(1) &
-                          + poly_coef_L(0, 1, j)*dvd(0)
+                        + poly_coef_L(0, 0, j)*dvd(1) &
+                        + poly_coef_L(0, 1, j)*dvd(0)
                 poly(1) = qK_prim_vf_flat(j, k, l, i) &
-                          + poly_coef_L(1, 0, j)*dvd(0) &
-                          + poly_coef_L(1, 1, j)*dvd(-1)
+                        + poly_coef_L(1, 0, j)*dvd(0) &
+                        + poly_coef_L(1, 1, j)*dvd(-1)
                 poly(2) = qK_prim_vf_flat(j, k, l, i) &
-                          + poly_coef_L(2, 0, j)*dvd(-1) &
-                          + poly_coef_L(2, 1, j)*dvd(-2)
+                        + poly_coef_L(2, 0, j)*dvd(-1) &
+                        + poly_coef_L(2, 1, j)*dvd(-2)
 
                 beta(0) = beta_coef(0, 0, j)*dvd(1)*dvd(1) &
                         + beta_coef(0, 1, j)*dvd(1)*dvd(0) &
@@ -245,24 +232,24 @@ contains
                 vL_vf_flat(j, k, l, i) = sum(omega*poly)
 
                 !!! R Reconstruction
-                dvd(1) = qK_prim_vf_flat(j + 2, k, l, i) &
-                       - qK_prim_vf_flat(j + 1, k, l, i)
-                dvd(0) = qK_prim_vf_flat(j + 1, k, l, i) &
-                       - qK_prim_vf_flat(j, k, l, i)
+                dvd(1)  = qK_prim_vf_flat(j + 2, k, l, i) &
+                        - qK_prim_vf_flat(j + 1, k, l, i)
+                dvd(0)  = qK_prim_vf_flat(j + 1, k, l, i) &
+                        - qK_prim_vf_flat(j, k, l, i)
                 dvd(-1) = qK_prim_vf_flat(j, k, l, i) &
                         - qK_prim_vf_flat(j - 1, k, l, i)
                 dvd(-2) = qK_prim_vf_flat(j - 1, k, l, i) &
                         - qK_prim_vf_flat(j - 2, k, l, i)
 
                 poly(0) = qK_prim_vf_flat(j, k, l, i) &
-                          + poly_coef_R(0, 0, j)*dvd(1) &
-                          + poly_coef_R(0, 1, j)*dvd(0)
+                        + poly_coef_R(0, 0, j)*dvd(1) &
+                        + poly_coef_R(0, 1, j)*dvd(0)
                 poly(1) = qK_prim_vf_flat(j, k, l, i) &
-                          + poly_coef_R(1, 0, j)*dvd(0) &
-                          + poly_coef_R(1, 1, j)*dvd(-1)
+                        + poly_coef_R(1, 0, j)*dvd(0) &
+                        + poly_coef_R(1, 1, j)*dvd(-1)
                 poly(2) = qK_prim_vf_flat(j, k, l, i) &
-                          + poly_coef_R(2, 0, j)*dvd(-1) &
-                          + poly_coef_R(2, 1, j)*dvd(-2)
+                        + poly_coef_R(2, 0, j)*dvd(-1) &
+                        + poly_coef_R(2, 1, j)*dvd(-2)
 
                 beta(0) = beta_coef(0, 0, j)*dvd(1)*dvd(1) &
                         + beta_coef(0, 1, j)*dvd(1)*dvd(0) &
@@ -296,17 +283,17 @@ contains
 
                 ! Left Monotonicity Preserving Bound
                 d(-1) = qK_prim_vf_flat(j, k, l, i) &
-                        + qK_prim_vf_flat(j - 2, k, l, i) &
-                        - qK_prim_vf_flat(j - 1, k, l, i) &
-                        *2d0
-                d(0) = qK_prim_vf_flat(j + 1, k, l, i) &
-                       + qK_prim_vf_flat(j - 1, k, l, i) &
-                       - qK_prim_vf_flat(j, k, l, i) &
-                       *2d0
-                d(1) = qK_prim_vf_flat(j + 2, k, l, i) &
-                       + qK_prim_vf_flat(j, k, l, i) &
-                       - qK_prim_vf_flat(j + 1, k, l, i) &
-                       *2d0
+                      + qK_prim_vf_flat(j - 2, k, l, i) &
+                      - qK_prim_vf_flat(j - 1, k, l, i) &
+                      * 2d0
+                d(0)  = qK_prim_vf_flat(j + 1, k, l, i) &
+                      + qK_prim_vf_flat(j - 1, k, l, i) &
+                      - qK_prim_vf_flat(j, k, l, i) &
+                      * 2d0
+                d(1)  = qK_prim_vf_flat(j + 2, k, l, i) &
+                      + qK_prim_vf_flat(j, k, l, i) &
+                      - qK_prim_vf_flat(j + 1, k, l, i) &
+                      * 2d0
 
                 d_MD = (sign(1d0, 4d0*d(-1) - d(0)) + sign(1d0, 4d0*d(0) - d(-1))) &
                        *abs((sign(1d0, 4d0*d(-1) - d(0)) + sign(1d0, d(-1))) &
@@ -329,8 +316,8 @@ contains
                          - d_MD)*5d-1
 
                 vL_LC = qK_prim_vf_flat(j, k, l, i) &
-                        - (qK_prim_vf_flat(j + 1, k, l, i) &
-                           - qK_prim_vf_flat(j, k, l, i))*5d-1 + beta_mp*d_LC
+                      - (qK_prim_vf_flat(j + 1, k, l, i) &
+                      -  qK_prim_vf_flat(j, k, l, i))*5d-1 + beta_mp*d_LC
 
                 vL_min = max(min(qK_prim_vf_flat(j, k, l, i), &
                                  qK_prim_vf_flat(j - 1, k, l, i), &
@@ -354,14 +341,14 @@ contains
 
                 ! Right Monotonicity Preserving Bound
                 d(-1) = qK_prim_vf_flat(j, k, l, i) &
-                        + qK_prim_vf_flat(j - 2, k, l, i) &
-                        - qK_prim_vf_flat(j - 1, k, l, i)*2d0
-                d(0) = qK_prim_vf_flat(j + 1, k, l, i) &
-                       + qK_prim_vf_flat(j - 1, k, l, i) &
-                       - qK_prim_vf_flat(j, k, l, i)*2d0
-                d(1) = qK_prim_vf_flat(j + 2, k, l, i) &
-                       + qK_prim_vf_flat(j, k, l, i) &
-                       - qK_prim_vf_flat(j + 1, k, l, i)*2d0
+                      + qK_prim_vf_flat(j - 2, k, l, i) &
+                      - qK_prim_vf_flat(j - 1, k, l, i)*2d0
+                d(0)  = qK_prim_vf_flat(j + 1, k, l, i) &
+                      + qK_prim_vf_flat(j - 1, k, l, i) &
+                      - qK_prim_vf_flat(j, k, l, i)*2d0
+                d(1)  = qK_prim_vf_flat(j + 2, k, l, i) &
+                      + qK_prim_vf_flat(j, k, l, i) &
+                      - qK_prim_vf_flat(j + 1, k, l, i)*2d0
 
                 d_MD = (sign(1d0, 4d0*d(0) - d(1)) + sign(1d0, 4d0*d(1) - d(0))) &
                        *abs((sign(1d0, 4d0*d(0) - d(1)) + sign(1d0, d(0))) &
@@ -376,16 +363,16 @@ contains
                             abs(4d0*d(0) - d(-1)), abs(d(0)))/8d0
 
                 vR_UL = qK_prim_vf_flat(j, k, l, i) &
-                        + (qK_prim_vf_flat(j, k, l, i) &
-                           - qK_prim_vf_flat(j - 1, k, l, i))*alpha_mp
+                      + (qK_prim_vf_flat(j, k, l, i) &
+                      - qK_prim_vf_flat(j - 1, k, l, i))*alpha_mp
 
                 vR_MD = (qK_prim_vf_flat(j, k, l, i) &
-                         + qK_prim_vf_flat(j + 1, k, l, i) &
-                         - d_MD)*5d-1
+                      + qK_prim_vf_flat(j + 1, k, l, i) &
+                      - d_MD)*5d-1
 
                 vR_LC = qK_prim_vf_flat(j, k, l, i) &
-                        + (qK_prim_vf_flat(j, k, l, i) &
-                           - qK_prim_vf_flat(j - 1, k, l, i))*5d-1 + beta_mp*d_LC
+                      + (qK_prim_vf_flat(j, k, l, i) &
+                      - qK_prim_vf_flat(j - 1, k, l, i))*5d-1 + beta_mp*d_LC
 
                 vR_min = max(min(qK_prim_vf_flat(j, k, l, i), &
                                  qK_prim_vf_flat(j + 1, k, l, i), &
@@ -404,7 +391,7 @@ contains
                 vR_vf_flat(j, k, l, i) = vR_vf_flat(j, k, l, i) &
                           + (sign(5d-1, vR_min - vR_vf_flat(j, k, l, i)) &
                              + sign(5d-1, vR_max - vR_vf_flat(j, k, l, i))) &
-                          *min(abs(vR_min - vR_vf_flat(j, k, l, i)), &
+                          * min(abs(vR_min - vR_vf_flat(j, k, l, i)), &
                                abs(vR_max - vR_vf_flat(j, k, l, i)))
             end do
         end do
@@ -412,8 +399,6 @@ contains
         end if
         !$acc end data
 
-        ! call system_clock(t2)
-        ! print *, "Took: ", real(t2 - t1) / real(c_rate)
 
         ! do i = ixb, ixe
         !     print*, 'v,vL,vR', &

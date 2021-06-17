@@ -1079,6 +1079,162 @@ contains
 
     end subroutine s_mpi_allreduce_max ! -----------------------------------
 
+
+    subroutine s_mpi_sendrecv_conservative_variables_buffers_acc(q_cons_vf_flat, &
+                                                                 pbc_loc)
+
+        real(kind(0d0)), dimension(-4:,0:,0:,1:), intent(INOUT) :: q_cons_vf_flat
+        integer, intent(IN) :: pbc_loc
+
+        integer :: i, j, k, l, r
+
+        !! x-dir only
+
+        if (pbc_loc == -1) then
+        ! PBC at the beginning
+
+            if (bc_xe >= 0) then
+            ! PBC at the beginning and end
+
+                ! Packing buffer to be sent to bc_x%end
+                do l = 0, p
+                    do k = 0, n
+                        do j = m - buff_size + 1, m
+                            do i = 1, sys_size
+                                r = (i - 1) + sys_size* &
+                                    ((j - m - 1) + buff_size*((k + 1) + (n + 1)*l))
+                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+                            end do
+                        end do
+                    end do
+                end do
+
+                ! Send/receive buffer to/from bc_x%end/bc_x%beg
+                call MPI_SENDRECV( &
+                    q_cons_buff_send(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_xe, 0, &
+                    q_cons_buff_recv(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_xb, 0, &
+                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+
+            else
+                ! PBC at the beginning only
+
+                ! Packing buffer to be sent to bc_x%beg
+                do l = 0, p
+                    do k = 0, n
+                        do j = 0, buff_size - 1
+                            do i = 1, sys_size
+                                r = (i - 1) + sys_size* &
+                                    (j + buff_size*(k + (n + 1)*l))
+                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+                            end do
+                        end do
+                    end do
+                end do
+
+                ! Send/receive buffer to/from bc_x%beg/bc_x%beg
+                call MPI_SENDRECV( &
+                    q_cons_buff_send(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_xb, 1, &
+                    q_cons_buff_recv(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_xb, 0, &
+                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+
+            end if
+
+            ! Unpacking buffer received from bc_x%beg
+            do l = 0, p
+                do k = 0, n
+                    do j = -buff_size, -1
+                        do i = 1, sys_size
+                            r = (i - 1) + sys_size* &
+                                (j + buff_size*((k + 1) + (n + 1)*l))
+                            q_cons_vf_flat(j, k, l, i) = q_cons_buff_recv(r)
+                        end do
+                    end do
+                end do
+            end do
+
+        else
+            ! PBC at the end
+
+            if (bc_xb >= 0) then 
+                ! PBC at the end and beginning
+
+                ! Packing buffer to be sent to bc_x%beg
+                do l = 0, p
+                    do k = 0, n
+                        do j = 0, buff_size - 1
+                            do i = 1, sys_size
+                                r = (i - 1) + sys_size* &
+                                    (j + buff_size*(k + (n + 1)*l))
+                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+                            end do
+                        end do
+                    end do
+                end do
+
+                ! Send/receive buffer to/from bc_x%beg/bc_x%end
+                call MPI_SENDRECV( &
+                    q_cons_buff_send(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_xb, 1, &
+                    q_cons_buff_recv(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_xe, 1, &
+                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+
+            else
+                ! PBC at the end only
+
+                ! Packing buffer to be sent to bc_x%end
+                do l = 0, p
+                    do k = 0, n
+                        do j = m - buff_size + 1, m
+                            do i = 1, sys_size
+                                r = (i - 1) + sys_size* &
+                                    ((j - m - 1) + buff_size*((k + 1) + (n + 1)*l))
+                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+                            end do
+                        end do
+                    end do
+                end do
+
+                ! Send/receive buffer to/from bc_x%end/bc_x%end
+                call MPI_SENDRECV( &
+                    q_cons_buff_send(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_xe, 0, &
+                    q_cons_buff_recv(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_xe, 1, &
+                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+
+            end if
+
+            ! Unpacking buffer received from bc_x%end
+            do l = 0, p
+                do k = 0, n
+                    do j = m + 1, m + buff_size
+                        do i = 1, sys_size
+                            r = (i - 1) + sys_size* &
+                                ((j - m - 1) + buff_size*(k + (n + 1)*l))
+                            q_cons_vf_flat(j, k, l, i) = q_cons_buff_recv(r)
+                        end do
+                    end do
+                end do
+            end do
+
+        end if
+
+
+    end subroutine s_mpi_sendrecv_conservative_variables_buffers_acc
+
     !>  The goal of this procedure is to populate the buffers of
         !!      the cell-average conservative variables by communicating
         !!      with the neighboring processors.
@@ -1093,149 +1249,151 @@ contains
         integer, intent(IN) :: mpi_dir
         integer, intent(IN) :: pbc_loc
 
-        integer :: i, j, k, l, r !< Generic loop iterators
+        integer :: i, j, k, l, r
 
-        ! MPI Communication in x-direction =================================
-        if (mpi_dir == 1) then
+        ! x-dir only
+        if (pbc_loc == -1) then
+        ! PBC at the beginning
 
-            if (pbc_loc == -1) then      ! PBC at the beginning
+            if (bc_x%end >= 0) then
+            ! PBC at the beginning and end
 
-                if (bc_x%end >= 0) then      ! PBC at the beginning and end
-
-                    ! Packing buffer to be sent to bc_x%end
-                    do l = 0, p
-                        do k = 0, n
-                            do j = m - buff_size + 1, m
-                                do i = 1, sys_size
-                                    r = (i - 1) + sys_size* &
-                                        ((j - m - 1) + buff_size*((k + 1) + (n + 1)*l))
-                                    q_cons_buff_send(r) = q_cons_vf(i)%sf(j, k, l)
-                                end do
-                            end do
-                        end do
-                    end do
-
-                    ! Send/receive buffer to/from bc_x%end/bc_x%beg
-                    call MPI_SENDRECV( &
-                        q_cons_buff_send(0), &
-                        buff_size*sys_size*(n + 1)*(p + 1), &
-                        MPI_DOUBLE_PRECISION, bc_x%end, 0, &
-                        q_cons_buff_recv(0), &
-                        buff_size*sys_size*(n + 1)*(p + 1), &
-                        MPI_DOUBLE_PRECISION, bc_x%beg, 0, &
-                        MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
-
-                else                        ! PBC at the beginning only
-
-                    ! Packing buffer to be sent to bc_x%beg
-                    do l = 0, p
-                        do k = 0, n
-                            do j = 0, buff_size - 1
-                                do i = 1, sys_size
-                                    r = (i - 1) + sys_size* &
-                                        (j + buff_size*(k + (n + 1)*l))
-                                    q_cons_buff_send(r) = q_cons_vf(i)%sf(j, k, l)
-                                end do
-                            end do
-                        end do
-                    end do
-
-                    ! Send/receive buffer to/from bc_x%beg/bc_x%beg
-                    call MPI_SENDRECV( &
-                        q_cons_buff_send(0), &
-                        buff_size*sys_size*(n + 1)*(p + 1), &
-                        MPI_DOUBLE_PRECISION, bc_x%beg, 1, &
-                        q_cons_buff_recv(0), &
-                        buff_size*sys_size*(n + 1)*(p + 1), &
-                        MPI_DOUBLE_PRECISION, bc_x%beg, 0, &
-                        MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
-
-                end if
-
-                ! Unpacking buffer received from bc_x%beg
+                ! Packing buffer to be sent to bc_x%end
                 do l = 0, p
                     do k = 0, n
-                        do j = -buff_size, -1
+                        do j = m - buff_size + 1, m
                             do i = 1, sys_size
                                 r = (i - 1) + sys_size* &
-                                    (j + buff_size*((k + 1) + (n + 1)*l))
-                                q_cons_vf(i)%sf(j, k, l) = q_cons_buff_recv(r)
+                                    ((j - m - 1) + buff_size*((k + 1) + (n + 1)*l))
+                                q_cons_buff_send(r) = q_cons_vf(i)%sf(j, k, l)
                             end do
                         end do
                     end do
                 end do
 
-            else                        ! PBC at the end
+                ! Send/receive buffer to/from bc_x%end/bc_x%beg
+                call MPI_SENDRECV( &
+                    q_cons_buff_send(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_x%end, 0, &
+                    q_cons_buff_recv(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_x%beg, 0, &
+                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
 
-                if (bc_x%beg >= 0) then      ! PBC at the end and beginning
+            else
+                ! PBC at the beginning only
 
-                    ! Packing buffer to be sent to bc_x%beg
-                    do l = 0, p
-                        do k = 0, n
-                            do j = 0, buff_size - 1
-                                do i = 1, sys_size
-                                    r = (i - 1) + sys_size* &
-                                        (j + buff_size*(k + (n + 1)*l))
-                                    q_cons_buff_send(r) = q_cons_vf(i)%sf(j, k, l)
-                                end do
-                            end do
-                        end do
-                    end do
-
-                    ! Send/receive buffer to/from bc_x%beg/bc_x%end
-                    call MPI_SENDRECV( &
-                        q_cons_buff_send(0), &
-                        buff_size*sys_size*(n + 1)*(p + 1), &
-                        MPI_DOUBLE_PRECISION, bc_x%beg, 1, &
-                        q_cons_buff_recv(0), &
-                        buff_size*sys_size*(n + 1)*(p + 1), &
-                        MPI_DOUBLE_PRECISION, bc_x%end, 1, &
-                        MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
-
-                else                        ! PBC at the end only
-
-                    ! Packing buffer to be sent to bc_x%end
-                    do l = 0, p
-                        do k = 0, n
-                            do j = m - buff_size + 1, m
-                                do i = 1, sys_size
-                                    r = (i - 1) + sys_size* &
-                                        ((j - m - 1) + buff_size*((k + 1) + (n + 1)*l))
-                                    q_cons_buff_send(r) = q_cons_vf(i)%sf(j, k, l)
-                                end do
-                            end do
-                        end do
-                    end do
-
-                    ! Send/receive buffer to/from bc_x%end/bc_x%end
-                    call MPI_SENDRECV( &
-                        q_cons_buff_send(0), &
-                        buff_size*sys_size*(n + 1)*(p + 1), &
-                        MPI_DOUBLE_PRECISION, bc_x%end, 0, &
-                        q_cons_buff_recv(0), &
-                        buff_size*sys_size*(n + 1)*(p + 1), &
-                        MPI_DOUBLE_PRECISION, bc_x%end, 1, &
-                        MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
-
-                end if
-
-                ! Unpacking buffer received from bc_x%end
+                ! Packing buffer to be sent to bc_x%beg
                 do l = 0, p
                     do k = 0, n
-                        do j = m + 1, m + buff_size
+                        do j = 0, buff_size - 1
                             do i = 1, sys_size
                                 r = (i - 1) + sys_size* &
-                                    ((j - m - 1) + buff_size*(k + (n + 1)*l))
-                                q_cons_vf(i)%sf(j, k, l) = q_cons_buff_recv(r)
+                                    (j + buff_size*(k + (n + 1)*l))
+                                q_cons_buff_send(r) = q_cons_vf(i)%sf(j, k, l)
                             end do
                         end do
                     end do
                 end do
+
+                ! Send/receive buffer to/from bc_x%beg/bc_x%beg
+                call MPI_SENDRECV( &
+                    q_cons_buff_send(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_x%beg, 1, &
+                    q_cons_buff_recv(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_x%beg, 0, &
+                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
 
             end if
-            ! END: MPI Communication in x-direction ============================
+
+            ! Unpacking buffer received from bc_x%beg
+            do l = 0, p
+                do k = 0, n
+                    do j = -buff_size, -1
+                        do i = 1, sys_size
+                            r = (i - 1) + sys_size* &
+                                (j + buff_size*((k + 1) + (n + 1)*l))
+                            q_cons_vf(i)%sf(j, k, l) = q_cons_buff_recv(r)
+                        end do
+                    end do
+                end do
+            end do
+
+        else
+            ! PBC at the end
+
+            if (bc_x%beg >= 0) then 
+                ! PBC at the end and beginning
+
+                ! Packing buffer to be sent to bc_x%beg
+                do l = 0, p
+                    do k = 0, n
+                        do j = 0, buff_size - 1
+                            do i = 1, sys_size
+                                r = (i - 1) + sys_size* &
+                                    (j + buff_size*(k + (n + 1)*l))
+                                q_cons_buff_send(r) = q_cons_vf(i)%sf(j, k, l)
+                            end do
+                        end do
+                    end do
+                end do
+
+                ! Send/receive buffer to/from bc_x%beg/bc_x%end
+                call MPI_SENDRECV( &
+                    q_cons_buff_send(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_x%beg, 1, &
+                    q_cons_buff_recv(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_x%end, 1, &
+                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+
+            else
+                ! PBC at the end only
+
+                ! Packing buffer to be sent to bc_x%end
+                do l = 0, p
+                    do k = 0, n
+                        do j = m - buff_size + 1, m
+                            do i = 1, sys_size
+                                r = (i - 1) + sys_size* &
+                                    ((j - m - 1) + buff_size*((k + 1) + (n + 1)*l))
+                                q_cons_buff_send(r) = q_cons_vf(i)%sf(j, k, l)
+                            end do
+                        end do
+                    end do
+                end do
+
+                ! Send/receive buffer to/from bc_x%end/bc_x%end
+                call MPI_SENDRECV( &
+                    q_cons_buff_send(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_x%end, 0, &
+                    q_cons_buff_recv(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_x%end, 1, &
+                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+
+            end if
+
+            ! Unpacking buffer received from bc_x%end
+            do l = 0, p
+                do k = 0, n
+                    do j = m + 1, m + buff_size
+                        do i = 1, sys_size
+                            r = (i - 1) + sys_size* &
+                                ((j - m - 1) + buff_size*(k + (n + 1)*l))
+                            q_cons_vf(i)%sf(j, k, l) = q_cons_buff_recv(r)
+                        end do
+                    end do
+                end do
+            end do
 
         end if
+
 
     end subroutine s_mpi_sendrecv_conservative_variables_buffers ! ---------
 

@@ -101,7 +101,6 @@ module m_global_parameters
 
     real(kind(0d0)), target, allocatable, dimension(:) :: dy, dz
 
-
     real(kind(0d0)), dimension(10) :: gammas, pi_infs
     !$acc declare create (gammas, pi_infs)
 
@@ -143,6 +142,7 @@ module m_global_parameters
     !> @name Boundary conditions (BC) in the x-, y- and z-directions, respectively
     !> @{
     type(bounds_info) :: bc_x, bc_y, bc_z
+    integer :: bc_xb, bc_xe
     !> @}
 
     logical :: parallel_io !< Format of the data files

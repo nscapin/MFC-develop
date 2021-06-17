@@ -79,22 +79,6 @@ contains
 
         ! ==================================================================
 
-        if (qbmm) then
-            allocate (mom_sp(1:nmomsp), mom_3d(0:2, 0:2, nb))
-            do i = 0, 2; do j = 0, 2; do k = 1, nb
-                    allocate (mom_3d(i, j, k)%sf( &
-                              ix%beg:ix%end, &
-                              iy%beg:iy%end, &
-                              iz%beg:iz%end))
-                end do; end do; end do
-            do i = 1, nmomsp
-                allocate (mom_sp(i)%sf( &
-                          ix%beg:ix%end, &
-                          iy%beg:iy%end, &
-                          iz%beg:iz%end))
-            end do
-        end if
-
         ! Configuring Coordinate Direction Indexes =========================
         ix%beg = -1; if (n > 0) iy%beg = -1; if (p > 0) iz%beg = -1
 
@@ -160,9 +144,9 @@ contains
             q_prim_qp%vf(i)%sf => q_prim_vf(i)%sf
         end do
 
-        call nvtxStartRange("RHS-Pop. var. buffers")
-        call s_populate_conservative_variables_buffers()
-        call nvtxEndRange
+        ! call nvtxStartRange("RHS-Pop. var. buffers")
+        ! call s_populate_conservative_variables_buffers()
+        ! call nvtxEndRange
 
         ! Flatten
         call nvtxStartRange("RHS-Flatten input")
@@ -178,6 +162,10 @@ contains
             call nvtxStartRange("Time step")
 
             start_time = mpi_wtime()
+
+            call nvtxStartRange("RHS-Pop. var. buffers")
+            call s_populate_conservative_variables_buffers()
+            call nvtxEndRange
 
             call nvtxStartRange("RHS-Convert to prim")
             call s_convert_conservative_to_primitive_variables_acc( &
@@ -272,86 +260,39 @@ contains
 
     subroutine s_populate_conservative_variables_buffers() 
         ! This is called every RHS evaluation
-        ! SHB: Suspect needs attention for GPUs
+        ! SHB: Suspect this needs attention for GPUs
 
         integer :: i, j, k
 
-        if (bc_x%beg <= -3) then
-            ! Ghost-cell extrap. BC at beginning
-            do i = 1, sys_size
-                do j = 1, buff_size
-                    q_cons_qp%vf(i)%sf(-j, 0:n, 0:p) = &
-                        q_cons_qp%vf(i)%sf(0, 0:n, 0:p)
-                end do
-            end do
-        elseif (bc_x%beg == -2) then
-            ! Symmetry BC at beginning
-            do j = 1, buff_size
-                do i = 1, cont_idx%end
-                    q_cons_qp%vf(i)%sf(-j, 0:n, 0:p) = &
-                        q_cons_qp%vf(i)%sf(j - 1, 0:n, 0:p)
-                end do
-
-                q_cons_qp%vf(mom_idx%beg)%sf(-j, 0:n, 0:p) = &
-                    -q_cons_qp%vf(mom_idx%beg)%sf(j - 1, 0:n, 0:p)
-
-                do i = mom_idx%beg + 1, sys_size
-                    q_cons_qp%vf(i)%sf(-j, 0:n, 0:p) = &
-                        q_cons_qp%vf(i)%sf(j - 1, 0:n, 0:p)
-                end do
-            end do
-        elseif (bc_x%beg == -1) then
+        !$acc data present(qK_cons_vf_flat) 
+        if (bc_xb == -1) then
             ! Periodic BC at beginning
             do i = 1, sys_size
                 do j = 1, buff_size
-                    q_cons_qp%vf(i)%sf(-j, 0:n, 0:p) = &
-                        q_cons_qp%vf(i)%sf(m - (j - 1), 0:n, 0:p)
+                    qK_cons_vf_flat(-j, 0, 0, i) = &
+                        qK_cons_vf_flat(m - (j - 1), 0, 0, i)
                 end do
             end do
         else
             ! Processor BC at beginning
-            call s_mpi_sendrecv_conservative_variables_buffers( &
-                q_cons_qp%vf, 1, -1)
-
+            call s_mpi_sendrecv_conservative_variables_buffers_acc( &
+                qK_cons_vf_flat, -1)
         end if
 
-        if (bc_x%end <= -3) then
-            ! Ghost-cell extrap. BC at end
-            do i = 1, sys_size
-                do j = 1, buff_size
-                    q_cons_qp%vf(i)%sf(m + j, 0:n, 0:p) = &
-                        q_cons_qp%vf(i)%sf(m, 0:n, 0:p)
-                end do
-            end do
-        elseif (bc_x%end == -2) then
-            ! Symmetry BC at end
-            do j = 1, buff_size
-                do i = 1, cont_idx%end
-                    q_cons_qp%vf(i)%sf(m + j, 0:n, 0:p) = &
-                        q_cons_qp%vf(i)%sf(m - (j - 1), 0:n, 0:p)
-                end do
-
-                q_cons_qp%vf(mom_idx%beg)%sf(m + j, 0:n, 0:p) = &
-                    -q_cons_qp%vf(mom_idx%beg)%sf(m - (j - 1), 0:n, 0:p)
-
-                do i = mom_idx%beg + 1, sys_size
-                    q_cons_qp%vf(i)%sf(m + j, 0:n, 0:p) = &
-                        q_cons_qp%vf(i)%sf(m - (j - 1), 0:n, 0:p)
-                end do
-            end do
-        elseif (bc_x%end == -1) then
+        if (bc_xe == -1) then
             ! Periodic BC at end
             do i = 1, sys_size
                 do j = 1, buff_size
-                    q_cons_qp%vf(i)%sf(m + j, 0:n, 0:p) = &
-                        q_cons_qp%vf(i)%sf(j - 1, 0:n, 0:p)
+                    qK_cons_vf_flat(m + j, 0, 0, i) = &
+                        qK_cons_vf_flat(j - 1, 0, 0, i)
                 end do
             end do
         else                            
             ! Processor BC at end
-            call s_mpi_sendrecv_conservative_variables_buffers( &
-                q_cons_qp%vf, 1, 1)
+            call s_mpi_sendrecv_conservative_variables_buffers_acc( &
+                qK_cons_vf_flat, 1)
         end if
+        !$acc end data
 
     end subroutine s_populate_conservative_variables_buffers
 

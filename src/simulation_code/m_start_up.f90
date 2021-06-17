@@ -1100,6 +1100,10 @@ contains
 
         !$acc update device( dx )
 
+        ! Assign beg and end BCs for all MPI ranks
+        bc_xb = bc_x%beg
+        bc_xe = bc_x%end
+
     end subroutine s_populate_grid_variables_buffers ! ---------------------
 
 
