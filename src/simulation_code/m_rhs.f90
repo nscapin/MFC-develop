@@ -178,15 +178,6 @@ contains
             call s_populate_conservative_variables_buffers()
             call nvtxEndRange
 
-            if (proc_rank == num_procs - 1) then
-                do k = 1,sys_size
-                    do j = ix%beg,ix%end
-                        print*, 'Rank,Cons: ', &
-                            proc_rank, j, k, qK_cons_vf_flat(j,0,0,k) 
-                    end do
-                end do
-            end if
-
             ! print*, 'after cons var buff proc rank', proc_rank
 
             call nvtxStartRange("RHS-Convert to prim")
@@ -311,9 +302,22 @@ contains
             end if
             call nvtxEndRange
 
+            !$acc update self(qK_cons_vf_flat)
+            if (proc_rank == num_procs - 1) then
+                do k = 3,3
+                    !sys_size
+                    do j = ix%beg,ix%end
+                        print*, 'Rank,Cons: ', &
+                            proc_rank, j, k, qK_cons_vf_flat(j,0,0,k) 
+                    end do
+                end do
+            end if
+
             ! print*, 'end TS proc rank', proc_rank
         end do
         !$acc end data
+
+
 
         ! if (proc_rank == num_procs - 1) then
         !     do k = 1,sys_size
@@ -335,14 +339,14 @@ contains
         !end if
         ! call s_mpi_abort()
 
-        if (proc_rank == num_procs - 1) then
-            do k = 1,sys_size
-                do j = 0,m
-                    print*, 'Rank,RHS: ', &
-                        proc_rank, j, k, rhs_vf_flat(j,0,0,k) 
-                end do
-            end do
-        end if
+        ! if (proc_rank == num_procs - 1) then
+        !     do k = 1,sys_size
+        !         do j = 0,m
+        !             print*, 'Rank,RHS: ', &
+        !                 proc_rank, j, k, rhs_vf_flat(j,0,0,k) 
+        !         end do
+        !     end do
+        ! end if
 
         ! if (proc_rank == 0) print*, 'out of TS loop in RHS'
 
