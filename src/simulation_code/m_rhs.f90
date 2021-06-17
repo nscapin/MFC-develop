@@ -157,6 +157,8 @@ contains
         end do
         call nvtxEndRange
 
+        print*, 'after flatten proc rank', proc_rank
+
         !$acc data copyin(qK_cons_vf_flat) copyout(rhs_vf_flat) create(qK_prim_vf_flat, vL_vf_flat, vR_vf_flat, flux_vf_flat, flux_src_vf_flat)
         do it_t = 1,t_step_stop
             call nvtxStartRange("Time step")
@@ -166,6 +168,8 @@ contains
             call nvtxStartRange("RHS-Pop. var. buffers")
             call s_populate_conservative_variables_buffers()
             call nvtxEndRange
+
+            print*, 'after cons var buff proc rank', proc_rank
 
             call nvtxStartRange("RHS-Convert to prim")
             call s_convert_conservative_to_primitive_variables_acc( &
@@ -246,13 +250,19 @@ contains
                 print*, 'RHS Eval Time [s]:', end_time - start_time
             end if
             call nvtxEndRange
+
+            print*, 'end TS proc rank', proc_rank
             if (it_t == t_step_stop) exit
         end do
         !$acc end data
 
+        if (proc_rank == 0) print*, 'out of TS loop in RHS'
+
         do i = 1, sys_size
             nullify (q_cons_qp%vf(i)%sf, q_prim_qp%vf(i)%sf)
         end do
+
+        if (proc_rank == 0) print*, 'end rhs sub'
         
 
     end subroutine s_alt_rhs
@@ -263,6 +273,8 @@ contains
         ! SHB: Suspect this needs attention for GPUs
 
         integer :: i, j, k
+
+        print*, 'In pop cons buff: rank, bcx_b/e', proc_rank, bc_xb, bc_xe
 
         !$acc data present(qK_cons_vf_flat) 
         if (bc_xb == -1) then
@@ -293,6 +305,8 @@ contains
                 qK_cons_vf_flat, 1)
         end if
         !$acc end data
+
+        ! call s_mpi_abort()
 
     end subroutine s_populate_conservative_variables_buffers
 

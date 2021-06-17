@@ -96,7 +96,6 @@ program p_main
         call s_read_input_file()
         call s_check_input_file()
     end if
-    ! print *, 'Read input file'
 
     ! Broadcasting the user inputs to all of the processors and performing the
     ! parallel computational domain decomposition. Neither procedure has to be
@@ -104,7 +103,6 @@ program p_main
     call s_mpi_bcast_user_inputs()
     call s_initialize_parallel_io()
     call s_mpi_decompose_computational_domain()
-    ! print *, 'Broadcast'
     if (proc_rank == 0) print*, 'Number of MPI ranks:', num_procs
 
 
@@ -137,7 +135,9 @@ program p_main
     if (model_eqns == 3) call s_initialize_internal_energy_equations(q_cons_ts(1)%vf)
 
     ! Populating the buffers of the grid variables using the boundary conditions
+    print*, 'Pop grid var buffs p_main'
     call s_populate_grid_variables_buffers()
+    print*, 'done!'
 
     call s_populate_variables_buffers(q_cons_ts(1)%vf)
 
@@ -220,6 +220,8 @@ program p_main
     call s_finalize_variables_conversion_module()
     call s_finalize_mpi_proxy_module()
     call s_finalize_global_parameters_module()
+
+    print*, 'pmain proc rank', proc_rank
 
     ! Terminating MPI execution environment
     call s_mpi_finalize()
