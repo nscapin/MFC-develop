@@ -675,6 +675,12 @@ contains
         ! the next one
         buff_size = weno_polyn + 2
 
+        do i = 1,num_fluids
+            gammas(i) = fluid_pp(i)%gamma
+            pi_infs(i) = fluid_pp(i)%pi_inf
+        end do
+        !$acc update device( gammas, pi_infs )
+
         ! Configuring Coordinate Direction Indexes =========================
         if (bubbles) then
             ix%beg = -buff_size; iy%beg = 0; iz%beg = 0
@@ -712,12 +718,6 @@ contains
         allocate (dz(-buff_size:p + buff_size))
 
 
-        do i = 1,num_fluids
-            gammas(i) = fluid_pp(i)%gamma
-            pi_infs(i) = fluid_pp(i)%pi_inf
-        end do
-
-        !$acc update device( gammas, pi_infs )
 
     end subroutine s_initialize_global_parameters_module ! -----------------
 

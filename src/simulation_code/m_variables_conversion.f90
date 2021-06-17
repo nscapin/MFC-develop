@@ -328,7 +328,7 @@ contains
                                                       gamma_K, pi_inf_K, &
                                                       num_fluids &
                                                       )
-
+                    ! print*, 'Var conv', rho_K, pi_inf_K, gamma_K
 
                     dyn_pres_K = 0d0
                     do i = mom_idx_b, mom_idx_e
@@ -337,6 +337,8 @@ contains
                         dyn_pres_K = dyn_pres_K + 5d-1*qK_cons_vf_flat(j, k, l, i) & 
                             * qK_prim_vf_flat(j, k, l, i)
                     end do
+                    ! print*, '', rho_K, pi_inf_K, gamma_K, alpha(1), alpha_rho(1), dyn_pres_K,
+
 
                     qK_prim_vf_flat(j, k, l, E_idx) = ( &
                         qK_cons_vf_flat(j, k, l, E_idx) - dyn_pres_K - pi_inf_K )/gamma_K

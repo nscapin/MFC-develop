@@ -135,9 +135,9 @@ program p_main
     if (model_eqns == 3) call s_initialize_internal_energy_equations(q_cons_ts(1)%vf)
 
     ! Populating the buffers of the grid variables using the boundary conditions
-    print*, 'Pop grid var buffs p_main'
+    ! print*, 'Pop grid var buffs p_main'
     call s_populate_grid_variables_buffers()
-    print*, 'done!'
+    ! print*, 'done!'
 
     call s_populate_variables_buffers(q_cons_ts(1)%vf)
 

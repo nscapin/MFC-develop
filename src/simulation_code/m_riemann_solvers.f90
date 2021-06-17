@@ -27,7 +27,6 @@ module m_riemann_solvers
     type(bounds_info) :: is1, is2, is3
     type(bounds_info) :: ix, iy, iz
 
-
     ! These are variables that are only on GPU
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: qL_prim_rs_vf_flat, qR_prim_rs_vf_flat
     !$acc declare create (qL_prim_rs_vf_flat, qR_prim_rs_vf_flat)
@@ -72,9 +71,6 @@ contains
         dir_flg_acc(3) = 0
         !$acc update device(dir_flg_acc,dir_idx_acc)
 
-        ! allocate(flux_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size))
-        ! allocate(flux_src_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size))
-
     end subroutine s_initialize_riemann_solvers_module 
 
 
@@ -108,7 +104,6 @@ contains
         real(kind(0d0))                 :: s_M, s_P
         real(kind(0d0))                 :: xi_M, xi_P
         real(kind(0d0))                 :: xi_L, xi_R
-        ! real(kind(0d0)), dimension(10)  :: gammas, pi_infs
 
         integer :: ixb, ixe, iyb, iye, izb, ize
         integer :: cont_idx_e
@@ -124,16 +119,8 @@ contains
         iyb = is2%beg; iye = is2%end
         izb = is3%beg; ize = is3%end
 
-        ! print*, 'Riemann solver ix limit', ixb, ixe
 
-
-
-        ! do i = 1,num_fluids
-        !     gammas(i) = fluid_pp(i)%gamma
-        !     pi_infs(i) = fluid_pp(i)%pi_inf
-        ! end do
-
-        !$acc data present(qL_prim_rs_vf_flat, qR_prim_rs_vf_flat, qL_prim_vf, qR_prim_vf, flux_vf_flat, flux_src_vf_flat)
+        !$acc data present(qL_prim_rs_vf_flat, qR_prim_rs_vf_flat, qL_prim_vf, qR_prim_vf, flux_vf_flat, flux_src_vf_flat) copyout(gammas,pi_infs)
 
         !$acc parallel loop collapse(4) gang vector
         do l = izb, ize
@@ -158,6 +145,14 @@ contains
         do l = izb, ize
             do k = iyb, iye
                 do j = ixb, ixe
+
+                    dir_idx_acc(1) = 1
+                    dir_idx_acc(2) = 2
+                    dir_idx_acc(3) = 3
+
+                    dir_flg_acc(1) = 1d0
+                    dir_flg_acc(2) = 0
+                    dir_flg_acc(3) = 0
 
                     do i = 1, cont_idx_e
                         alpha_rho_L(i) = qL_prim_rs_vf_flat(j, k, l, i)
@@ -184,22 +179,23 @@ contains
                                                         gamma_L, &
                                                         pi_inf_L, num_fluids)
 
-
                     call s_convert_species_to_mixture_variables_acc_shb( &
                                                         alpha_rho_R, alpha_R, &
                                                         rho_R, &
                                                         gamma_R, &
                                                         pi_inf_R, num_fluids)
 
-                    E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*sum(vel_L**2d0)
-                    E_R = gamma_R*pres_R + pi_inf_R + 5d-1*rho_R*sum(vel_R**2d0)
+                    ! Should be sum(vel) in 2/3D but allocaiton issues..
+                    E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*vel_L(1)**2d0
+                    E_R = gamma_R*pres_R + pi_inf_R + 5d-1*rho_R*vel_R(1)**2d0
 
                     H_L = (E_L + pres_L)/rho_L
                     H_R = (E_R + pres_R)/rho_R
                     
                     ! Compute sound speeds
-                    c_L = (H_L - 5d-1*sum(vel_L**2d0))/gamma_L
-                    c_R = (H_R - 5d-1*sum(vel_R**2d0))/gamma_R
+                    ! Should be sum(vel) in 2/3D but allocaiton issues on GPU..
+                    c_L = (H_L - 5d-1*(vel_L(1)**2d0))/gamma_L
+                    c_R = (H_R - 5d-1*(vel_R(1)**2d0))/gamma_R
 
                     if (mixture_err .and. c_L < 0d0) then
                         c_L = 100.d0*sgm_eps
@@ -220,13 +216,14 @@ contains
                     gamma_avg = 5d-1*(gamma_L + gamma_R)
 
                     if (mixture_err) then
-                        if ((H_avg - 5d-1*sum(vel_avg**2d0)) < 0d0) then
+                        ! Should be sum(vel) in 2/3D but allocaiton issues..
+                        if ((H_avg - 5d-1*(vel_avg(1)**2d0)) < 0d0) then
                             c_avg = sgm_eps
                         else
-                            c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
+                            c_avg = sqrt((H_avg - 5d-1*(vel_avg(1)**2d0))/gamma_avg)
                         end if
                     else
-                        c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
+                        c_avg = sqrt((H_avg - 5d-1*(vel_avg(1)**2d0))/gamma_avg)
                     end if
 
                     ! Compute wavespeeds
@@ -257,6 +254,8 @@ contains
                             *(vel_R(dir_idx_acc(1)) + s_P*(xi_R - 1d0))
                     end do
 
+                    ! E_L
+
                     ! Momentum flux.
                     do i = 1, num_dims
                         flux_vf_flat(j, k, l, cont_idx_e + dir_idx_acc(i)) = &
@@ -274,7 +273,16 @@ contains
                                   dir_flg_acc(dir_idx_acc(i))*(pres_R))
                     end do
 
+
                     ! Energy flux
+                    ! flux_vf_flat(j, k, l, E_idx) = &
+                    !     E_L
+                        ! xi_M &
+                    ! + vel_L(dir_idx_acc(1)) !+ &
+                        ! E_L + pres_L ! + &
+                    !     s_M + xi_L + s_S + &
+                        ! rho_L + s_L 
+
                     flux_vf_flat(j, k, l, E_idx) = &
                         xi_M*(vel_L(dir_idx_acc(1))*(E_L + pres_L) + &
                              s_M*(xi_L*(E_L + (s_S - vel_L(dir_idx_acc(1)))* &
@@ -311,6 +319,9 @@ contains
         !$acc end parallel loop 
 
         !$acc end data
+
+        ! print*, 'gammas: ', gammas(:)
+        ! print*, 'pi_infs: ', pi_infs(:)
 
         ! do i = 1,1 !sys_size
         !     do j = ixb, ixe

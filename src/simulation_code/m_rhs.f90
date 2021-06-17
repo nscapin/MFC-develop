@@ -157,9 +157,18 @@ contains
         end do
         call nvtxEndRange
 
-        print*, 'after flatten proc rank', proc_rank
+        ! if (proc_rank == 1) then
+        !     do k = 1,1
+        !         do j = 0,m
+        !             print*, 'Rank,Cons: ', &
+        !                 proc_rank, j, qK_cons_vf_flat(j,0,0,k) 
+        !         end do
+        !     end do
+        ! end if
 
-        !$acc data copyin(qK_cons_vf_flat) copyout(rhs_vf_flat) create(qK_prim_vf_flat, vL_vf_flat, vR_vf_flat, flux_vf_flat, flux_src_vf_flat)
+        ! print*, 'after flatten proc rank', proc_rank
+
+        !$acc data copyin(qK_cons_vf_flat) copyout(rhs_vf_flat,flux_vf_flat, vL_vf_flat, vR_vf_flat) create(qK_prim_vf_flat, flux_src_vf_flat)
         do it_t = 1,t_step_stop
             call nvtxStartRange("Time step")
 
@@ -169,13 +178,32 @@ contains
             call s_populate_conservative_variables_buffers()
             call nvtxEndRange
 
-            print*, 'after cons var buff proc rank', proc_rank
+            if (proc_rank == num_procs - 1) then
+                do k = 1,sys_size
+                    do j = ix%beg,ix%end
+                        print*, 'Rank,Cons: ', &
+                            proc_rank, j, k, qK_cons_vf_flat(j,0,0,k) 
+                    end do
+                end do
+            end if
+
+            ! print*, 'after cons var buff proc rank', proc_rank
 
             call nvtxStartRange("RHS-Convert to prim")
             call s_convert_conservative_to_primitive_variables_acc( &
                 qK_cons_vf_flat, qK_prim_vf_flat, &
                 ix, iy, iz)
             call nvtxEndRange
+
+            ! if (proc_rank == num_procs - 1) then
+            !     do k = 1,sys_size
+            !         do j = 0,m
+            !             print*, 'Rank,Prim: ', &
+            !                 proc_rank, j, k, qK_prim_vf_flat(j,0,0,k)
+            !         end do
+            !     end do
+            ! end if
+            ! call s_mpi_abort()
 
             call nvtxStartRange("RHS-WENO")
             is1_weno = ix; is2_weno = iy; is3_weno = iz
@@ -187,6 +215,9 @@ contains
                         vL_vf_flat, vR_vf_flat, &
                         is1_weno, is2_weno, is3_weno)
             call nvtxEndRange
+
+
+
 
             ! do k = 1,sys_size-1
             !     print*, 'Variable ', k 
@@ -205,6 +236,26 @@ contains
                                   flux_src_vf_flat )
             call nvtxEndRange
 
+            ! !$acc data copyout(flux_vf_flat)
+            ! if (proc_rank == num_procs - 1) then
+            !     do k = 1,sys_size
+            !         do j = 0,m
+            !             print*, 'Rank,flux: ', &
+            !                 proc_rank, j, k, flux_vf_flat(j,0,0,k) 
+            !         end do
+            !     end do
+            ! end if
+            ! !$acc end data
+
+            ! if (proc_rank == num_procs - 1) then
+            !     do k = 1,sys_size
+            !         do j = 0,m
+            !             print*, 'Rank,flux: ', &
+            !                 proc_rank, j, flux_vf_flat(j,0,0,k) 
+            !         end do
+            !     end do
+            ! end if
+
 
             call nvtxStartRange("RHS-Diff fluxes")
             !$acc parallel loop collapse (2) gang vector
@@ -217,6 +268,15 @@ contains
             end do
             !$acc end parallel loop
             call nvtxEndRange
+
+            ! if (proc_rank == num_procs - 1) then
+            !     do k = 1,sys_size
+            !         do j = 0,m
+            !             print*, 'Rank,RHS1: ', &
+            !                 proc_rank, j, rhs_vf_flat(j,0,0,k) 
+            !         end do
+            !     end do
+            ! end if
 
             ! Apply source terms to RHS of advection equations
             call nvtxStartRange("RHS-Add srcs")
@@ -232,14 +292,14 @@ contains
             end do
             !$acc end parallel loop
             call nvtxEndRange
-
+        
             call nvtxStartRange("RHS-Add RHS to Cons")
             !$acc parallel loop collapse (2) gang vector
             do k = 0, m
                 do j = 1, sys_size
                     qK_cons_vf_flat(k,0,0,j) = &
                         qK_cons_vf_flat(k,0,0,j) + &
-                        0d0 * dt * rhs_vf_flat(k,0,0,j) 
+                        dt * rhs_vf_flat(k,0,0,j) 
                 end do
             end do
             !$acc end parallel loop
@@ -251,18 +311,46 @@ contains
             end if
             call nvtxEndRange
 
-            print*, 'end TS proc rank', proc_rank
-            if (it_t == t_step_stop) exit
+            ! print*, 'end TS proc rank', proc_rank
         end do
         !$acc end data
 
-        if (proc_rank == 0) print*, 'out of TS loop in RHS'
+        ! if (proc_rank == num_procs - 1) then
+        !     do k = 1,sys_size
+        !         do j = 0,m
+        !             print*, 'Rank,Recon: ', &
+        !                 proc_rank, j, k, vL_vf_flat(j,0,0,k), vR_vf_flat(j,0,0,k)
+        !         end do
+        !     end do
+        ! end if
+
+        !if (proc_rank == num_procs - 1) then
+        !    do k = 3,3
+        !        !sys_size
+        !        do j = 0,m
+        !            print*, 'Rank,flux: ', &
+        !                proc_rank, j, k, flux_vf_flat(j,0,0,k) 
+        !        end do
+        !    end do
+        !end if
+        ! call s_mpi_abort()
+
+        if (proc_rank == num_procs - 1) then
+            do k = 1,sys_size
+                do j = 0,m
+                    print*, 'Rank,RHS: ', &
+                        proc_rank, j, k, rhs_vf_flat(j,0,0,k) 
+                end do
+            end do
+        end if
+
+        ! if (proc_rank == 0) print*, 'out of TS loop in RHS'
 
         do i = 1, sys_size
             nullify (q_cons_qp%vf(i)%sf, q_prim_qp%vf(i)%sf)
         end do
 
-        if (proc_rank == 0) print*, 'end rhs sub'
+        ! if (proc_rank == 0) print*, 'end rhs sub'
         
 
     end subroutine s_alt_rhs
