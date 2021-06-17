@@ -166,15 +166,6 @@ contains
             end do
         end if
 
-
-        if (model_eqns == 3) then
-            do i = internalEnergies_idx%beg, internalEnergies_idx%end
-                allocate (q_prim_vf(i)%sf(ix%beg:ix%end, &
-                                          iy%beg:iy%end, &
-                                          iz%beg:iz%end))
-            end do
-        end if
-
         ! Allocating the cell-average RHS variables
         allocate (rhs_vf(1:sys_size))
 
@@ -236,8 +227,6 @@ contains
 
         ! call nvtxEndRange
 
-        ! if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(1)%vf)
-
         ! do i = 1, cont_idx%end
         !     q_prim_vf(i)%sf => null()
         ! end do
@@ -291,7 +280,6 @@ contains
         end do
 
 
-        if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(2)%vf)
         ! ==================================================================
 
         ! Stage 2 of 2 =====================================================
@@ -313,7 +301,6 @@ contains
         end do
 
 
-        if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(1)%vf)
 
         do i = 1, cont_idx%end
             q_prim_vf(i)%sf => null()
@@ -362,7 +349,6 @@ contains
         end do
 
 
-        if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(2)%vf)
 
         ! ==================================================================
 
@@ -385,7 +371,6 @@ contains
         end do
 
 
-        if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(2)%vf)
 
         ! ==================================================================
 
@@ -400,7 +385,6 @@ contains
         end do
 
 
-        if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(1)%vf)
 
         do i = 1, cont_idx%end
             q_prim_vf(i)%sf => null()
@@ -445,7 +429,6 @@ contains
                 + dt*rhs_vf(i)%sf
         end do
 
-        if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(2)%vf)
 
         ! ==================================================================
 
@@ -467,7 +450,6 @@ contains
                                                    + dt*rhs_vf(i)%sf)/2d0
         end do
 
-        if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(3)%vf)
 
         ! Stage 2 of RK3
         do i = 1, sys_size
@@ -477,7 +459,6 @@ contains
                  + dt*rhs_vf(i)%sf)/4d0
         end do
 
-        if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(2)%vf)
 
         ! ==================================================================
 
@@ -491,7 +472,6 @@ contains
                  + 2d0*dt*rhs_vf(i)%sf)/3d0
         end do
 
-        if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(1)%vf)
 
         ! ==================================================================
 
@@ -587,10 +567,6 @@ contains
                 + dt*rhs_vf(i)%sf/6d0
         end do
 
-        if (model_eqns == 3) then
-            call s_pressure_relaxation_procedure(q_cons_ts(2)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(3)%vf)
-        end if
         ! ==================================================================
 
         ! Stage 2 of 4 =====================================================
@@ -613,10 +589,6 @@ contains
                 + dt*rhs_vf(i)%sf/3d0
         end do
 
-        if (model_eqns == 3) then
-            call s_pressure_relaxation_procedure(q_cons_ts(2)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(3)%vf)
-        end if
         ! ==================================================================
 
         ! Stage 3 of 4 =====================================================
@@ -631,10 +603,6 @@ contains
                 + dt*rhs_vf(i)%sf/3d0
         end do
 
-        if (model_eqns == 3) then
-            call s_pressure_relaxation_procedure(q_cons_ts(2)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(3)%vf)
-        end if
         ! ==================================================================
 
         ! Stage 4 of 4 =====================================================
@@ -647,7 +615,6 @@ contains
         end do
 
 
-        if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(1)%vf)
 
         do i = 1, cont_idx%end
             q_prim_vf(i)%sf => null()
@@ -711,14 +678,6 @@ contains
         end do
 
 
-        if (model_eqns == 3) then
-            call s_pressure_relaxation_procedure(q_cons_ts(2)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(3)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(4)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(5)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(6)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(1)%vf)
-        end if
         ! ==================================================================
 
         ! Stage 2 of 6 =====================================================
@@ -747,13 +706,6 @@ contains
                 + (175d0/512d0)*dt*rhs_vf(i)%sf
         end do
 
-
-        if (model_eqns == 3) then
-            call s_pressure_relaxation_procedure(q_cons_ts(3)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(4)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(5)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(6)%vf)
-        end if
         ! ==================================================================
 
         ! Stage 3 of 6 =====================================================
@@ -783,12 +735,6 @@ contains
         end do
 
 
-        if (model_eqns == 3) then
-            call s_pressure_relaxation_procedure(q_cons_ts(4)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(5)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(6)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(1)%vf)
-        end if
         ! ==================================================================
 
         ! Stage 4 of 6 =====================================================
@@ -815,11 +761,6 @@ contains
         end do
 
 
-        if (model_eqns == 3) then
-            call s_pressure_relaxation_procedure(q_cons_ts(5)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(6)%vf)
-            call s_pressure_relaxation_procedure(q_cons_ts(1)%vf)
-        end if
         ! ==================================================================
 
         ! Stage 5 of 6 =====================================================
@@ -840,7 +781,6 @@ contains
         end do
 
 
-        if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(6)%vf)
         ! ==================================================================
 
         ! Stage 6 of 6 =====================================================
@@ -861,7 +801,6 @@ contains
         end do
 
 
-        if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(1)%vf)
 
         do i = 1, cont_idx%end
             q_prim_vf(i)%sf => null()
