@@ -54,6 +54,12 @@ module m_rhs
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: flux_vf_flat
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: flux_src_vf_flat
 
+    real(kind(0d0)), private, allocatable, dimension(:) :: q_cons_buff_send
+    real(kind(0d0)), private, allocatable, dimension(:) :: q_cons_buff_recv
+    !$acc declare create( q_cons_buff_send, q_cons_buff_recv )
+
+    integer, private :: err_code, ierr
+
 contains
 
     !> The computation of parameters, the allocation of memory,
@@ -116,6 +122,10 @@ contains
         ! Compute rhs
         allocate(rhs_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size)  )
 
+        ! For MPI send/recv, 1D only!
+        allocate (q_cons_buff_send(0:-1 + buff_size*sys_size))
+        allocate (q_cons_buff_recv(0:ubound(q_cons_buff_send, 1)))
+
     end subroutine s_initialize_rhs_module ! -------------------------------
 
 
@@ -174,9 +184,30 @@ contains
 
             start_time = mpi_wtime()
 
+            if (proc_rank == num_procs - 1) then
+                do k = 3,3
+                    !sys_size
+                    do j = ix%beg,ix%end
+                        print*, 'Pre:  Rank: ', &
+                            proc_rank, j, qK_cons_vf_flat(j,0,0,k) 
+                    end do
+                end do
+            end if
+
             call nvtxStartRange("RHS-Pop. var. buffers")
             call s_populate_conservative_variables_buffers()
             call nvtxEndRange
+
+            !$acc update self(qK_cons_vf_flat)
+            if (proc_rank == num_procs - 1) then
+                do k = 3,3
+                    !sys_size
+                    do j = ix%beg,ix%end
+                        print*, 'Post: Rank: ', &
+                            proc_rank, j, qK_cons_vf_flat(j,0,0,k) 
+                    end do
+                end do
+            end if
 
             ! print*, 'after cons var buff proc rank', proc_rank
 
@@ -303,15 +334,6 @@ contains
             call nvtxEndRange
 
             !$acc update self(qK_cons_vf_flat)
-            if (proc_rank == num_procs - 1) then
-                do k = 3,3
-                    !sys_size
-                    do j = ix%beg,ix%end
-                        print*, 'Rank,Cons: ', &
-                            proc_rank, j, k, qK_cons_vf_flat(j,0,0,k) 
-                    end do
-                end do
-            end if
 
             ! print*, 'end TS proc rank', proc_rank
         end do
@@ -379,6 +401,7 @@ contains
             end do
         else
             ! Processor BC at beginning
+            ! Only do this?
             call s_mpi_sendrecv_conservative_variables_buffers_acc( &
                 qK_cons_vf_flat, -1)
         end if
@@ -393,6 +416,7 @@ contains
             end do
         else                            
             ! Processor BC at end
+            ! Only do this?
             call s_mpi_sendrecv_conservative_variables_buffers_acc( &
                 qK_cons_vf_flat, 1)
         end if
@@ -401,6 +425,184 @@ contains
         ! call s_mpi_abort()
 
     end subroutine s_populate_conservative_variables_buffers
+
+
+    subroutine s_mpi_sendrecv_conservative_variables_buffers_acc(q_cons_vf_flat, &
+                                                                 pbc_loc)
+
+        real(kind(0d0)), dimension(-4:,0:,0:,1:), intent(INOUT) :: q_cons_vf_flat
+        integer, intent(IN) :: pbc_loc
+
+        integer :: i, j, k, l, r
+
+        !! x-dir only
+        ! print*, 'proc rank and pbc loc', proc_rank, pbc_loc
+
+        !$acc data present(q_cons_buff_send,q_cons_buff_recv)
+        if (pbc_loc == -1) then
+        ! PBC at the beginning
+
+            if (bc_xe >= 0) then
+            ! PBC at the beginning and end
+
+                ! Packing buffer to be sent to bc_x%end
+                !$acc kernels
+                do l = 0, p
+                    do k = 0, n
+                        do j = m - buff_size + 1, m
+                            do i = 1, sys_size
+                                r = (i - 1) + sys_size* &
+                                    ((j - m - 1) + buff_size*((k + 1) + (n + 1)*l))
+                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+                            end do
+                        end do
+                    end do
+                end do
+                !$acc end kernels
+
+                !$acc update host(q_cons_buff_send)
+                call MPI_SENDRECV( &
+                    q_cons_buff_send(0), &
+                    buff_size*sys_size, &
+                    MPI_DOUBLE_PRECISION, bc_xe, 0, &
+                    q_cons_buff_recv(0), &
+                    buff_size*sys_size, &
+                    MPI_DOUBLE_PRECISION, bc_xb, 0, &
+                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+                !$acc update device(q_cons_buff_recv)
+
+            else
+                ! PBC at the beginning only
+
+                ! Packing buffer to be sent to bc_x%beg
+                !$acc kernels
+                do l = 0, p
+                    do k = 0, n
+                        do j = 0, buff_size - 1
+                            do i = 1, sys_size
+                                r = (i - 1) + sys_size* &
+                                    (j + buff_size*(k + (n + 1)*l))
+                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+                            end do
+                        end do
+                    end do
+                end do
+                !$acc end kernels
+
+                !$acc update host(q_cons_buff_send)
+                ! Send/receive buffer to/from bc_x%beg/bc_x%beg
+                call MPI_SENDRECV( &
+                    q_cons_buff_send(0), &
+                    buff_size*sys_size, &
+                    MPI_DOUBLE_PRECISION, bc_xb, 1, &
+                    q_cons_buff_recv(0), &
+                    buff_size*sys_size, &
+                    MPI_DOUBLE_PRECISION, bc_xb, 0, &
+                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+                !$acc update device(q_cons_buff_recv)
+
+            end if
+
+            ! Unpacking buffer received from bc_x%beg
+            !$acc kernels
+            do l = 0, p
+                do k = 0, n
+                    do j = -buff_size, -1
+                        do i = 1, sys_size
+                            r = (i - 1) + sys_size* &
+                                (j + buff_size*((k + 1) + (n + 1)*l))
+                            q_cons_vf_flat(j, k, l, i) = q_cons_buff_recv(r)
+                        end do
+                    end do
+                end do
+            end do
+            !$acc end kernels
+
+        else
+            ! PBC at the end
+
+            if (bc_xb >= 0) then 
+                ! PBC at the end and beginning
+
+                ! Packing buffer to be sent to bc_x%beg
+                !$acc kernels
+                do l = 0, p
+                    do k = 0, n
+                        do j = 0, buff_size - 1
+                            do i = 1, sys_size
+                                r = (i - 1) + sys_size* &
+                                    (j + buff_size*(k + (n + 1)*l))
+                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+                            end do
+                        end do
+                    end do
+                end do
+                !$acc end kernels
+
+                ! Send/receive buffer to/from bc_x%beg/bc_x%end
+                !$acc update host(q_cons_buff_send)
+                call MPI_SENDRECV( &
+                    q_cons_buff_send(0), &
+                    buff_size*sys_size, &
+                    MPI_DOUBLE_PRECISION, bc_xb, 1, &
+                    q_cons_buff_recv(0), &
+                    buff_size*sys_size, &
+                    MPI_DOUBLE_PRECISION, bc_xe, 1, &
+                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+                !$acc update device(q_cons_buff_recv)
+
+            else
+                ! PBC at the end only
+
+                ! Packing buffer to be sent to bc_x%end
+                !$acc kernels
+                do l = 0, p
+                    do k = 0, n
+                        do j = m - buff_size + 1, m
+                            do i = 1, sys_size
+                                r = (i - 1) + sys_size* &
+                                    ((j - m - 1) + buff_size*((k + 1) + (n + 1)*l))
+                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+                            end do
+                        end do
+                    end do
+                end do
+                !$acc end kernels
+
+                ! Send/receive buffer to/from bc_x%end/bc_x%end
+                !$acc update host(q_cons_buff_send)
+                call MPI_SENDRECV( &
+                    q_cons_buff_send(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_xe, 0, &
+                    q_cons_buff_recv(0), &
+                    buff_size*sys_size*(n + 1)*(p + 1), &
+                    MPI_DOUBLE_PRECISION, bc_xe, 1, &
+                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+                !$acc update device(q_cons_buff_recv)
+
+            end if
+
+            ! Unpacking buffer received from bc_x%end
+            !$acc kernels
+            do l = 0, p
+                do k = 0, n
+                    do j = m + 1, m + buff_size
+                        do i = 1, sys_size
+                            r = (i - 1) + sys_size* &
+                                ((j - m - 1) + buff_size*(k + (n + 1)*l))
+                            q_cons_vf_flat(j, k, l, i) = q_cons_buff_recv(r)
+                        end do
+                    end do
+                end do
+            end do
+            !$acc end kernels
+
+        end if
+        !$acc end data
+
+
+    end subroutine s_mpi_sendrecv_conservative_variables_buffers_acc
 
 
     subroutine s_populate_variables_buffers(v_vf)

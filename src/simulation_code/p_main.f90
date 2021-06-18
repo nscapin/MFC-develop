@@ -97,12 +97,17 @@ program p_main
         call s_check_input_file()
     end if
 
+    print*, '1 bc_x b/e:', bc_x%beg, bc_x%end
+
     ! Broadcasting the user inputs to all of the processors and performing the
     ! parallel computational domain decomposition. Neither procedure has to be
     ! carried out if the simulation is in fact not truly executed in parallel.
     call s_mpi_bcast_user_inputs()
+    print*, '1 bc_x b/e:', bc_x%beg, bc_x%end
     call s_initialize_parallel_io()
+    print*, '1 bc_x b/e:', bc_x%beg, bc_x%end
     call s_mpi_decompose_computational_domain()
+    print*, '1 bc_x b/e:', bc_x%beg, bc_x%end
     if (proc_rank == 0) print*, 'Number of MPI ranks:', num_procs
 
 

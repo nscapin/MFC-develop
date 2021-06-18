@@ -176,6 +176,7 @@ contains
             call s_mpi_abort()
         end if
         ! ==================================================================
+        ! print*, 'Read input file and found bcx b/e:', bc_x%beg, bc_x%end
 
         ! Computational Domain Parameters ==================================
         if (m <= 0) then
@@ -968,7 +969,7 @@ contains
         bc_xb = bc_x%beg
         bc_xe = bc_x%end
         
-        print*, 'assigning bc_xb/e'
+        print*, 'Assigning bc_xb/e:'
         print*, 'rank, bcxb/e', proc_rank, bc_xb, bc_xe
 
     end subroutine s_populate_grid_variables_buffers ! ---------------------

@@ -3,8 +3,8 @@
 MFC_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 ### Compiler command ###
-FC = mpif90 -acc
-# FC = mpif90
+# FC = mpif90 -acc
+FC = mpif90
 
 #FC = tau_f90.sh
 #FC = mpiifort

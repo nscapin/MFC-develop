@@ -20,7 +20,7 @@ module m_mpi_proxy
     !! average conservative variables, for a single computational domain boundary
     !! at the time, from the relevant neighboring processor.
 
-    !$acc declare create( q_cons_buff_send, q_cons_buff_recv )
+    !!!!$acc declare create( q_cons_buff_send, q_cons_buff_recv )
 
     !> @name Generic flags used to identify and report MPI errors
     !> @{
@@ -419,6 +419,8 @@ contains
 
         integer :: i, j !< Generic loop iterators
 
+        ! print*, 'beg mpi decompose end bc_x b/e:', bc_x%beg, bc_x%end
+
         if (num_procs == 1 .and. parallel_io) then
             do i = 1, num_dims
                 start_idx(i) = 0
@@ -426,305 +428,18 @@ contains
             return
         end if
 
-        ! 3D Cartesian Processor Topology ==================================
-        if (n > 0) then
 
-            if (p > 0) then
+        ! Optimal processor topology
+        num_procs_x = num_procs
 
-                if (cyl_coord .and. p > 0) then
-                    ! Implement pencil processor blocking if using cylindrical coordinates so
-                    ! that all cells in azimuthal direction are stored on a single processor.
-                    ! This is necessary for efficient application of Fourier filter near axis.
+        ! Creating new communicator using the Cartesian topology
+        call MPI_CART_CREATE(MPI_COMM_WORLD, 1, (/num_procs_x/), &
+                             (/.true./), .false., MPI_COMM_CART, &
+                             ierr)
 
-                    ! Initial values of the processor factorization optimization
-                    num_procs_x = 1
-                    num_procs_y = num_procs
-                    num_procs_z = 1
-                    ierr = -1
-
-                    ! Computing minimization variable for these initial values
-                    tmp_num_procs_x = num_procs_x
-                    tmp_num_procs_y = num_procs_y
-                    tmp_num_procs_z = num_procs_z
-                    fct_min = 10d0*abs((m + 1)/tmp_num_procs_x &
-                                       - (n + 1)/tmp_num_procs_y)
-
-                    ! Searching for optimal computational domain distribution
-                    do i = 1, num_procs
-
-                        if (mod(num_procs, i) == 0 &
-                            .and. &
-                            (m + 1)/i >= num_stcls_min*weno_order) then
-
-                            tmp_num_procs_x = i
-                            tmp_num_procs_y = num_procs/i
-
-                            if (fct_min >= abs((m + 1)/tmp_num_procs_x &
-                                               - (n + 1)/tmp_num_procs_y) &
-                                .and. &
-                                (n + 1)/tmp_num_procs_y &
-                                >= &
-                                num_stcls_min*weno_order) then
-
-                                num_procs_x = i
-                                num_procs_y = num_procs/i
-                                fct_min = abs((m + 1)/tmp_num_procs_x &
-                                              - (n + 1)/tmp_num_procs_y)
-                                ierr = 0
-
-                            end if
-
-                        end if
-
-                    end do
-
-                else
-
-                    ! Initial estimate of optimal processor topology
-                    num_procs_x = 1
-                    num_procs_y = 1
-                    num_procs_z = num_procs
-                    ierr = -1
-
-                    ! Benchmarking the quality of this initial guess
-                    tmp_num_procs_x = num_procs_x
-                    tmp_num_procs_y = num_procs_y
-                    tmp_num_procs_z = num_procs_z
-                    fct_min = 10d0*abs((m + 1)/tmp_num_procs_x &
-                                       - (n + 1)/tmp_num_procs_y) &
-                              + 10d0*abs((n + 1)/tmp_num_procs_y &
-                                         - (p + 1)/tmp_num_procs_z)
-
-                    ! Optimization of the initial processor topology
-                    do i = 1, num_procs
-
-                        if (mod(num_procs, i) == 0 &
-                            .and. &
-                            (m + 1)/i >= num_stcls_min*weno_order) then
-
-                            do j = 1, num_procs/i
-
-                                if (mod(num_procs/i, j) == 0 &
-                                    .and. &
-                                    (n + 1)/j >= num_stcls_min*weno_order) then
-
-                                    tmp_num_procs_x = i
-                                    tmp_num_procs_y = j
-                                    tmp_num_procs_z = num_procs/(i*j)
-
-                                    if (fct_min >= abs((m + 1)/tmp_num_procs_x &
-                                                       - (n + 1)/tmp_num_procs_y) &
-                                        + abs((n + 1)/tmp_num_procs_y &
-                                              - (p + 1)/tmp_num_procs_z) &
-                                        .and. &
-                                        (p + 1)/tmp_num_procs_z &
-                                        >= &
-                                        num_stcls_min*weno_order) &
-                                        then
-
-                                        num_procs_x = i
-                                        num_procs_y = j
-                                        num_procs_z = num_procs/(i*j)
-                                        fct_min = abs((m + 1)/tmp_num_procs_x &
-                                                      - (n + 1)/tmp_num_procs_y) &
-                                                  + abs((n + 1)/tmp_num_procs_y &
-                                                        - (p + 1)/tmp_num_procs_z)
-                                        ierr = 0
-
-                                    end if
-
-                                end if
-
-                            end do
-
-                        end if
-
-                    end do
-
-                end if
-
-                ! Verifying that a valid decomposition of the computational
-                ! domain has been established. If not, the simulation exits.
-                if (proc_rank == 0 .and. ierr == -1) then
-                    print '(A)', 'Unsupported combination of values '// &
-                        'of num_procs, m, n, p and '// &
-                        'weno_order. Exiting ...'
-                    call s_mpi_abort()
-                end if
-
-                ! Creating new communicator using the Cartesian topology
-                call MPI_CART_CREATE(MPI_COMM_WORLD, 3, (/num_procs_x, &
-                                                          num_procs_y, num_procs_z/), &
-                                     (/.true., .true., .true./), &
-                                     .false., MPI_COMM_CART, ierr)
-
-                ! Finding the Cartesian coordinates of the local process
-                call MPI_CART_COORDS(MPI_COMM_CART, proc_rank, 3, &
-                                     proc_coords, ierr)
-                ! END: 3D Cartesian Processor Topology =============================
-
-                ! Global Parameters for z-direction ================================
-
-                ! Number of remaining cells
-                rem_cells = mod(p + 1, num_procs_z)
-
-                ! Optimal number of cells per processor
-                p = (p + 1)/num_procs_z - 1
-
-                ! Distributing the remaining cells
-                do i = 1, rem_cells
-                    if (proc_coords(3) == i - 1) then
-                        p = p + 1; exit
-                    end if
-                end do
-
-                ! Boundary condition at the beginning
-                if (proc_coords(3) > 0 .or. bc_z%beg == -1) then
-                    proc_coords(3) = proc_coords(3) - 1
-                    call MPI_CART_RANK(MPI_COMM_CART, proc_coords, &
-                                       bc_z%beg, ierr)
-                    proc_coords(3) = proc_coords(3) + 1
-                end if
-
-                ! Boundary condition at the end
-                if (proc_coords(3) < num_procs_z - 1 .or. bc_z%end == -1) then
-                    proc_coords(3) = proc_coords(3) + 1
-                    call MPI_CART_RANK(MPI_COMM_CART, proc_coords, &
-                                       bc_z%end, ierr)
-                    proc_coords(3) = proc_coords(3) - 1
-                end if
-
-                if (parallel_io) then
-                    if (proc_coords(3) < rem_cells) then
-                        start_idx(3) = (p + 1)*proc_coords(3)
-                    else
-                        start_idx(3) = (p + 1)*proc_coords(3) + rem_cells
-                    end if
-                end if
-                ! ==================================================================
-
-                ! 2D Cartesian Processor Topology ==================================
-            else
-
-                ! Initial estimate of optimal processor topology
-                num_procs_x = 1
-                num_procs_y = num_procs
-                ierr = -1
-
-                ! Benchmarking the quality of this initial guess
-                tmp_num_procs_x = num_procs_x
-                tmp_num_procs_y = num_procs_y
-                fct_min = 10d0*abs((m + 1)/tmp_num_procs_x &
-                                   - (n + 1)/tmp_num_procs_y)
-
-                ! Optimization of the initial processor topology
-                do i = 1, num_procs
-
-                    if (mod(num_procs, i) == 0 &
-                        .and. &
-                        (m + 1)/i >= num_stcls_min*weno_order) then
-
-                        tmp_num_procs_x = i
-                        tmp_num_procs_y = num_procs/i
-
-                        if (fct_min >= abs((m + 1)/tmp_num_procs_x &
-                                           - (n + 1)/tmp_num_procs_y) &
-                            .and. &
-                            (n + 1)/tmp_num_procs_y &
-                            >= &
-                            num_stcls_min*weno_order) then
-
-                            num_procs_x = i
-                            num_procs_y = num_procs/i
-                            fct_min = abs((m + 1)/tmp_num_procs_x &
-                                          - (n + 1)/tmp_num_procs_y)
-                            ierr = 0
-
-                        end if
-
-                    end if
-
-                end do
-
-                ! Verifying that a valid decomposition of the computational
-                ! domain has been established. If not, the simulation exits.
-                if (proc_rank == 0 .and. ierr == -1) then
-                    print '(A)', 'Unsupported combination of values '// &
-                        'of num_procs, m, n and '// &
-                        'weno_order. Exiting ...'
-                    call s_mpi_abort()
-                end if
-
-                ! Creating new communicator using the Cartesian topology
-                call MPI_CART_CREATE(MPI_COMM_WORLD, 2, (/num_procs_x, &
-                                                          num_procs_y/), (/.true., &
-                                                                           .true./), .false., MPI_COMM_CART, &
-                                     ierr)
-
-                ! Finding the Cartesian coordinates of the local process
-                call MPI_CART_COORDS(MPI_COMM_CART, proc_rank, 2, &
-                                     proc_coords, ierr)
-
-            end if
-            ! END: 2D Cartesian Processor Topology =============================
-
-            ! Global Parameters for y-direction ================================
-
-            ! Number of remaining cells
-            rem_cells = mod(n + 1, num_procs_y)
-
-            ! Optimal number of cells per processor
-            n = (n + 1)/num_procs_y - 1
-
-            ! Distributing the remaining cells
-            do i = 1, rem_cells
-                if (proc_coords(2) == i - 1) then
-                    n = n + 1; exit
-                end if
-            end do
-
-            ! Boundary condition at the beginning
-            if (proc_coords(2) > 0 .or. bc_y%beg == -1) then
-                proc_coords(2) = proc_coords(2) - 1
-                call MPI_CART_RANK(MPI_COMM_CART, proc_coords, &
-                                   bc_y%beg, ierr)
-                proc_coords(2) = proc_coords(2) + 1
-            end if
-
-            ! Boundary condition at the end
-            if (proc_coords(2) < num_procs_y - 1 .or. bc_y%end == -1) then
-                proc_coords(2) = proc_coords(2) + 1
-                call MPI_CART_RANK(MPI_COMM_CART, proc_coords, &
-                                   bc_y%end, ierr)
-                proc_coords(2) = proc_coords(2) - 1
-            end if
-
-            if (parallel_io) then
-                if (proc_coords(2) < rem_cells) then
-                    start_idx(2) = (n + 1)*proc_coords(2)
-                else
-                    start_idx(2) = (n + 1)*proc_coords(2) + rem_cells
-                end if
-            end if
-            ! ==================================================================
-
-            ! 1D Cartesian Processor Topology ==================================
-        else
-
-            ! Optimal processor topology
-            num_procs_x = num_procs
-
-            ! Creating new communicator using the Cartesian topology
-            call MPI_CART_CREATE(MPI_COMM_WORLD, 1, (/num_procs_x/), &
-                                 (/.true./), .false., MPI_COMM_CART, &
-                                 ierr)
-
-            ! Finding the Cartesian coordinates of the local process
-            call MPI_CART_COORDS(MPI_COMM_CART, proc_rank, 1, &
-                                 proc_coords, ierr)
-
-        end if
-        ! ==================================================================
+        ! Finding the Cartesian coordinates of the local process
+        call MPI_CART_COORDS(MPI_COMM_CART, proc_rank, 1, &
+                             proc_coords, ierr)
 
         ! Global Parameters for x-direction ================================
 
@@ -762,6 +477,7 @@ contains
                 start_idx(1) = (m + 1)*proc_coords(1) + rem_cells
             end if
         end if
+        ! print*, 'end mpi decompose end bc_x b/e:', bc_x%beg, bc_x%end
         ! ==================================================================
 
     end subroutine s_mpi_decompose_computational_domain ! ------------------
@@ -1044,160 +760,160 @@ contains
     end subroutine s_mpi_allreduce_max ! -----------------------------------
 
 
-    subroutine s_mpi_sendrecv_conservative_variables_buffers_acc(q_cons_vf_flat, &
-                                                                 pbc_loc)
+    ! subroutine s_mpi_sendrecv_conservative_variables_buffers_acc(q_cons_vf_flat, &
+    !                                                              pbc_loc)
 
-        real(kind(0d0)), dimension(-4:,0:,0:,1:), intent(INOUT) :: q_cons_vf_flat
-        integer, intent(IN) :: pbc_loc
+    !     real(kind(0d0)), dimension(-4:,0:,0:,1:), intent(INOUT) :: q_cons_vf_flat
+    !     integer, intent(IN) :: pbc_loc
 
-        integer :: i, j, k, l, r
+    !     integer :: i, j, k, l, r
 
-        !! x-dir only
-        print*, 'proc rank and pbc loc', proc_rank, pbc_loc
-        if (pbc_loc == -1) then
-        ! PBC at the beginning
+    !     !! x-dir only
+    !     print*, 'proc rank and pbc loc', proc_rank, pbc_loc
+    !     if (pbc_loc == -1) then
+    !     ! PBC at the beginning
 
-            if (bc_xe >= 0) then
-            ! PBC at the beginning and end
+    !         if (bc_xe >= 0) then
+    !         ! PBC at the beginning and end
 
-                ! Packing buffer to be sent to bc_x%end
-                do l = 0, p
-                    do k = 0, n
-                        do j = m - buff_size + 1, m
-                            do i = 1, sys_size
-                                r = (i - 1) + sys_size* &
-                                    ((j - m - 1) + buff_size*((k + 1) + (n + 1)*l))
-                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
-                            end do
-                        end do
-                    end do
-                end do
+    !             ! Packing buffer to be sent to bc_x%end
+    !             do l = 0, p
+    !                 do k = 0, n
+    !                     do j = m - buff_size + 1, m
+    !                         do i = 1, sys_size
+    !                             r = (i - 1) + sys_size* &
+    !                                 ((j - m - 1) + buff_size*((k + 1) + (n + 1)*l))
+    !                             q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+    !                         end do
+    !                     end do
+    !                 end do
+    !             end do
 
-                ! Send/receive buffer to/from bc_x%end/bc_x%beg
-                call MPI_SENDRECV( &
-                    q_cons_buff_send(0), &
-                    buff_size*sys_size*(n + 1)*(p + 1), &
-                    MPI_DOUBLE_PRECISION, bc_xe, 0, &
-                    q_cons_buff_recv(0), &
-                    buff_size*sys_size*(n + 1)*(p + 1), &
-                    MPI_DOUBLE_PRECISION, bc_xb, 0, &
-                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+    !             ! Send/receive buffer to/from bc_x%end/bc_x%beg
+    !             call MPI_SENDRECV( &
+    !                 q_cons_buff_send(0), &
+    !                 buff_size*sys_size*(n + 1)*(p + 1), &
+    !                 MPI_DOUBLE_PRECISION, bc_xe, 0, &
+    !                 q_cons_buff_recv(0), &
+    !                 buff_size*sys_size*(n + 1)*(p + 1), &
+    !                 MPI_DOUBLE_PRECISION, bc_xb, 0, &
+    !                 MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
 
-            else
-                ! PBC at the beginning only
+    !         else
+    !             ! PBC at the beginning only
 
-                ! Packing buffer to be sent to bc_x%beg
-                do l = 0, p
-                    do k = 0, n
-                        do j = 0, buff_size - 1
-                            do i = 1, sys_size
-                                r = (i - 1) + sys_size* &
-                                    (j + buff_size*(k + (n + 1)*l))
-                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
-                            end do
-                        end do
-                    end do
-                end do
+    !             ! Packing buffer to be sent to bc_x%beg
+    !             do l = 0, p
+    !                 do k = 0, n
+    !                     do j = 0, buff_size - 1
+    !                         do i = 1, sys_size
+    !                             r = (i - 1) + sys_size* &
+    !                                 (j + buff_size*(k + (n + 1)*l))
+    !                             q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+    !                         end do
+    !                     end do
+    !                 end do
+    !             end do
 
-                ! Send/receive buffer to/from bc_x%beg/bc_x%beg
-                call MPI_SENDRECV( &
-                    q_cons_buff_send(0), &
-                    buff_size*sys_size*(n + 1)*(p + 1), &
-                    MPI_DOUBLE_PRECISION, bc_xb, 1, &
-                    q_cons_buff_recv(0), &
-                    buff_size*sys_size*(n + 1)*(p + 1), &
-                    MPI_DOUBLE_PRECISION, bc_xb, 0, &
-                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+    !             ! Send/receive buffer to/from bc_x%beg/bc_x%beg
+    !             call MPI_SENDRECV( &
+    !                 q_cons_buff_send(0), &
+    !                 buff_size*sys_size*(n + 1)*(p + 1), &
+    !                 MPI_DOUBLE_PRECISION, bc_xb, 1, &
+    !                 q_cons_buff_recv(0), &
+    !                 buff_size*sys_size*(n + 1)*(p + 1), &
+    !                 MPI_DOUBLE_PRECISION, bc_xb, 0, &
+    !                 MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
 
-            end if
+    !         end if
 
-            ! Unpacking buffer received from bc_x%beg
-            do l = 0, p
-                do k = 0, n
-                    do j = -buff_size, -1
-                        do i = 1, sys_size
-                            r = (i - 1) + sys_size* &
-                                (j + buff_size*((k + 1) + (n + 1)*l))
-                            q_cons_vf_flat(j, k, l, i) = q_cons_buff_recv(r)
-                        end do
-                    end do
-                end do
-            end do
+    !         ! Unpacking buffer received from bc_x%beg
+    !         do l = 0, p
+    !             do k = 0, n
+    !                 do j = -buff_size, -1
+    !                     do i = 1, sys_size
+    !                         r = (i - 1) + sys_size* &
+    !                             (j + buff_size*((k + 1) + (n + 1)*l))
+    !                         q_cons_vf_flat(j, k, l, i) = q_cons_buff_recv(r)
+    !                     end do
+    !                 end do
+    !             end do
+    !         end do
 
-        else
-            ! PBC at the end
+    !     else
+    !         ! PBC at the end
 
-            if (bc_xb >= 0) then 
-                ! PBC at the end and beginning
+    !         if (bc_xb >= 0) then 
+    !             ! PBC at the end and beginning
 
-                ! Packing buffer to be sent to bc_x%beg
-                do l = 0, p
-                    do k = 0, n
-                        do j = 0, buff_size - 1
-                            do i = 1, sys_size
-                                r = (i - 1) + sys_size* &
-                                    (j + buff_size*(k + (n + 1)*l))
-                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
-                            end do
-                        end do
-                    end do
-                end do
+    !             ! Packing buffer to be sent to bc_x%beg
+    !             do l = 0, p
+    !                 do k = 0, n
+    !                     do j = 0, buff_size - 1
+    !                         do i = 1, sys_size
+    !                             r = (i - 1) + sys_size* &
+    !                                 (j + buff_size*(k + (n + 1)*l))
+    !                             q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+    !                         end do
+    !                     end do
+    !                 end do
+    !             end do
 
-                ! Send/receive buffer to/from bc_x%beg/bc_x%end
-                call MPI_SENDRECV( &
-                    q_cons_buff_send(0), &
-                    buff_size*sys_size*(n + 1)*(p + 1), &
-                    MPI_DOUBLE_PRECISION, bc_xb, 1, &
-                    q_cons_buff_recv(0), &
-                    buff_size*sys_size*(n + 1)*(p + 1), &
-                    MPI_DOUBLE_PRECISION, bc_xe, 1, &
-                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+    !             ! Send/receive buffer to/from bc_x%beg/bc_x%end
+    !             call MPI_SENDRECV( &
+    !                 q_cons_buff_send(0), &
+    !                 buff_size*sys_size*(n + 1)*(p + 1), &
+    !                 MPI_DOUBLE_PRECISION, bc_xb, 1, &
+    !                 q_cons_buff_recv(0), &
+    !                 buff_size*sys_size*(n + 1)*(p + 1), &
+    !                 MPI_DOUBLE_PRECISION, bc_xe, 1, &
+    !                 MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
 
-            else
-                ! PBC at the end only
+    !         else
+    !             ! PBC at the end only
 
-                ! Packing buffer to be sent to bc_x%end
-                do l = 0, p
-                    do k = 0, n
-                        do j = m - buff_size + 1, m
-                            do i = 1, sys_size
-                                r = (i - 1) + sys_size* &
-                                    ((j - m - 1) + buff_size*((k + 1) + (n + 1)*l))
-                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
-                            end do
-                        end do
-                    end do
-                end do
+    !             ! Packing buffer to be sent to bc_x%end
+    !             do l = 0, p
+    !                 do k = 0, n
+    !                     do j = m - buff_size + 1, m
+    !                         do i = 1, sys_size
+    !                             r = (i - 1) + sys_size* &
+    !                                 ((j - m - 1) + buff_size*((k + 1) + (n + 1)*l))
+    !                             q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+    !                         end do
+    !                     end do
+    !                 end do
+    !             end do
 
-                ! Send/receive buffer to/from bc_x%end/bc_x%end
-                call MPI_SENDRECV( &
-                    q_cons_buff_send(0), &
-                    buff_size*sys_size*(n + 1)*(p + 1), &
-                    MPI_DOUBLE_PRECISION, bc_xe, 0, &
-                    q_cons_buff_recv(0), &
-                    buff_size*sys_size*(n + 1)*(p + 1), &
-                    MPI_DOUBLE_PRECISION, bc_xe, 1, &
-                    MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+    !             ! Send/receive buffer to/from bc_x%end/bc_x%end
+    !             call MPI_SENDRECV( &
+    !                 q_cons_buff_send(0), &
+    !                 buff_size*sys_size*(n + 1)*(p + 1), &
+    !                 MPI_DOUBLE_PRECISION, bc_xe, 0, &
+    !                 q_cons_buff_recv(0), &
+    !                 buff_size*sys_size*(n + 1)*(p + 1), &
+    !                 MPI_DOUBLE_PRECISION, bc_xe, 1, &
+    !                 MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
 
-            end if
+    !         end if
 
-            ! Unpacking buffer received from bc_x%end
-            do l = 0, p
-                do k = 0, n
-                    do j = m + 1, m + buff_size
-                        do i = 1, sys_size
-                            r = (i - 1) + sys_size* &
-                                ((j - m - 1) + buff_size*(k + (n + 1)*l))
-                            q_cons_vf_flat(j, k, l, i) = q_cons_buff_recv(r)
-                        end do
-                    end do
-                end do
-            end do
+    !         ! Unpacking buffer received from bc_x%end
+    !         do l = 0, p
+    !             do k = 0, n
+    !                 do j = m + 1, m + buff_size
+    !                     do i = 1, sys_size
+    !                         r = (i - 1) + sys_size* &
+    !                             ((j - m - 1) + buff_size*(k + (n + 1)*l))
+    !                         q_cons_vf_flat(j, k, l, i) = q_cons_buff_recv(r)
+    !                     end do
+    !                 end do
+    !             end do
+    !         end do
 
-        end if
+    !     end if
 
 
-    end subroutine s_mpi_sendrecv_conservative_variables_buffers_acc
+    ! end subroutine s_mpi_sendrecv_conservative_variables_buffers_acc
 
     !>  The goal of this procedure is to populate the buffers of
         !!      the cell-average conservative variables by communicating
