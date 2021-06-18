@@ -184,30 +184,30 @@ contains
 
             start_time = mpi_wtime()
 
-            if (proc_rank == num_procs - 1) then
-                do k = 3,3
-                    !sys_size
-                    do j = ix%beg,ix%end
-                        print*, 'Pre:  Rank: ', &
-                            proc_rank, j, qK_cons_vf_flat(j,0,0,k) 
-                    end do
-                end do
-            end if
+            !if (proc_rank == num_procs - 1) then
+            !    do k = 3,3
+            !        !sys_size
+            !        do j = ix%beg,ix%end
+            !            print*, 'Pre:  Rank: ', &
+            !                proc_rank, j, qK_cons_vf_flat(j,0,0,k) 
+            !        end do
+            !    end do
+            !end if
 
             call nvtxStartRange("RHS-Pop. var. buffers")
             call s_populate_conservative_variables_buffers()
             call nvtxEndRange
 
-            !$acc update self(qK_cons_vf_flat)
-            if (proc_rank == num_procs - 1) then
-                do k = 3,3
-                    !sys_size
-                    do j = ix%beg,ix%end
-                        print*, 'Post: Rank: ', &
-                            proc_rank, j, qK_cons_vf_flat(j,0,0,k) 
-                    end do
-                end do
-            end if
+            !!$acc update self(qK_cons_vf_flat)
+            !if (proc_rank == num_procs - 1) then
+            !    do k = 3,3
+            !        !sys_size
+            !        do j = ix%beg,ix%end
+            !            print*, 'Post: Rank: ', &
+            !                proc_rank, j, qK_cons_vf_flat(j,0,0,k) 
+            !        end do
+            !    end do
+            !end if
 
             ! print*, 'after cons var buff proc rank', proc_rank
 
@@ -333,13 +333,22 @@ contains
             end if
             call nvtxEndRange
 
-            !$acc update self(qK_cons_vf_flat)
+            ! !$acc update self(qK_cons_vf_flat)
 
             ! print*, 'end TS proc rank', proc_rank
         end do
+        !!!!$acc update self(qK_cons_vf_flat)
         !$acc end data
 
-
+        !if (proc_rank == num_procs - 1) then
+        !    do k = 3,3
+        !        !sys_size
+        !        do j = ix%beg,ix%end
+        !            print*, 'C, Rank: ', &
+        !                proc_rank, j, qK_cons_vf_flat(j,0,0,k) 
+        !        end do
+        !    end do
+        !end if
 
         ! if (proc_rank == num_procs - 1) then
         !     do k = 1,sys_size
@@ -393,12 +402,14 @@ contains
         !$acc data present(qK_cons_vf_flat) 
         if (bc_xb == -1) then
             ! Periodic BC at beginning
+            !$acc kernels
             do i = 1, sys_size
                 do j = 1, buff_size
                     qK_cons_vf_flat(-j, 0, 0, i) = &
                         qK_cons_vf_flat(m - (j - 1), 0, 0, i)
                 end do
             end do
+            !$acc end kernels
         else
             ! Processor BC at beginning
             ! Only do this?
@@ -408,12 +419,15 @@ contains
 
         if (bc_xe == -1) then
             ! Periodic BC at end
+
+            !$acc kernels
             do i = 1, sys_size
                 do j = 1, buff_size
                     qK_cons_vf_flat(m + j, 0, 0, i) = &
                         qK_cons_vf_flat(j - 1, 0, 0, i)
                 end do
             end do
+            !$acc end kernels
         else                            
             ! Processor BC at end
             ! Only do this?
