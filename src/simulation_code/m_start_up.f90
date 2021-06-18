@@ -969,8 +969,8 @@ contains
         bc_xb = bc_x%beg
         bc_xe = bc_x%end
         
-        print*, 'Assigning bc_xb/e:'
-        print*, 'rank, bcxb/e', proc_rank, bc_xb, bc_xe
+        ! print*, 'Assigning bc_xb/e:'
+        ! print*, 'rank, bcxb/e', proc_rank, bc_xb, bc_xe
 
     end subroutine s_populate_grid_variables_buffers ! ---------------------
 

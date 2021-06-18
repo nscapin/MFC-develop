@@ -397,7 +397,7 @@ contains
 
         integer :: i, j, k
 
-        print*, 'In pop cons buff: rank, bcx_b/e', proc_rank, bc_xb, bc_xe
+        ! print*, 'In pop cons buff: rank, bcx_b/e', proc_rank, bc_xb, bc_xe
 
         !$acc data present(qK_cons_vf_flat) 
         if (bc_xb == -1) then
