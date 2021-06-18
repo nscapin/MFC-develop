@@ -1,0 +1,21 @@
+[52910, 0]: SYSTEM_SERVER: warning: memory usage: 108 Meg
+[52910, 0]: SYSTEM_SERVER: warning: memory usage: 143 Meg, restart server
+[52910, 3]: Thread id 3 passes null context
+[52910, 4]: Thread id 4 passes null context
+[52910, 0]: unw_init: cursor could NOT build an interval for initial pc = 0x2000000505e8
+[52910, 0]: unw_init: cursor could NOT build an interval for initial pc = 0x2000000505e8
+[52910, 0]: unw_init: cursor could NOT build an interval for initial pc = 0x2000000505e8
+[52910, 0]: unw_init: cursor could NOT build an interval for initial pc = 0x2000000505e8
+[52910, 0]: unw_init: cursor could NOT build an interval for initial pc = 0x2000000505e8
+[52910, 0]: unw_init: cursor could NOT build an interval for initial pc = 0x2000000505e8
+[52910, 0]: unw_init: cursor could NOT build an interval for initial pc = 0x2000000505e8
+[52910, 0]: unw_init: cursor could NOT build an interval for initial pc = 0x2000000505e8
+[52910, 0]: unw_init: cursor could NOT build an interval for initial pc = 0x2000000505e8
+MEMORY: segment size: 4.0 meg, num segments: 11, total allocation: 44.0 meg, reclaims: 0
+MEMORY: total freeable: 0.0 meg, total non-freeable: 23.2 meg, malloc failures: 0
+SAMPLE ANOMALIES: blocks: 1 (async: 1, dlopen: 0), errors: 9 (segv: 0, soft: 9)
+SUMMARY: cpu samples: 43 (recorded: 42, blocked: 1, errant: 9, trolled: 0, yielded: 0),
+         frames: 536 (trolled: 0)
+         intervals: 0 (suspicious: 0)
+         accelerator trace records: 0 (processed: 0, dropped: 0)
+         accelerator samples: 0 (recorded: 0, dropped: 0)

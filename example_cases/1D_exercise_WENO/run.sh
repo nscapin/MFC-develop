@@ -16,6 +16,13 @@
 # export NV_ACC_TIME=1
 # export NV_ACC_DEBUG=1
 
+
+rm -r hpctoolkit*
+jsrun -r1 -a7 -c7 -g1 ../../src/pre_process_code/pre_process
+jsrun -r1 -a7 -c7 -g1 hpcrun -t ../../src/simulation_code/simulation
+hpcstruct ../../src/simulation_code/simulation
+jsrun -r1 -a1 -c1 -g1 hpcprof -S simulation.hpcstruct -I ../../src/simulation_code/+ hpctoolkit-simulation-measurements-*
+
 # jsrun -r1 -a7 -c7 -g1 ../../src/pre_process_code/pre_process
 # jsrun -r1 -a7 -c7 -g1 ../../src/simulation_code/simulation
 
@@ -45,8 +52,8 @@
 # jsrun -r1 -a7 -c7 -g1 ../../src/pre_process_code/pre_process
 # jsrun -r1 -a7 -c7 -g1 nsys profile -o output-sys.prof_%q{OMPI_COMM_WORLD_RANK} --stats=true -t openacc,nvtx  --force-overwrite true ../../src/simulation_code/simulation
 
-jsrun -r6 -a7 -c7 -g1 ../../src/pre_process_code/pre_process
-jsrun -r6 -a7 -c7 -g1 nsys profile -o output-sys.prof_%q{OMPI_COMM_WORLD_RANK} --stats=true -t openacc,nvtx  --force-overwrite true ../../src/simulation_code/simulation
+# jsrun -r6 -a7 -c7 -g1 ../../src/pre_process_code/pre_process
+# jsrun -r6 -a7 -c7 -g1 nsys profile -o output-sys.prof_%q{OMPI_COMM_WORLD_RANK} --stats=true -t openacc,nvtx  --force-overwrite true ../../src/simulation_code/simulation
 
 # jsrun -r1 -a1 -c1 -g1 ../../src/simulation_code/simulation
 # jsrun -r1 -a1 -c1 -g1 nvprof --analysis-metrics -o output.nvvp  -f ../../src/simulation_code/simulation
