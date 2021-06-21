@@ -280,7 +280,8 @@ contains
 
 
             call nvtxStartRange("RHS-Diff fluxes")
-            !$acc parallel loop collapse (2) gang vector
+            !! async(1)
+            !$acc parallel loop collapse (2) gang vector 
             do k = 0, m
                 do j = 1, sys_size
                     rhs_vf_flat(k,0,0,j) = 1d0/dx(k)* &
@@ -302,7 +303,8 @@ contains
 
             ! Apply source terms to RHS of advection equations
             call nvtxStartRange("RHS-Add srcs")
-            !$acc parallel loop collapse(2) gang vector
+            !! async(2)
+            !$acc parallel loop collapse(2) gang vector 
             do k = 0, m
                 do j = adv_idx_b, adv_idx_e
                     rhs_vf_flat(k,0,0,j) = &
@@ -314,6 +316,7 @@ contains
             end do
             !$acc end parallel loop
             call nvtxEndRange
+            !! !$acc wait
         
             call nvtxStartRange("RHS-Add RHS to Cons")
             !$acc parallel loop collapse (2) gang vector
@@ -412,7 +415,6 @@ contains
             !$acc end kernels
         else
             ! Processor BC at beginning
-            ! Only do this?
             call s_mpi_sendrecv_conservative_variables_buffers_acc( &
                 qK_cons_vf_flat, -1)
         end if
@@ -430,7 +432,6 @@ contains
             !$acc end kernels
         else                            
             ! Processor BC at end
-            ! Only do this?
             call s_mpi_sendrecv_conservative_variables_buffers_acc( &
                 qK_cons_vf_flat, 1)
         end if
