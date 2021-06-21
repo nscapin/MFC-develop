@@ -11,6 +11,11 @@
 ## 42/6 = 7 where 42 = number of total cores (c)
 ## (a == c) usually
 
+#SBATCH --gpu-bind=map_gpu:0,1,2,3,4,5,6,7 to bind task 0 to GPU0, task 1 to GPU1, task 2 to GPU2, etc. See the slurm documentation for srun:  https://slurm.schedmd.com/srun.html
+# You can also bind several tasks (4 in the following example) to the same GPU with the same gpu-bind parameter:
+# #SBATCH --gpu-bind=map_gpu:0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,6,6,6,6,7,7,7,7
+# I think you can shorten the previous line like this:   #SBATCH --gpu-bind=map_gpu:0*4,1*4,2*4,3*4,4*4,5*4,6*4,7*4
+
 nvidia-cuda-mps-control  -d
 nvidia-cuda-mps-server
 
