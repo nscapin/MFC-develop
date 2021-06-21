@@ -238,9 +238,6 @@ contains
                         is1_weno, is2_weno, is3_weno)
             call nvtxEndRange
 
-
-
-
             ! do k = 1,sys_size-1
             !     print*, 'Variable ', k 
             !     do j = 0,m
@@ -337,9 +334,10 @@ contains
 
             ! print*, 'end TS proc rank', proc_rank
         end do
-        !!!!$acc update self(qK_cons_vf_flat)
         !$acc end data
 
+
+        ! Some print statements
         !if (proc_rank == num_procs - 1) then
         !    do k = 3,3
         !        !sys_size
@@ -379,25 +377,17 @@ contains
         !     end do
         ! end if
 
-        ! if (proc_rank == 0) print*, 'out of TS loop in RHS'
-
         do i = 1, sys_size
             nullify (q_cons_qp%vf(i)%sf, q_prim_qp%vf(i)%sf)
         end do
-
-        ! if (proc_rank == 0) print*, 'end rhs sub'
-        
 
     end subroutine s_alt_rhs
 
 
     subroutine s_populate_conservative_variables_buffers() 
         ! This is called every RHS evaluation
-        ! SHB: Suspect this needs attention for GPUs
 
         integer :: i, j, k
-
-        ! print*, 'In pop cons buff: rank, bcx_b/e', proc_rank, bc_xb, bc_xe
 
         !$acc data present(qK_cons_vf_flat) 
         if (bc_xb == -1) then
@@ -412,7 +402,6 @@ contains
             !$acc end kernels
         else
             ! Processor BC at beginning
-            ! Only do this?
             call s_mpi_sendrecv_conservative_variables_buffers_acc( &
                 qK_cons_vf_flat, -1)
         end if
@@ -430,13 +419,10 @@ contains
             !$acc end kernels
         else                            
             ! Processor BC at end
-            ! Only do this?
             call s_mpi_sendrecv_conservative_variables_buffers_acc( &
                 qK_cons_vf_flat, 1)
         end if
         !$acc end data
-
-        ! call s_mpi_abort()
 
     end subroutine s_populate_conservative_variables_buffers
 
