@@ -212,9 +212,15 @@ contains
             ! print*, 'after cons var buff proc rank', proc_rank
 
             call nvtxStartRange("RHS-Convert to prim")
-            call s_convert_conservative_to_primitive_variables_acc( &
-                qK_cons_vf_flat, qK_prim_vf_flat, &
-                ix, iy, iz)
+            ! if (bubbles) then
+            !     call s_convert_conservative_to_primitive_variables_bubbles_acc( &
+            !         qK_cons_vf_flat, qK_prim_vf_flat, &
+            !         ix, iy, iz)
+            ! else
+                call s_convert_conservative_to_primitive_variables_acc( &
+                    qK_cons_vf_flat, qK_prim_vf_flat, &
+                    ix, iy, iz)
+            ! end if
             call nvtxEndRange
 
             ! if (proc_rank == num_procs - 1) then

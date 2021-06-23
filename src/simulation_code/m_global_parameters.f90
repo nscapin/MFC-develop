@@ -240,7 +240,9 @@ module m_global_parameters
     real(kind(0d0)), dimension(:), allocatable :: weight !< Simpson quadrature weights
     real(kind(0d0)), dimension(:), allocatable :: R0     !< Bubble sizes
     real(kind(0d0)), dimension(:), allocatable :: V0     !< Bubble velocities
-    !$acc declare create(weight,R0,V0)
+    !$acc declare create(nb,weight,R0,V0)
+
+
 
     logical         :: bubbles      !< Bubbles on/off
     logical         :: polytropic   !< Polytropic  switch
@@ -928,7 +930,15 @@ contains
         real(kind(0.d0)) :: nR3
         integer :: i
 
-        call s_quad(nRtmp**3d0, nR3)
+        nR3 = 0d0
+        do i = 1,nb
+            nR3 = nR3 + weight(i)*(nRtmp(i)**3d0)
+        end do
+            ! nR3 = nR3 + weight(i)
+            ! nR3 = nR3 + weight(i)*(nRtmp(i)**3.d0)
+        ! end do
+
+        ! call s_quad(nRtmp**3d0, nR3)
         ntmp = sqrt((4.d0*pi/3.d0)*nR3/vftmp)
 
     end subroutine s_comp_n_from_cons
@@ -954,10 +964,11 @@ contains
         !! @param func is the bubble dynamic variables for each bin
         !! @param mom is the computed moment
     subroutine s_quad(func, mom)
-        !$acc routine seq
+        ! !$acc routine seq
 
         real(kind(0.d0)), dimension(500), intent(IN) :: func
         real(kind(0.d0)), intent(OUT) :: mom
+        integer :: i
 
         mom = 0d0
         do i = 1,nb

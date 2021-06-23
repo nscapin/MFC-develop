@@ -61,6 +61,7 @@ module m_variables_conversion
          s_convert_species_to_mixture_variables, &
          s_convert_conservative_to_primitive_variables, &
          s_convert_conservative_to_primitive_variables_acc, &
+         s_convert_conservative_to_primitive_variables_bubbles_acc, &
          s_convert_conservative_to_flux_variables, &
          s_convert_primitive_to_conservative_variables, &
          s_convert_primitive_to_flux_variables, &
@@ -390,7 +391,6 @@ contains
         real(kind(0d0)) ::   pi_inf_K
         real(kind(0d0)), dimension(500) :: nRtmp
         real(kind(0d0)) ::   nbub
-        
 
         integer :: ixb, ixe, iyb, iye, izb, ize
         integer :: cont_idx_e
@@ -462,7 +462,7 @@ contains
                     do i = 1,nb
                         nRtmp(i) = qK_cons_vf_flat(j,k,l,bub_idx_rs(i))
                     end  do
-                    CALL s_comp_n_from_cons( qK_cons_vf_flat(j, k, l, alf_idx), nRtmp, nbub)
+                    call s_comp_n_from_cons( qK_cons_vf_flat(j, k, l, alf_idx), nRtmp, nbub)
                     do i = bub_idx_b, bub_idx_e
                         qK_prim_vf_flat(j,k,l,i) = qK_cons_vf_flat(j,k,l,i)/nbub
                     end do
@@ -500,14 +500,26 @@ contains
 
     end subroutine s_convert_species_to_mixture_variables_acc
 
-    !> The following procedure handles the conversion between
-        !!      the conservative variables and the primitive variables.
-        !! @param qK_cons_vf Conservative variables
-        !! @param qK_prim_vf Primitive variables
-        !! @param gm_alphaK_vf Gradient magnitude of the volume fraction
-        !! @param ix Index bounds in first coordinate direction
-        !! @param iy Index bounds in second coordinate direction
-        !! @param iz Index bounds in third coordinate direction
+    subroutine s_convert_species_to_mixture_variables_bubbles_acc( &
+                                                      alpha_rho_K, &
+                                                      alpha_K, &
+                                                      rho_K, &
+                                                      gamma_K, pi_inf_K, &
+                                                      num_fluids &
+                                                      )
+        !$acc routine seq
+
+        real(kind(0d0)), dimension(num_fluids), intent(IN) :: alpha_rho_K, alpha_K 
+        real(kind(0d0)), intent(OUT) :: rho_K, gamma_K, pi_inf_K
+        integer, intent(IN) :: num_fluids
+        integer :: i
+
+        rho_K = alpha_rho_K(1)
+        gamma_K = gammas(1)
+        pi_inf_K = pi_infs(1)
+
+    end subroutine s_convert_species_to_mixture_variables_bubbles_acc
+
     subroutine s_convert_conservative_to_primitive_variables(qK_cons_vf, &
                                                              qK_prim_vf, &
                                                              gm_alphaK_vf, &
