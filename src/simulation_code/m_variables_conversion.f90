@@ -67,6 +67,9 @@ module m_variables_conversion
          s_convert_primitive_to_flux_variables_bubbles, &
          s_finalize_variables_conversion_module
 
+    integer, dimension(:), allocatable :: bub_idx_rs
+    !$acc declare create(bub_idx_rs)
+
     abstract interface ! =======================================================
 
         !> The abstract interface to the procedures that are utilized to convert
@@ -108,7 +111,7 @@ contains
         !!      other procedures that are necessary to setup the module.
     subroutine s_initialize_variables_conversion_module() ! ----------------
 
-
+        integer :: i 
 
         ! Associating the procedural pointer to the appropriate subroutine
         ! that will be utilized in the conversion to the mixture variables
@@ -119,6 +122,12 @@ contains
             s_convert_to_mixture_variables => &
                 s_convert_species_to_mixture_variables
         end if
+
+        allocate(bub_idx_rs(1:nb))
+
+        do i = 1,nb
+            bub_idx_rs(i) = bub_idx%rs(i)
+        end do
 
     end subroutine s_initialize_variables_conversion_module ! --------------
 
@@ -359,6 +368,112 @@ contains
 
 
     end subroutine s_convert_conservative_to_primitive_variables_acc
+
+
+    subroutine s_convert_conservative_to_primitive_variables_bubbles_acc( &
+                                                             qK_cons_vf_flat, &
+                                                             qK_prim_vf_flat, &
+                                                             ix, iy, iz)
+
+        !! This -4 is because you can't pass arrays with negative indexing consistently
+        !! and it only applys to WENO5 (buffsize = 4), also the other directions start/end at 0
+        real(kind(0d0)), dimension(-4:,0:,0:,1:), intent(INOUT) :: qK_cons_vf_flat
+        real(kind(0d0)), dimension(-4:,0:,0:,1:), intent(INOUT) :: qK_prim_vf_flat
+
+        type(bounds_info), intent(IN) :: ix, iy, iz
+
+        real(kind(0d0)), dimension(10) :: alpha_rho
+        real(kind(0d0)), dimension(10) :: alpha
+        real(kind(0d0)) ::      rho_K
+        real(kind(0d0)) :: dyn_pres_K
+        real(kind(0d0)) ::    gamma_K
+        real(kind(0d0)) ::   pi_inf_K
+        real(kind(0d0)), dimension(500) :: nRtmp
+        real(kind(0d0)) ::   nbub
+        
+
+        integer :: ixb, ixe, iyb, iye, izb, ize
+        integer :: cont_idx_e
+        integer :: adv_idx_b, adv_idx_e
+        integer :: mom_idx_b, mom_idx_e
+        integer :: bub_idx_b, bub_idx_e
+        integer :: i, j, k, l 
+
+        cont_idx_e = cont_idx%end
+        adv_idx_b = adv_idx%beg
+        adv_idx_e = adv_idx%end
+        mom_idx_b = mom_idx%beg
+        mom_idx_e = mom_idx%end
+        bub_idx_b = bub_idx%beg
+        bub_idx_e = bub_idx%end
+
+        ixb = ix%beg; ixe = ix%end
+        iyb = iy%beg; iye = iy%end
+        izb = iz%beg; ize = iz%end
+
+        ! print*, '-1 idx', qK_cons_vf_flat(-1,0,0,1)
+
+        ! print*, 'c2p: ixb,ixe', ixb, ixe
+        ! print*, 'shape qK_cons_vf_flat:', shape(qK_cons_vf_flat)
+
+
+        !$acc data present(qK_cons_vf_flat, qK_prim_vf_flat, bub_idx_rs)
+        !$acc parallel loop collapse(3) gang vector private(alpha_rho, alpha, nRtmp) 
+        do l = izb, ize
+            do k = iyb, iye
+                do j = ixb, ixe
+
+                    do i = 1, num_fluids
+                        alpha_rho(i) = qK_cons_vf_flat(j, k, l, i)
+                        alpha(i) = qK_cons_vf_flat(j, k, l, adv_idx_b + i - 1)
+                    end do
+
+                    call s_convert_species_to_mixture_variables_bubbles_acc( &
+                                                      alpha_rho, &
+                                                      alpha, &
+                                                      rho_K, &
+                                                      gamma_K, pi_inf_K, &
+                                                      num_fluids &
+                                                      )
+
+                    dyn_pres_K = 0d0
+                    do i = mom_idx_b, mom_idx_e
+                        qK_prim_vf_flat(j, k, l, i) = &
+                            qK_cons_vf_flat(j, k, l, i)/max(rho_K, sgm_eps)
+                        dyn_pres_K = dyn_pres_K + 5d-1*qK_cons_vf_flat(j, k, l, i) & 
+                            * qK_prim_vf_flat(j, k, l, i)
+                    end do
+
+                    ! bubble pressure formulation
+                    qK_prim_vf_flat(j, k, l, E_idx) = ( &
+                        ( qK_cons_vf_flat(j, k, l, E_idx) - dyn_pres_K ) / &
+                        ( 1.d0 - qK_cons_vf_flat(j,k,l,alf_idx) ) &
+                        - pi_inf_K )/gamma_K
+
+                    do i = 1, cont_idx_e
+                        qK_prim_vf_flat(j, k, l, i) = qK_cons_vf_flat(j, k, l, i)
+                    end do
+
+                    do i = adv_idx_b, adv_idx_e
+                        qK_prim_vf_flat(j, k, l, i) = qK_cons_vf_flat(j, k, l, i)
+                    end do
+
+                    ! bubbles
+                    do i = 1,nb
+                        nRtmp(i) = qK_cons_vf_flat(j,k,l,bub_idx_rs(i))
+                    end  do
+                    CALL s_comp_n_from_cons( qK_cons_vf_flat(j, k, l, alf_idx), nRtmp, nbub)
+                    do i = bub_idx_b, bub_idx_e
+                        qK_prim_vf_flat(j,k,l,i) = qK_cons_vf_flat(j,k,l,i)/nbub
+                    end do
+                end do
+            end do
+        end do
+        !$acc end parallel loop 
+        !$acc end data
+
+
+    end subroutine s_convert_conservative_to_primitive_variables_bubbles_acc
 
 
     subroutine s_convert_species_to_mixture_variables_acc( &

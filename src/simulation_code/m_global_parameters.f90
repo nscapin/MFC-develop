@@ -240,6 +240,8 @@ module m_global_parameters
     real(kind(0d0)), dimension(:), allocatable :: weight !< Simpson quadrature weights
     real(kind(0d0)), dimension(:), allocatable :: R0     !< Bubble sizes
     real(kind(0d0)), dimension(:), allocatable :: V0     !< Bubble velocities
+    !$acc declare create(weight,R0,V0)
+
     logical         :: bubbles      !< Bubbles on/off
     logical         :: polytropic   !< Polytropic  switch
     logical         :: polydisperse !< Polydisperse bubbles
@@ -570,6 +572,7 @@ contains
                     else
                         stop 'Invalid value of nb'
                     end if
+                    !$acc update device( weight, R0, V0 ) 
 
                     print *, 'R0 weights: ', weight(:)
                     print *, 'R0 abscissas: ', R0(:)
@@ -581,7 +584,6 @@ contains
                         pref = 1.d0
                     end if
                 end if
-
 
             else if (model_eqns == 3) then
                 cont_idx%beg = 1
@@ -918,33 +920,16 @@ contains
         !! @param nRtmp is the bubble number  density times the bubble radii
         !! @param ntmp is the output number bubble density
     subroutine s_comp_n_from_cons(vftmp, nRtmp, ntmp)
+        !$acc routine seq
 
         real(kind(0.d0)), intent(IN) :: vftmp
-        real(kind(0.d0)), dimension(nb), intent(IN) :: nRtmp
+        real(kind(0.d0)), dimension(500), intent(IN) :: nRtmp
         real(kind(0.d0)), intent(OUT) :: ntmp
         real(kind(0.d0)) :: nR3
         integer :: i
 
         call s_quad(nRtmp**3d0, nR3)
-
-        if (nR3 < 0d0) then
-            ! DO i = 1,nb
-            ! IF (nRtmp(i) < small_alf) THEN
-            ! nRtmp(i) = small_alf
-            ! END IF
-            ! END DO
-            ! nR3 = 1.d-12
-            print *, vftmp, nR3, nRtmp(:)
-            stop 'nR3 is negative'
-        end if
-        if (vftmp < 0d0) then
-            ! vftmp = small_alf
-            ! ntmp = DSQRT( (4.d0*pi/3.d0)*nR3/1.d-12 )
-            print *, vftmp, nR3, nRtmp(:)
-            stop 'vf negative'
-        end if
-
-        ntmp = DSQRT((4.d0*pi/3.d0)*nR3/vftmp)
+        ntmp = sqrt((4.d0*pi/3.d0)*nR3/vftmp)
 
     end subroutine s_comp_n_from_cons
 
@@ -961,18 +946,7 @@ contains
         real(kind(0.d0)) :: R3
 
         call s_quad(Rtmp**3d0, R3)
-
-        if (R3 < 0d0) then
-            print *, vftmp, R3, Rtmp(:)
-            stop 'R3 is negative'
-        end if
-        if (vftmp < 0d0) then
-            print *, vftmp, R3, Rtmp(:)
-            stop 'vf negative'
-        end if
-
         ntmp = (3.d0/(4.d0*pi))*vftmp/R3
-        ! ntmp = 1d0
 
     end subroutine s_comp_n_from_prim
 
@@ -980,11 +954,15 @@ contains
         !! @param func is the bubble dynamic variables for each bin
         !! @param mom is the computed moment
     subroutine s_quad(func, mom)
+        !$acc routine seq
 
-        real(kind(0.d0)), dimension(nb), intent(IN) :: func
+        real(kind(0.d0)), dimension(500), intent(IN) :: func
         real(kind(0.d0)), intent(OUT) :: mom
 
-        mom = dot_product(weight, func)
+        mom = 0d0
+        do i = 1,nb
+            mom = mom + weight(i)*func(i)
+        end do
 
     end subroutine s_quad
 
@@ -1039,6 +1017,7 @@ contains
         weight(1) = tmp*dphi/3.d0
         tmp = DEXP(-0.5d0*(phi(nb)/sd)**2)/DSQRT(2.d0*pi)/sd
         weight(nb) = tmp*dphi/3.d0
+
     end subroutine s_simpson
 
 end module m_global_parameters

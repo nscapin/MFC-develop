@@ -405,8 +405,7 @@ contains
             !$acc end kernels
         else
             ! Processor BC at beginning
-            call s_mpi_sendrecv_conservative_variables_buffers_acc( &
-                qK_cons_vf_flat, -1)
+            call s_mpi_sendrecv_conservative_variables_buffers_acc(-1)
         end if
 
         if (bc_xe == -1) then
@@ -422,18 +421,16 @@ contains
             !$acc end kernels
         else                            
             ! Processor BC at end
-            call s_mpi_sendrecv_conservative_variables_buffers_acc( &
-                qK_cons_vf_flat, 1)
+            call s_mpi_sendrecv_conservative_variables_buffers_acc(1)
         end if
         !$acc end data
 
     end subroutine s_populate_conservative_variables_buffers
 
 
-    subroutine s_mpi_sendrecv_conservative_variables_buffers_acc(q_cons_vf_flat, &
-                                                                 pbc_loc)
+    subroutine s_mpi_sendrecv_conservative_variables_buffers_acc(pbc_loc)
 
-        real(kind(0d0)), dimension(-4:,0:,0:,1:), intent(INOUT) :: q_cons_vf_flat
+        ! real(kind(0d0)), dimension(-4:,0:,0:,1:), intent(INOUT) :: q_cons_vf_flat
         integer, intent(IN) :: pbc_loc
 
         integer :: i, j, k, l, r
@@ -456,13 +453,15 @@ contains
                             do i = 1, sys_size
                                 r = (i - 1) + sys_size* &
                                     ((j - m - 1) + buff_size*((k + 1) + (n + 1)*l))
-                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+                                q_cons_buff_send(r) = qK_cons_vf_flat(j, k, l, i)
                             end do
                         end do
                     end do
                 end do
                 !$acc end kernels
 
+
+                ! !$acc host_data use_device( q_cons_buff_recv, q_cons_buff_send )
                 !$acc update host(q_cons_buff_send)
                 call MPI_SENDRECV( &
                     q_cons_buff_send(0), &
@@ -474,6 +473,8 @@ contains
                     MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
                 !$acc update device(q_cons_buff_recv)
 
+                ! !$acc end host_data
+                ! !$acc wait
             else
                 ! PBC at the beginning only
 
@@ -485,15 +486,17 @@ contains
                             do i = 1, sys_size
                                 r = (i - 1) + sys_size* &
                                     (j + buff_size*(k + (n + 1)*l))
-                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+                                q_cons_buff_send(r) = qK_cons_vf_flat(j, k, l, i)
                             end do
                         end do
                     end do
                 end do
                 !$acc end kernels
 
-                !$acc update host(q_cons_buff_send)
+
                 ! Send/receive buffer to/from bc_x%beg/bc_x%beg
+                ! !$acc host_data use_device( q_cons_buff_send, q_cons_buff_recv )
+                !$acc update host(q_cons_buff_send)
                 call MPI_SENDRECV( &
                     q_cons_buff_send(0), &
                     buff_size*sys_size, &
@@ -503,7 +506,8 @@ contains
                     MPI_DOUBLE_PRECISION, bc_xb, 0, &
                     MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
                 !$acc update device(q_cons_buff_recv)
-
+                ! !$acc end host_data
+                ! !$acc wait
             end if
 
             ! Unpacking buffer received from bc_x%beg
@@ -514,7 +518,7 @@ contains
                         do i = 1, sys_size
                             r = (i - 1) + sys_size* &
                                 (j + buff_size*((k + 1) + (n + 1)*l))
-                            q_cons_vf_flat(j, k, l, i) = q_cons_buff_recv(r)
+                            qK_cons_vf_flat(j, k, l, i) = q_cons_buff_recv(r)
                         end do
                     end do
                 end do
@@ -535,7 +539,7 @@ contains
                             do i = 1, sys_size
                                 r = (i - 1) + sys_size* &
                                     (j + buff_size*(k + (n + 1)*l))
-                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+                                q_cons_buff_send(r) = qK_cons_vf_flat(j, k, l, i)
                             end do
                         end do
                     end do
@@ -543,6 +547,8 @@ contains
                 !$acc end kernels
 
                 ! Send/receive buffer to/from bc_x%beg/bc_x%end
+                ! !$acc host_data use_device( q_cons_buff_send, q_cons_buff_recv )
+
                 !$acc update host(q_cons_buff_send)
                 call MPI_SENDRECV( &
                     q_cons_buff_send(0), &
@@ -552,7 +558,10 @@ contains
                     buff_size*sys_size, &
                     MPI_DOUBLE_PRECISION, bc_xe, 1, &
                     MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
-                !$acc update device(q_cons_buff_recv)
+                ! !$acc update device(q_cons_buff_recv)
+
+                ! !$acc end host_data
+                ! !$acc wait
 
             else
                 ! PBC at the end only
@@ -565,7 +574,7 @@ contains
                             do i = 1, sys_size
                                 r = (i - 1) + sys_size* &
                                     ((j - m - 1) + buff_size*((k + 1) + (n + 1)*l))
-                                q_cons_buff_send(r) = q_cons_vf_flat(j, k, l, i)
+                                q_cons_buff_send(r) = qK_cons_vf_flat(j, k, l, i)
                             end do
                         end do
                     end do
@@ -573,6 +582,9 @@ contains
                 !$acc end kernels
 
                 ! Send/receive buffer to/from bc_x%end/bc_x%end
+
+                !!$acc host_data use_device( q_cons_buff_send, q_cons_buff_recv )
+
                 !$acc update host(q_cons_buff_send)
                 call MPI_SENDRECV( &
                     q_cons_buff_send(0), &
@@ -584,6 +596,10 @@ contains
                     MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
                 !$acc update device(q_cons_buff_recv)
 
+                ! !$acc end host_data
+                ! !$acc wait
+
+
             end if
 
             ! Unpacking buffer received from bc_x%end
@@ -594,7 +610,7 @@ contains
                         do i = 1, sys_size
                             r = (i - 1) + sys_size* &
                                 ((j - m - 1) + buff_size*(k + (n + 1)*l))
-                            q_cons_vf_flat(j, k, l, i) = q_cons_buff_recv(r)
+                            qK_cons_vf_flat(j, k, l, i) = q_cons_buff_recv(r)
                         end do
                     end do
                 end do
