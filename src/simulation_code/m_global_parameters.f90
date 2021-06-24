@@ -949,6 +949,7 @@ contains
         !! @param Rtmp is the  bubble radii
         !! @param ntmp is the output number bubble density
     subroutine s_comp_n_from_prim(vftmp, Rtmp, ntmp)
+        !$acc routine seq
 
         real(kind(0.d0)), intent(IN) :: vftmp
         real(kind(0.d0)), dimension(nb), intent(IN) :: Rtmp
@@ -964,7 +965,7 @@ contains
         !! @param func is the bubble dynamic variables for each bin
         !! @param mom is the computed moment
     subroutine s_quad(func, mom)
-        ! !$acc routine seq
+        !$acc routine seq
 
         real(kind(0.d0)), dimension(500), intent(IN) :: func
         real(kind(0.d0)), intent(OUT) :: mom

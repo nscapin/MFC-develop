@@ -129,6 +129,7 @@ contains
         do i = 1,nb
             bub_idx_rs(i) = bub_idx%rs(i)
         end do
+        !$acc update device(bub_idx_rs)
 
     end subroutine s_initialize_variables_conversion_module ! --------------
 

@@ -255,10 +255,17 @@ contains
             ! end do
 
             call nvtxStartRange("RHS-Riemann")
-            call s_hllc_riemann_solver( &
-                                  vR_vf_flat, vL_vf_flat, &
-                                  flux_vf_flat, &
-                                  flux_src_vf_flat )
+            if (bubbles) then
+                call s_hllc_riemann_solver_bubbles( &
+                                      vR_vf_flat, vL_vf_flat, &
+                                      flux_vf_flat, &
+                                      flux_src_vf_flat )
+            else
+                call s_hllc_riemann_solver( &
+                                      vR_vf_flat, vL_vf_flat, &
+                                      flux_vf_flat, &
+                                      flux_src_vf_flat )
+            end if
             call nvtxEndRange
 
             ! !$acc data copyout(flux_vf_flat)

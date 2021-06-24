@@ -374,6 +374,7 @@ contains
         !!  @param fV Current bubble velocity
         !!  @param fpb Internal bubble pressure
     function f_cpbw_KM(fR0, fR, fV, fpb)
+        !$acc routine seq
 
         real(kind(0d0)), intent(IN) :: fR0, fR, fV, fpb
         real(kind(0d0))             :: f_cpbw_KM
@@ -384,21 +385,11 @@ contains
                                               (2.d0/(Web*fR0))*((fR0/fR)**(3.d0*gam))
         else
             f_cpbw_KM = fpb
-            ! @ t = 0, by default this is = pb0 = pl0[1] + 2*ss/(R0ref * R) computed by s_init_nonpoly
         end if
 
-        ! PRINT*, 'surface tension component', (3.D0/(Web*fR0))*((fR0/fR)**(3.d0*gam))
-
         if (Web /= dflt_real) f_cpbw_KM = f_cpbw_KM - 2.d0/(fR*Web)
-
         if (Re_inv /= dflt_real) f_cpbw_KM = f_cpbw_KM - 4.d0*Re_inv*fV/fR
 
-        ! PRINT*, ((fR0/fR)**(3.d0*gam))*(3.D0/(Web*fR0))-3.D0/(fR*Web)
-        ! PRINT*, f_cpbw_KM
-
-        ! At t = 0, we have R0 = R
-        ! fcpbw = Ca - Ca + 1
-        ! Add surface tension: fcpbw = fcpbw + 2/(Web*fR0) - 2/(Web*fR)
 
     end function f_cpbw_KM
 
