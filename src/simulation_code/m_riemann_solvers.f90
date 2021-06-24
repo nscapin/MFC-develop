@@ -365,10 +365,10 @@ contains
 
         real(kind(0d0))                 ::       nbub_L,     nbub_R
         real(kind(0d0))                 ::     ptilde_L,   ptilde_R
-        real(kind(0d0)), dimension(500) ::         R0_L,       R0_R
-        real(kind(0d0)), dimension(500) ::         V0_L,       V0_R
-        real(kind(0d0)), dimension(500) ::        pbw_L,      pbw_R
-        real(kind(0d0)), dimension(500) ::       q_temp
+        real(kind(0d0)), dimension(11) ::         R0_L,       R0_R
+        real(kind(0d0)), dimension(11) ::         V0_L,       V0_R
+        real(kind(0d0)), dimension(11) ::        pbw_L,      pbw_R
+        real(kind(0d0)), dimension(11) ::       q_temp
 
         real(kind(0d0)) :: PbwR3Lbar, Pbwr3Rbar
         real(kind(0d0)) :: R3Lbar, R3Rbar
@@ -391,7 +391,7 @@ contains
         iyb = is2%beg; iye = is2%end
         izb = is3%beg; ize = is3%end
 
-        !$acc data present(qL_prim_rs_vf_flat, qR_prim_rs_vf_flat, qL_prim_vf, qR_prim_vf, flux_vf_flat, flux_src_vf_flat)
+        !$acc data present(qL_prim_rs_vf_flat, qR_prim_rs_vf_flat, qL_prim_vf, qR_prim_vf, flux_vf_flat, flux_src_vf_flat, R0, nb)
 
         !$acc parallel loop collapse(4) gang vector
         do l = izb, ize
@@ -461,162 +461,165 @@ contains
                         V0_R(i) = qR_prim_rs_vf_flat(j+1,k,l,bub_idx_rvs(i))
                     end do 
                 
-                    call s_comp_n_from_prim(alpha_L(num_fluids),R0_L,nbub_L)
-                    call s_comp_n_from_prim(alpha_R(num_fluids),R0_R,nbub_R)
+                    call s_comp_n_from_prim(alpha_L(num_fluids),R0_L(1:nb),nbub_L)
+                    call s_comp_n_from_prim(alpha_R(num_fluids),R0_R(1:nb),nbub_R)
                     
                     DO i = 1,nb
                         pbw_L(i) = f_cpbw_KM(R0(i),R0_L(i),V0_L(i),0d0)
                         pbw_R(i) = f_cpbw_KM(R0(i),R0_R(i),V0_R(i),0d0)
                     END DO
 
-                    ! R0_L = 0d0
-                    q_temp = pbw_L*(R0_L**3d0)
-                    CALL s_quad_acc(q_temp, PbwR3Lbar)
-                    q_temp = pbw_R*(R0_R**3d0)
-                    CALL s_quad(q_temp, PbwR3Rbar)
+                    q_temp(1:nb) = pbw_L(1:nb)*(R0_L(1:nb)**3d0)
+                    CALL s_quad_acc(q_temp(1:nb), PbwR3Lbar, nb)
+                    q_temp(1:nb) = pbw_R(1:nb)*(R0_R(1:nb)**3d0)
+                    CALL s_quad_acc(q_temp(1:nb), PbwR3Rbar, nb)
 
-                    ! CALL s_quad(R0_L**3.d0, R3Lbar)
-                    ! CALL s_quad(R0_R**3.d0, R3Rbar)
+                    q_temp(1:nb) = R0_L(1:nb)**3.d0
+                    CALL s_quad_acc(q_temp(1:nb), R3Lbar, nb)
+                    q_temp(1:nb) = R0_R(1:nb)**3.d0
+                    CALL s_quad_acc(q_temp(1:nb), R3Rbar, nb)
                 
-                    ! CALL s_quad((R0_L**3.d0)*(V0_L**2.d0), R3V2Lbar)
-                    ! CALL s_quad((R0_R**3.d0)*(V0_R**2.d0), R3V2Rbar)
+                    q_temp(1:nb) = (R0_L(1:nb)**3.d0)*(V0_L(1:nb)**2.d0)
+                    CALL s_quad_acc(q_temp(1:nb), R3V2Lbar, nb)
+                    q_temp(1:nb) = (R0_R(1:nb)**3.d0)*(V0_R(1:nb)**2.d0)
+                    CALL s_quad_acc(q_temp(1:nb), R3V2Rbar, nb)
 
-                    ! ptilde_L = alpha_L(num_fluids)*(pres_L - PbwR3Lbar/R3Lbar - & 
-                    !     rho_L*R3V2Lbar/R3Lbar )
-                    ! ptilde_R = alpha_R(num_fluids)*(pres_R - PbwR3Rbar/R3Rbar - & 
-                    !     rho_R*R3V2Rbar/R3Rbar )
+                    ptilde_L = alpha_L(num_fluids)*(pres_L - PbwR3Lbar/R3Lbar - & 
+                        rho_L*R3V2Lbar/R3Lbar )
+                    ptilde_R = alpha_R(num_fluids)*(pres_R - PbwR3Rbar/R3Rbar - & 
+                        rho_R*R3V2Rbar/R3Rbar )
                     
-                    ! ! Compute sound speeds
-                    ! c_L =   & 
-                    !         (1d0/gamma_L + 1d0) *   &
-                    !         (pres_L + pi_inf_L) /   &
-                    !         (rho_L*(1d0-alpha_L(num_fluids))) 
-                    ! c_R =   & 
-                    !         (1d0/gamma_R + 1d0) *   &
-                    !         (pres_R + pi_inf_R) /   &
-                    !         (rho_R*(1d0-alpha_R(num_fluids))) 
+                    ! Compute sound speeds
+                    c_L =   & 
+                            (1d0/gamma_L + 1d0) *   &
+                            (pres_L + pi_inf_L) /   &
+                            (rho_L*(1d0-alpha_L(num_fluids))) 
+                    c_R =   & 
+                            (1d0/gamma_R + 1d0) *   &
+                            (pres_R + pi_inf_R) /   &
+                            (rho_R*(1d0-alpha_R(num_fluids))) 
 
-                    ! if (mixture_err .and. c_L < 0d0) then
-                    !     c_L = 100.d0*sgm_eps
-                    ! else
-                    !     c_L = sqrt(c_L)
-                    ! end if
+                    if (mixture_err .and. c_L < 0d0) then
+                        c_L = 100.d0*sgm_eps
+                    else
+                        c_L = sqrt(c_L)
+                    end if
 
-                    ! if (mixture_err .and. c_R < 0d0) then
-                    !     c_R = 100.d0*sgm_eps
-                    ! else
-                    !     c_R = sqrt(c_R)
-                    ! end if
+                    if (mixture_err .and. c_R < 0d0) then
+                        c_R = 100.d0*sgm_eps
+                    else
+                        c_R = sqrt(c_R)
+                    end if
 
-                    ! ! Arithmetic Average Riemann Problem State 
-                    ! rho_avg = 5d-1*(rho_L + rho_R)
-                    ! vel_avg = 5d-1*(vel_L + vel_R)
-                    ! H_avg  = 5d-1*(H_L + H_R)
-                    ! gamma_avg = 5d-1*(gamma_L + gamma_R)
+                    ! Arithmetic Average Riemann Problem State 
+                    rho_avg = 5d-1*(rho_L + rho_R)
+                    vel_avg = 5d-1*(vel_L + vel_R)
+                    H_avg  = 5d-1*(H_L + H_R)
+                    gamma_avg = 5d-1*(gamma_L + gamma_R)
 
-                    ! if (mixture_err) then
-                    !     ! Should be sum(vel) in 2/3D but allocaiton issues..
-                    !     if ((H_avg - 5d-1*(vel_avg(1)**2d0)) < 0d0) then
-                    !         c_avg = sgm_eps
-                    !     else
-                    !         c_avg = sqrt((H_avg - 5d-1*(vel_avg(1)**2d0))/gamma_avg)
-                    !     end if
-                    ! else
-                    !     c_avg = sqrt((H_avg - 5d-1*(vel_avg(1)**2d0))/gamma_avg)
-                    ! end if
+                    if (mixture_err) then
+                        ! Should be sum(vel) in 2/3D but allocaiton issues..
+                        if ((H_avg - 5d-1*(vel_avg(1)**2d0)) < 0d0) then
+                            c_avg = sgm_eps
+                        else
+                            c_avg = sqrt((H_avg - 5d-1*(vel_avg(1)**2d0))/gamma_avg)
+                        end if
+                    else
+                        c_avg = sqrt((H_avg - 5d-1*(vel_avg(1)**2d0))/gamma_avg)
+                    end if
 
-                    ! ! Compute wavespeeds
-                    ! s_L = min(vel_L(dir_idx_acc(1)) - c_L, vel_R(dir_idx_acc(1)) - c_R)
-                    ! s_R = max(vel_R(dir_idx_acc(1)) + c_R, vel_L(dir_idx_acc(1)) + c_L)
+                    ! Compute wavespeeds
+                    s_L = min(vel_L(dir_idx_acc(1)) - c_L, vel_R(dir_idx_acc(1)) - c_R)
+                    s_R = max(vel_R(dir_idx_acc(1)) + c_R, vel_L(dir_idx_acc(1)) + c_L)
 
-                    ! s_S = (pres_R - pres_L + rho_L*vel_L(dir_idx_acc(1))* &
-                    !        (s_L - vel_L(dir_idx_acc(1))) - &
-                    !        rho_R*vel_R(dir_idx_acc(1))* &
-                    !        (s_R - vel_R(dir_idx_acc(1)))) &
-                    !       /(rho_L*(s_L - vel_L(dir_idx_acc(1))) - &
-                    !         rho_R*(s_R - vel_R(dir_idx_acc(1))))
+                    s_S = (pres_R - pres_L + rho_L*vel_L(dir_idx_acc(1))* &
+                           (s_L - vel_L(dir_idx_acc(1))) - &
+                           rho_R*vel_R(dir_idx_acc(1))* &
+                           (s_R - vel_R(dir_idx_acc(1)))) &
+                          /(rho_L*(s_L - vel_L(dir_idx_acc(1))) - &
+                            rho_R*(s_R - vel_R(dir_idx_acc(1))))
 
-                    ! s_M = min(0d0, s_L)
-                    ! s_P = max(0d0, s_R)
+                    s_M = min(0d0, s_L)
+                    s_P = max(0d0, s_R)
 
-                    ! xi_L = (s_L - vel_L(dir_idx_acc(1)))/(s_L - s_S)
-                    ! xi_R = (s_R - vel_R(dir_idx_acc(1)))/(s_R - s_S)
+                    xi_L = (s_L - vel_L(dir_idx_acc(1)))/(s_L - s_S)
+                    xi_R = (s_R - vel_R(dir_idx_acc(1)))/(s_R - s_S)
 
-                    ! xi_M = (5d-1 + sign(5d-1, s_S))
-                    ! xi_P = (5d-1 - sign(5d-1, s_S))
+                    xi_M = (5d-1 + sign(5d-1, s_S))
+                    xi_P = (5d-1 - sign(5d-1, s_S))
 
-                    ! do i = 1, cont_idx_e
-                    !     flux_vf_flat(j, k, l, i) = &
-                    !         xi_M*alpha_rho_L(i) &
-                    !         *(vel_L(dir_idx_acc(1)) + s_M*(xi_L - 1d0)) &
-                    !         + xi_P*alpha_rho_R(i) &
-                    !         *(vel_R(dir_idx_acc(1)) + s_P*(xi_R - 1d0))
-                    ! end do
+                    do i = 1, cont_idx_e
+                        flux_vf_flat(j, k, l, i) = &
+                            xi_M*alpha_rho_L(i) &
+                            *(vel_L(dir_idx_acc(1)) + s_M*(xi_L - 1d0)) &
+                            + xi_P*alpha_rho_R(i) &
+                            *(vel_R(dir_idx_acc(1)) + s_P*(xi_R - 1d0))
+                    end do
 
-                    ! ! Momentum flux.
-                    ! do i = 1, num_dims
-                    !     flux_vf_flat(j, k, l, cont_idx_e + dir_idx_acc(i)) = &
-                    !         xi_M*(rho_L*(vel_L(dir_idx_acc(1))* &
-                    !               vel_L(dir_idx_acc(i)) + &
-                    !               s_M*(xi_L*(dir_flg_acc(dir_idx_acc(i))*s_S + &
-                    !               (1d0 - dir_flg_acc(dir_idx_acc(i)))* &
-                    !               vel_L(dir_idx_acc(i))) - vel_L(dir_idx_acc(i)))) + &
-                    !               dir_flg_acc(dir_idx_acc(i))*(pres_L-ptilde_L)) &
-                    !       + xi_P*(rho_R*(vel_R(dir_idx_acc(1))* &
-                    !               vel_R(dir_idx_acc(i)) + &
-                    !               s_P*(xi_R*(dir_flg_acc(dir_idx_acc(i))*s_S + &
-                    !               (1d0 - dir_flg_acc(dir_idx_acc(i)))* &
-                    !               vel_R(dir_idx_acc(i))) - vel_R(dir_idx_acc(i)))) + &
-                    !               dir_flg_acc(dir_idx_acc(i))*(pres_R-ptilde_R))
-                    ! end do
+                    ! Momentum flux.
+                    do i = 1, num_dims
+                        flux_vf_flat(j, k, l, cont_idx_e + dir_idx_acc(i)) = &
+                            xi_M*(rho_L*(vel_L(dir_idx_acc(1))* &
+                                  vel_L(dir_idx_acc(i)) + &
+                                  s_M*(xi_L*(dir_flg_acc(dir_idx_acc(i))*s_S + &
+                                  (1d0 - dir_flg_acc(dir_idx_acc(i)))* &
+                                  vel_L(dir_idx_acc(i))) - vel_L(dir_idx_acc(i)))) + &
+                                  dir_flg_acc(dir_idx_acc(i))*(pres_L-ptilde_L)) &
+                          + xi_P*(rho_R*(vel_R(dir_idx_acc(1))* &
+                                  vel_R(dir_idx_acc(i)) + &
+                                  s_P*(xi_R*(dir_flg_acc(dir_idx_acc(i))*s_S + &
+                                  (1d0 - dir_flg_acc(dir_idx_acc(i)))* &
+                                  vel_R(dir_idx_acc(i))) - vel_R(dir_idx_acc(i)))) + &
+                                  dir_flg_acc(dir_idx_acc(i))*(pres_R-ptilde_R))
+                    end do
 
-                    ! flux_vf_flat(j, k, l, E_idx) = &
-                    !     xi_M*(vel_L(dir_idx_acc(1))*(E_L + pres_L) + &
-                    !          s_M*(xi_L*(E_L + (s_S - vel_L(dir_idx_acc(1)))* &
-                    !          (rho_L*s_S + pres_L/ &
-                    !          (s_L - vel_L(dir_idx_acc(1))))) - E_L)) &
-                    !   + xi_P*(vel_R(dir_idx_acc(1))*(E_R + pres_R) + &
-                    !          s_P*(xi_R*(E_R + (s_S - vel_R(dir_idx_acc(1)))* &
-                    !          (rho_R*s_S + pres_R/ &
-                    !          (s_R - vel_R(dir_idx_acc(1))))) - E_R))
+                    flux_vf_flat(j, k, l, E_idx) = &
+                        xi_M*(vel_L(dir_idx_acc(1))*(E_L + pres_L) + &
+                             s_M*(xi_L*(E_L + (s_S - vel_L(dir_idx_acc(1)))* &
+                             (rho_L*s_S + pres_L/ &
+                             (s_L - vel_L(dir_idx_acc(1))))) - E_L)) &
+                      + xi_P*(vel_R(dir_idx_acc(1))*(E_R + pres_R) + &
+                             s_P*(xi_R*(E_R + (s_S - vel_R(dir_idx_acc(1)))* &
+                             (rho_R*s_S + pres_R/ &
+                             (s_R - vel_R(dir_idx_acc(1))))) - E_R))
 
-                    ! ! Volume fraction flux
-                    ! do i = adv_idx_b, adv_idx_e
-                    !     flux_vf_flat(j, k, l, i) = &
-                    !         xi_M*qL_prim_rs_vf_flat(j, k, l, i) &
-                    !         *(vel_L(dir_idx_acc(1)) + s_M*(xi_L - 1d0)) &
-                    !         + xi_P*qR_prim_rs_vf_flat(j + 1, k, l, i) &
-                    !         *(vel_R(dir_idx_acc(1)) + s_P*(xi_R - 1d0))
-                    ! end do
+                    ! Volume fraction flux
+                    do i = adv_idx_b, adv_idx_e
+                        flux_vf_flat(j, k, l, i) = &
+                            xi_M*qL_prim_rs_vf_flat(j, k, l, i) &
+                            *(vel_L(dir_idx_acc(1)) + s_M*(xi_L - 1d0)) &
+                            + xi_P*qR_prim_rs_vf_flat(j + 1, k, l, i) &
+                            *(vel_R(dir_idx_acc(1)) + s_P*(xi_R - 1d0))
+                    end do
 
-                    ! ! Bubbles
-                    ! do i = bub_idx_b,bub_idx_e
-                    !     flux_vf_flat(j,k,l,i) =   &
-                    !         xi_M*nbub_L*qL_prim_rs_vf_flat(j,k,l,i) &
-                    !         * (vel_L(dir_idx_acc(1)) + s_M*(xi_L - 1d0)) &
-                    !         + xi_P*nbub_R*qR_prim_rs_vf_flat(j+1,k,l,i)  &
-                    !         * (vel_R(dir_idx_acc(1)) + s_P*(xi_R - 1d0))
-                    ! end do
+                    ! Bubbles
+                    do i = bub_idx_b,bub_idx_e
+                        flux_vf_flat(j,k,l,i) =   &
+                            xi_M*nbub_L*qL_prim_rs_vf_flat(j,k,l,i) &
+                            * (vel_L(dir_idx_acc(1)) + s_M*(xi_L - 1d0)) &
+                            + xi_P*nbub_R*qR_prim_rs_vf_flat(j+1,k,l,i)  &
+                            * (vel_R(dir_idx_acc(1)) + s_P*(xi_R - 1d0))
+                    end do
 
-                    ! ! Source for volume fraction advection equation
-                    ! do i = 1, num_dims
-                    !     ! This only works in 1D
-                    !     flux_src_vf_flat(j, k, l, adv_idx_b) = &
-                    !         xi_M*(vel_L(dir_idx_acc(i)) + &
-                    !               dir_flg_acc(dir_idx_acc(i))* &
-                    !               s_M*(xi_L - 1d0)) &
-                    !       + xi_P*(vel_R(dir_idx_acc(i)) + &
-                    !               dir_flg_acc(dir_idx_acc(i))* &
-                    !               s_P*(xi_R - 1d0))
-                    ! end do
+                    ! Source for volume fraction advection equation
+                    do i = 1, num_dims
+                        ! This only works in 1D
+                        flux_src_vf_flat(j, k, l, adv_idx_b) = &
+                            xi_M*(vel_L(dir_idx_acc(i)) + &
+                                  dir_flg_acc(dir_idx_acc(i))* &
+                                  s_M*(xi_L - 1d0)) &
+                          + xi_P*(vel_R(dir_idx_acc(i)) + &
+                                  dir_flg_acc(dir_idx_acc(i))* &
+                                  s_P*(xi_R - 1d0))
+                    end do
                 end do
             end do
         end do
         !$acc end parallel loop 
         !$acc end data
 
-        print*, 'done with Riemann'
-        call s_mpi_abort()
+        ! print*, 'done with Riemann'
+        ! call s_mpi_abort()
 
 
     end subroutine s_hllc_riemann_solver_bubbles
@@ -646,11 +649,12 @@ contains
     end subroutine s_convert_species_to_mixture_variables_acc_shb
 
 
-    subroutine s_quad_acc(func, mom)
+    subroutine s_quad_acc(func, mom, nb)
         !$acc routine seq
 
-        real(kind(0d0)), dimension(500), intent(in) :: func
+        real(kind(0d0)), dimension(nb), intent(in) :: func
         real(kind(0d0)), intent(out) :: mom
+        integer, intent(in) :: nb
         integer :: i
 
         mom = 0d0

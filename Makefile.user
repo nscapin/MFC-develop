@@ -15,12 +15,12 @@ FC = mpif90
 # PGI_TERM=trace
 # -Mbounds -Mchkptr -Mchkstk -traceback
 
-# FFLAGS = -cpp -c -w -O3
 #PGI_TERM=trace
-FFLAGS = -Minfo=accel -cpp -c -O0 -g -Mbounds -Mchkptr -Mchkstk -traceback -ta=tesla:debug,lineinfo
-
+FFLAGS = -cpp -c -w -O3
+# FFLAGS = -Minfo=accel -cpp -c -O0 -g -Mbounds -Mchkptr -Mchkstk -traceback
+# FFLAGS = -Minfo=accel -cpp -c -O0 -g -Mbounds -Mchkptr -Mchkstk -traceback -ta=tesla:debug
 # FFLAGS = -Minfo=accel -cpp -c -O0
-# -Mbounds -Mchkptr -Mchkstk -traceback
+
 
 # FFLAGS = -cpp -c -w -freal-4-real-8 -O0 -fallow-argument-mismatch -ffree-line-length-none
 # FFLAGS = -cpp -c -w -freal-4-real-8 -O0 -ffree-line-length-none

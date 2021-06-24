@@ -379,16 +379,16 @@ contains
         real(kind(0d0)), intent(IN) :: fR0, fR, fV, fpb
         real(kind(0d0))             :: f_cpbw_KM
 
-        if (polytropic) then
-            f_cpbw_KM = Ca*((fR0/fR)**(3.d0*gam)) - Ca + 1d0
-            if (Web /= dflt_real) f_cpbw_KM = f_cpbw_KM + &
-                                              (2.d0/(Web*fR0))*((fR0/fR)**(3.d0*gam))
-        else
-            f_cpbw_KM = fpb
-        end if
+        ! if (polytropic) then
+        f_cpbw_KM = Ca*((fR0/fR)**(3.d0*gam)) - Ca + 1d0
+            ! if (Web /= dflt_real) f_cpbw_KM = f_cpbw_KM + &
+            !                                   (2.d0/(Web*fR0))*((fR0/fR)**(3.d0*gam))
+        ! else
+        !     f_cpbw_KM = fpb
+        ! end if
 
-        if (Web /= dflt_real) f_cpbw_KM = f_cpbw_KM - 2.d0/(fR*Web)
-        if (Re_inv /= dflt_real) f_cpbw_KM = f_cpbw_KM - 4.d0*Re_inv*fV/fR
+        ! if (Web /= dflt_real) f_cpbw_KM = f_cpbw_KM - 2.d0/(fR*Web)
+        ! if (Re_inv /= dflt_real) f_cpbw_KM = f_cpbw_KM - 4.d0*Re_inv*fV/fR
 
 
     end function f_cpbw_KM
