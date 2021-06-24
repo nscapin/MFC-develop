@@ -58,9 +58,9 @@ module m_rhs
     real(kind(0d0)), private, allocatable, dimension(:) :: q_cons_buff_recv
     !$acc declare create( q_cons_buff_send, q_cons_buff_recv )
 
+    real(kind(0d0)), allocatable, dimension(:,:,:) :: divu
     real(kind(0d0)), allocatable, dimension(:,:,:) :: bub_adv_src
     real(kind(0d0)), allocatable, dimension(:,:,:,:) :: bub_r_src, bub_v_src, bub_p_src, bub_m_src
-
 
     integer, private :: err_code, ierr
 
@@ -131,6 +131,7 @@ contains
         allocate(q_cons_buff_recv(0:ubound(q_cons_buff_send, 1)))
 
         if (bubbles) then
+            allocate( divu(0:m,0:n,0:p) )
             allocate( bub_adv_src(0:m,0:n,0:p) )
             allocate( bub_r_src(1:nb,0:m,0:n,0:p) )
             allocate( bub_v_src(1:nb,0:m,0:n,0:p) )
@@ -190,7 +191,7 @@ contains
 
         ! print*, 'after flatten proc rank', proc_rank
 
-        !$acc data copyin(qK_cons_vf_flat) copyout(rhs_vf_flat,flux_vf_flat, vL_vf_flat, vR_vf_flat) create(qK_prim_vf_flat, flux_src_vf_flat, bub_adv_src, bub_r_src, bub_v_src, bub_p_src, bub_m_src)
+        !$acc data copyin(qK_cons_vf_flat) copyout(rhs_vf_flat,flux_vf_flat, vL_vf_flat, vR_vf_flat) create(qK_prim_vf_flat, flux_src_vf_flat, bub_adv_src, bub_r_src, bub_v_src, bub_p_src, bub_m_src, divu)
         do it_t = 1,t_step_stop
             call nvtxStartRange("Time step")
 
@@ -342,15 +343,15 @@ contains
 
 
             if (bubbles) then
-                CALL s_get_divergence(1,q_prim_vf,divu)
-                CALL s_compute_bubble_source(1,q_prim_vf,q_cons_vf,divu, &
-                        bub_adv_src, bub_r_src, bub_v_src, bub_p_src, bub_m_src)
-                
-                rhs_vf( alf_idx )%sf(:,:,:) = rhs_vf( alf_idx )%sf(:,:,:) + bub_adv_src(:,:,:)
-
-                do k = 1,nb
-                    rhs_vf(bub_idx%rs(k))%sf(:,:,:) = rhs_vf(bub_idx%rs(k))%sf(:,:,:) + bub_r_src(k,:,:,:)
-                    rhs_vf(bub_idx%vs(k))%sf(:,:,:) = rhs_vf(bub_idx%vs(k))%sf(:,:,:) + bub_v_src(k,:,:,:)
+                call s_get_divergence()
+                call s_compute_bubble_source(1, qK_prim_vf_flat, qK_cons_vf_flat, divu, &
+                                             bub_adv_src, bub_r_src, bub_v_src)
+                do k = 0, m
+                    rhs_vf_flat(k,0,0,alf_idx) = rhs_vf_flat(k,0,0,alf_idx) + bub_adv_src(k,0,0)
+                    do j = 1,nb
+                        rhs_vf_flat(k,0,0,bub_idx_rs(j)) = rhs_vf_flat(k,0,0,bub_idx_rs(j)) + bub_r_src(k,0,0,j)
+                        rhs_vf_flat(k,0,0,bub_idx_vs(j)) = rhs_vf_flat(k,0,0,bub_idx_vs(j)) + bub_v_src(k,0,0,j)
+                    end do
                 end do
             end if
         
@@ -424,6 +425,25 @@ contains
         end do
 
     end subroutine s_alt_rhs
+
+    subroutine s_get_divergence()
+
+        integer :: j,k,l
+        
+        !$acc data present(dx)
+        !$acc parallel loop collapse (3) gang vector 
+        do l = 0,p
+            do k = 0,n
+                do j = 0,m
+                    divu(j,k,l) = 0.5d0/dx(j)*(qK_prim_vf_flat(j+1, k, l,cont_idx_e+1) - &
+                                               qK_prim_vf_flat(j-1, k, l,cont_idx_e+1)) 
+                end do
+            end do
+        end do
+        !$acc end parallel loop
+        !$acc end data
+
+    end subroutine s_get_divergence
 
 
     subroutine s_populate_conservative_variables_buffers() 

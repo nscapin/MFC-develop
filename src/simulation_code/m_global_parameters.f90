@@ -104,6 +104,9 @@ module m_global_parameters
     real(kind(0d0)), dimension(10) :: gammas, pi_infs
     !$acc declare create (gammas, pi_infs)
 
+    integer, dimension(:), allocatable :: bub_idx_rs, bub_idx_vs
+    !$acc declare create(bub_idx_rs, bub_idx_vs)
+
 
     real(kind(0d0)) :: dt !< Size of the time-step
 
@@ -689,6 +692,15 @@ contains
             pi_infs(i) = fluid_pp(i)%pi_inf
         end do
         !$acc update device( gammas, pi_infs )
+
+        allocate(bub_idx_rs(1:nb))
+        allocate(bub_idx_vs(1:nb))
+
+        do i = 1,nb
+            bub_idx_rs(i) = bub_idx%rs(i)
+            bub_idx_vs(i) = bub_idx%vs(i)
+        end do
+        !$acc update device(bub_idx_rs,bub_idx_vs)
 
         ! Configuring Coordinate Direction Indexes =========================
         if (bubbles) then

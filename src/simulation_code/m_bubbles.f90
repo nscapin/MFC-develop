@@ -68,33 +68,29 @@ contains
     subroutine s_compute_bubble_source(idir, q_prim_vf, q_cons_vf, mydivu, &
                                        bub_adv_src, bub_r_src, bub_v_src, bub_p_src, bub_m_src)
 
-        type(scalar_field), dimension(sys_size), intent(IN) :: q_prim_vf, q_cons_vf
-        type(scalar_field), intent(IN) :: mydivu
+        real(kind(0d0)), dimension(-4:,0:,0:,1:) :: q_prim_vf, q_cons_vf
+        real(kind(0d0)), dimension(0:,0:,0:) :: mydivu
         integer, intent(IN) :: idir
 
         real(kind(0d0)), dimension(0:m, 0:n, 0:p), intent(INOUT) ::  bub_adv_src
-        real(kind(0d0)), dimension(1:nb, 0:m, 0:n, 0:p), intent(INOUT) ::  bub_r_src, &
-                                                                          bub_v_src, &
-                                                                          bub_p_src, &
-                                                                          bub_m_src
+        real(kind(0d0)), dimension(1:nb, 0:m, 0:n, 0:p), intent(INOUT) :: bub_r_src, &
+                                                                          bub_v_src
 
-        real(kind(0d0)), dimension(0:m, 0:n, 0:p) :: nbub !< Bubble number density
+        real(kind(0d0)), dimension(0:m, 0:n, 0:p) :: nbub
 
-        real(kind(0d0)) ::  tmp1, tmp2, tmp3, tmp4, &
+        real(kind(0d0)) :: tmp1, tmp2, tmp3, tmp4, &
                            c_gas, c_liquid, &
                            Cpbw, Cpinf, Cpinf_dot, &
                            myH, myHdot, rddot, alf_gas
 
-        real(kind(0d0))   :: pb, mv, vflux, pldot, pbdot
-
+        real(kind(0d0)) :: pb, mv, vflux, pldot, pbdot
         real(kind(0d0)) :: n_tait, B_tait
 
         real(kind(0d0)), dimension(nb)  :: Rtmp, Vtmp
-        real(kind(0d0))   :: myR, myV, alf, myP, myRho, R2Vav
+        real(kind(0d0)) :: myR, myV, alf, myP, myRho, R2Vav
 
-
-        integer :: j, k, l, q, s !< Loop variables
-        integer :: ndirs  !< Number of coordinate directions
+        integer :: j, k, l, q, s
+        integer :: ndirs
 
         ndirs = 1; if (n > 0) ndirs = 2; if (p > 0) ndirs = 3
 

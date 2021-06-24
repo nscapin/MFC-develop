@@ -36,8 +36,8 @@ module m_riemann_solvers
     real(kind(0d0)), dimension(3) :: dir_flg_acc
     !$acc declare create (dir_idx_acc, dir_flg_acc)
 
-    integer, dimension(:), allocatable :: bub_idx_rrs, bub_idx_rvs
-    !$acc declare create(bub_idx_rrs, bub_idx_rvs)
+    !integer, dimension(:), allocatable :: bub_idx_rrs, bub_idx_rvs
+    !!$acc declare create(bub_idx_rrs, bub_idx_rvs)
 
 contains
 
@@ -75,14 +75,14 @@ contains
         dir_flg_acc(3) = 0
         !$acc update device(dir_flg_acc,dir_idx_acc)
 
-        allocate(bub_idx_rrs(1:nb))
-        allocate(bub_idx_rvs(1:nb))
+        !allocate(bub_idx_rrs(1:nb))
+        !allocate(bub_idx_rvs(1:nb))
 
-        do i = 1,nb
-            bub_idx_rrs(i) = bub_idx%rs(i)
-            bub_idx_rvs(i) = bub_idx%vs(i)
-        end do
-        !$acc update device(bub_idx_rrs, bub_idx_rvs)
+        !do i = 1,nb
+        !    bub_idx_rrs(i) = bub_idx%rs(i)
+        !    bub_idx_rvs(i) = bub_idx%vs(i)
+        !end do
+        !!$acc update device(bub_idx_rrs, bub_idx_rvs)
 
     end subroutine s_initialize_riemann_solvers_module 
 
@@ -391,7 +391,7 @@ contains
         iyb = is2%beg; iye = is2%end
         izb = is3%beg; ize = is3%end
 
-        !$acc data present(qL_prim_rs_vf_flat, qR_prim_rs_vf_flat, qL_prim_vf, qR_prim_vf, flux_vf_flat, flux_src_vf_flat, R0, nb)
+        !$acc data present(qL_prim_rs_vf_flat, qR_prim_rs_vf_flat, qL_prim_vf, qR_prim_vf, flux_vf_flat, flux_src_vf_flat, R0, nb, bub_idx_rs, bub_idx_vs)
 
         !$acc parallel loop collapse(4) gang vector
         do l = izb, ize
@@ -455,10 +455,10 @@ contains
                     end do
 
                     do i = 1,nb
-                        R0_L(i) = qL_prim_rs_vf_flat(j  ,k,l,bub_idx_rrs(i))
-                        R0_R(i) = qR_prim_rs_vf_flat(j+1,k,l,bub_idx_rrs(i))
-                        V0_L(i) = qL_prim_rs_vf_flat(j  ,k,l,bub_idx_rvs(i))
-                        V0_R(i) = qR_prim_rs_vf_flat(j+1,k,l,bub_idx_rvs(i))
+                        R0_L(i) = qL_prim_rs_vf_flat(j  ,k,l,bub_idx_rs(i))
+                        R0_R(i) = qR_prim_rs_vf_flat(j+1,k,l,bub_idx_rs(i))
+                        V0_L(i) = qL_prim_rs_vf_flat(j  ,k,l,bub_idx_vs(i))
+                        V0_R(i) = qR_prim_rs_vf_flat(j+1,k,l,bub_idx_vs(i))
                     end do 
                 
                     call s_comp_n_from_prim(alpha_L(num_fluids),R0_L(1:nb),nbub_L)

@@ -68,8 +68,8 @@ module m_variables_conversion
          s_convert_primitive_to_flux_variables_bubbles, &
          s_finalize_variables_conversion_module
 
-    integer, dimension(:), allocatable :: bub_idx_rs
-    !$acc declare create(bub_idx_rs)
+    !integer, dimension(:), allocatable :: bub_idx_rs
+    !!$acc declare create(bub_idx_rs)
 
     abstract interface ! =======================================================
 
@@ -124,12 +124,12 @@ contains
                 s_convert_species_to_mixture_variables
         end if
 
-        allocate(bub_idx_rs(1:nb))
+        !allocate(bub_idx_rs(1:nb))
 
-        do i = 1,nb
-            bub_idx_rs(i) = bub_idx%rs(i)
-        end do
-        !$acc update device(bub_idx_rs)
+        !do i = 1,nb
+        !    bub_idx_rs(i) = bub_idx%rs(i)
+        !end do
+        !!$acc update device(bub_idx_rs)
 
     end subroutine s_initialize_variables_conversion_module ! --------------
 

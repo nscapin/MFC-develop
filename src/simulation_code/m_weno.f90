@@ -1,50 +1,3 @@
-!! This file only does 1D cases! Careful.
-!!
-!!
-!!
-!!
-!!       __  _______________
-!!      /  |/  / ____/ ____/
-!!     / /|_/ / /_  / /
-!!    / /  / / __/ / /___
-!!   /_/  /_/_/    \____/
-!!
-!!  This file is part of MFC.
-!!
-!!  MFC is the legal property of its developers, whose names
-!!  are listed in the copyright file included with this source
-!!  distribution.
-!!
-!!  MFC is free software: you can redistribute it and/or modify
-!!  it under the terms of the GNU General Public License as published
-!!  by the Free Software Foundation, either version 3 of the license
-!!  or any later version.
-!!
-!!  MFC is distributed in the hope that it will be useful,
-!!  but WITHOUT ANY WARRANTY; without even the implied warranty of
-!!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-!!  GNU General Public License for more details.
-!!
-!!  You should have received a copy of the GNU General Public License
-!!  along with MFC (LICENSE).
-!!  If not, see <http://www.gnu.org/licenses/>.
-
-!>
-!! @file m_weno.f90
-!! @brief Contains module m_weno
-!! @author S. Bryngelson, K. Schimdmayer, V. Coralic, J. Meng, K. Maeda, T. Colonius
-!! @version 1.0
-!! @date JUNE 06 2019
-
-!> @brief  Weighted essentially non-oscillatory (WENO) reconstruction scheme
-!!              that is supplemented with monotonicity preserving bounds (MPWENO)
-!!              and a mapping function that boosts the accuracy of the non-linear
-!!              weights (WENOM). MPWENO, see Balsara and Shu (2000), prevents the
-!!              reconstructed values to lay outside the range set by the stencil,
-!!              while WENOM, see Henrick et al. (2005), recovers the formal order
-!!              of accuracy of the reconstruction at critical points. Please note
-!!              that the basic WENO approach is implemented according to the work
-!!              of Jiang and Shu (1996).
 module m_weno
 
     ! Dependencies =============================================================
@@ -80,13 +33,6 @@ module m_weno
 
     real(kind(0d0)), target, allocatable, dimension(:, :, :) :: beta_coef
     !$acc declare create (beta_coef)
-
-    ! real(kind(0d0)), target, allocatable, dimension(:,:,:,:) :: v_flat
-    ! real(kind(0d0)), target, allocatable, dimension(:,:,:,:) :: vL_vf_flat, vR_vf_flat
-
-    ! These are variables that are only on GPU
-    ! real(kind(0d0)), target, allocatable, dimension(:,:,:,:,:) :: v_rs_wsL_flat
-    !!$acc declare create (v_rs_wsL_flat)
 
 contains
 
@@ -130,16 +76,6 @@ contains
         allocate (beta_coef(0:weno_polyn, &
                             0:2*(weno_polyn - 1), &
                             ix%beg:ix%end))
-
-
-        ! allocate(v_rs_wsL_flat( ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end, -weno_polyn:weno_polyn, 1:sys_size))
-
-        ! ixb_full = -buff_size; ixe_full = m + buff_size
-        ! print*, 'buff_size: ', buff_size
-
-        ! allocate(v_flat(ixb_full:ixe_full, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
-        ! allocate(vL_vf_flat(ixb_full:ixe_full, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
-        ! allocate(vR_vf_flat(ixb_full:ixe_full, iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
 
         call s_compute_weno_coefficients(ix)
 
