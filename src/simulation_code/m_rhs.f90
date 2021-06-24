@@ -58,6 +58,10 @@ module m_rhs
     real(kind(0d0)), private, allocatable, dimension(:) :: q_cons_buff_recv
     !$acc declare create( q_cons_buff_send, q_cons_buff_recv )
 
+    real(kind(0d0)), allocatable, dimension(:,:,:) :: bub_adv_src
+    real(kind(0d0)), allocatable, dimension(:,:,:,:) :: bub_r_src, bub_v_src, bub_p_src, bub_m_src
+
+
     integer, private :: err_code, ierr
 
 contains
@@ -123,8 +127,16 @@ contains
         allocate(rhs_vf_flat(is1%beg:is1%end,is2%beg:is2%end,is3%beg:is3%end,1:sys_size)  )
 
         ! For MPI send/recv, 1D only!
-        allocate (q_cons_buff_send(0:-1 + buff_size*sys_size))
-        allocate (q_cons_buff_recv(0:ubound(q_cons_buff_send, 1)))
+        allocate(q_cons_buff_send(0:-1 + buff_size*sys_size))
+        allocate(q_cons_buff_recv(0:ubound(q_cons_buff_send, 1)))
+
+        if (bubbles) then
+            allocate( bub_adv_src(0:m,0:n,0:p) )
+            allocate( bub_r_src(1:nb,0:m,0:n,0:p) )
+            allocate( bub_v_src(1:nb,0:m,0:n,0:p) )
+            allocate( bub_p_src(1:nb,0:m,0:n,0:p) )
+            allocate( bub_m_src(1:nb,0:m,0:n,0:p) )
+        end if
 
     end subroutine s_initialize_rhs_module ! -------------------------------
 
@@ -178,7 +190,7 @@ contains
 
         ! print*, 'after flatten proc rank', proc_rank
 
-        !$acc data copyin(qK_cons_vf_flat) copyout(rhs_vf_flat,flux_vf_flat, vL_vf_flat, vR_vf_flat) create(qK_prim_vf_flat, flux_src_vf_flat)
+        !$acc data copyin(qK_cons_vf_flat) copyout(rhs_vf_flat,flux_vf_flat, vL_vf_flat, vR_vf_flat) create(qK_prim_vf_flat, flux_src_vf_flat, bub_adv_src, bub_r_src, bub_v_src, bub_p_src, bub_m_src)
         do it_t = 1,t_step_stop
             call nvtxStartRange("Time step")
 
@@ -327,6 +339,20 @@ contains
             !$acc end parallel loop
             call nvtxEndRange
             !! !$acc wait
+
+
+            if (bubbles) then
+                CALL s_get_divergence(1,q_prim_vf,divu)
+                CALL s_compute_bubble_source(1,q_prim_vf,q_cons_vf,divu, &
+                        bub_adv_src, bub_r_src, bub_v_src, bub_p_src, bub_m_src)
+                
+                rhs_vf( alf_idx )%sf(:,:,:) = rhs_vf( alf_idx )%sf(:,:,:) + bub_adv_src(:,:,:)
+
+                do k = 1,nb
+                    rhs_vf(bub_idx%rs(k))%sf(:,:,:) = rhs_vf(bub_idx%rs(k))%sf(:,:,:) + bub_r_src(k,:,:,:)
+                    rhs_vf(bub_idx%vs(k))%sf(:,:,:) = rhs_vf(bub_idx%vs(k))%sf(:,:,:) + bub_v_src(k,:,:,:)
+                end do
+            end if
         
             call nvtxStartRange("RHS-Add RHS to Cons")
             !$acc parallel loop collapse (2) gang vector
