@@ -244,6 +244,7 @@ module m_global_parameters
 
 
 
+
     logical         :: bubbles      !< Bubbles on/off
     logical         :: polytropic   !< Polytropic  switch
     logical         :: polydisperse !< Polydisperse bubbles
@@ -273,6 +274,9 @@ module m_global_parameters
     real(kind(0d0)) :: gamma_m, gamma_n, mu_n
     real(kind(0d0)) :: gam
     !> @}
+
+    !$acc declare create( gam, polytropic, Ca, Web, Re_inv)
+
 
     !> @name Acoustic monopole parameters
     !> @{
@@ -575,6 +579,7 @@ contains
                         stop 'Invalid value of nb'
                     end if
                     !$acc update device( weight, R0, V0 ) 
+                    !$acc update device( nb, gam, polytropic, Ca, Web, Re_inv)
 
                     print *, 'R0 weights: ', weight(:)
                     print *, 'R0 abscissas: ', R0(:)
@@ -955,8 +960,13 @@ contains
         real(kind(0.d0)), dimension(nb), intent(IN) :: Rtmp
         real(kind(0.d0)), intent(OUT) :: ntmp
         real(kind(0.d0)) :: R3
+        integer :: i
 
-        call s_quad(Rtmp**3d0, R3)
+        ! call s_quad(Rtmp**3d0, R3)
+        R3 = 0d0
+        do i = 1,nb
+            R3 = R3 + weight(i)*(Rtmp(i)**3d0)
+        end do
         ntmp = (3.d0/(4.d0*pi))*vftmp/R3
 
     end subroutine s_comp_n_from_prim
@@ -967,8 +977,8 @@ contains
     subroutine s_quad(func, mom)
         !$acc routine seq
 
-        real(kind(0.d0)), dimension(500), intent(IN) :: func
-        real(kind(0.d0)), intent(OUT) :: mom
+        real(kind(0d0)), dimension(500), intent(in) :: func
+        real(kind(0d0)), intent(out) :: mom
         integer :: i
 
         mom = 0d0
