@@ -465,8 +465,8 @@ contains
                     call s_comp_n_from_prim(alpha_R(num_fluids),R0_R(1:nb),nbub_R)
                     
                     DO i = 1,nb
-                        pbw_L(i) = f_cpbw_KM(R0(i),R0_L(i),V0_L(i),0d0)
-                        pbw_R(i) = f_cpbw_KM(R0(i),R0_R(i),V0_R(i),0d0)
+                        pbw_L(i) = f_cpbw_KM(R0(i),R0_L(i),V0_L(i))
+                        pbw_R(i) = f_cpbw_KM(R0(i),R0_R(i),V0_R(i))
                     END DO
 
                     q_temp(1:nb) = pbw_L(1:nb)*(R0_L(1:nb)**3d0)

@@ -131,12 +131,9 @@ contains
         allocate(q_cons_buff_recv(0:ubound(q_cons_buff_send, 1)))
 
         if (bubbles) then
-            allocate( divu(0:m,0:n,0:p) )
             allocate( bub_adv_src(0:m,0:n,0:p) )
-            allocate( bub_r_src(1:nb,0:m,0:n,0:p) )
-            allocate( bub_v_src(1:nb,0:m,0:n,0:p) )
-            allocate( bub_p_src(1:nb,0:m,0:n,0:p) )
-            allocate( bub_m_src(1:nb,0:m,0:n,0:p) )
+            allocate( bub_r_src(0:m,0:n,0:p,1:nb) )
+            allocate( bub_v_src(0:m,0:n,0:p,1:nb) )
         end if
 
     end subroutine s_initialize_rhs_module ! -------------------------------
@@ -191,7 +188,7 @@ contains
 
         ! print*, 'after flatten proc rank', proc_rank
 
-        !$acc data copyin(qK_cons_vf_flat) copyout(rhs_vf_flat,flux_vf_flat, vL_vf_flat, vR_vf_flat) create(qK_prim_vf_flat, flux_src_vf_flat, bub_adv_src, bub_r_src, bub_v_src, bub_p_src, bub_m_src, divu)
+        !$acc data copyin(qK_cons_vf_flat) copyout(rhs_vf_flat,flux_vf_flat, vL_vf_flat, vR_vf_flat) create(qK_prim_vf_flat, flux_src_vf_flat, bub_adv_src, bub_r_src, bub_v_src)
         do it_t = 1,t_step_stop
             call nvtxStartRange("Time step")
 
@@ -343,9 +340,10 @@ contains
 
 
             if (bubbles) then
-                call s_get_divergence()
-                call s_compute_bubble_source(1, qK_prim_vf_flat, qK_cons_vf_flat, divu, &
+                ! call s_get_divergence()
+                call s_compute_bubble_source(qK_prim_vf_flat, qK_cons_vf_flat, &
                                              bub_adv_src, bub_r_src, bub_v_src)
+                !$acc parallel loop gang vector
                 do k = 0, m
                     rhs_vf_flat(k,0,0,alf_idx) = rhs_vf_flat(k,0,0,alf_idx) + bub_adv_src(k,0,0)
                     do j = 1,nb
@@ -353,6 +351,7 @@ contains
                         rhs_vf_flat(k,0,0,bub_idx_vs(j)) = rhs_vf_flat(k,0,0,bub_idx_vs(j)) + bub_v_src(k,0,0,j)
                     end do
                 end do
+                !$acc end parallel loop
             end if
         
             call nvtxStartRange("RHS-Add RHS to Cons")
@@ -426,24 +425,24 @@ contains
 
     end subroutine s_alt_rhs
 
-    subroutine s_get_divergence()
+    !subroutine s_get_divergence()
 
-        integer :: j,k,l
+    !    integer :: j,k,l
         
-        !$acc data present(dx)
-        !$acc parallel loop collapse (3) gang vector 
-        do l = 0,p
-            do k = 0,n
-                do j = 0,m
-                    divu(j,k,l) = 0.5d0/dx(j)*(qK_prim_vf_flat(j+1, k, l,cont_idx_e+1) - &
-                                               qK_prim_vf_flat(j-1, k, l,cont_idx_e+1)) 
-                end do
-            end do
-        end do
-        !$acc end parallel loop
-        !$acc end data
+    !    !$acc data present(dx)
+    !    !$acc parallel loop collapse (3) gang vector 
+    !    do l = 0,p
+    !        do k = 0,n
+    !            do j = 0,m
+    !                divu(j,k,l) = 0.5d0/dx(j)*(qK_prim_vf_flat(j+1, k, l,cont_idx_e+1) - &
+    !                                           qK_prim_vf_flat(j-1, k, l,cont_idx_e+1)) 
+    !            end do
+    !        end do
+    !    end do
+    !    !$acc end parallel loop
+    !    !$acc end data
 
-    end subroutine s_get_divergence
+    !end subroutine s_get_divergence
 
 
     subroutine s_populate_conservative_variables_buffers() 
