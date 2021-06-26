@@ -71,6 +71,8 @@ mpirun -n 1 ../../src/simulation_code/simulation
 # mpirun -n 2 nsys profile -o output-sys.prof_%q{OMPI_COMM_WORLD_RANK} --stats=true -t openacc,nvtx  --force-overwrite true ../../src/simulation_code/simulation
 # mpirun -n 1 nsys profile -o output-sys.prof --stats=true -t openacc,nvtx  --force-overwrite true ../../src/simulation_code/simulation
 
+# mpirun -n 1 nvprof --export-profile output.nvvp -f --analysis-metrics  ../../src/simulation_code/simulation
+
 
 # mpirun -n 1 ncu --launch-skip 2 --launch-count 15 --set full -o output-cu.prof -f   ../../src/simulation_code/simulation
 # mpirun -n 1 ncu --launch-skip 2 --launch-count 15 --set full -o output-cu.prof -f --nvtx  ../../src/simulation_code/simulation

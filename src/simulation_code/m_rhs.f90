@@ -341,8 +341,12 @@ contains
 
             if (bubbles) then
                 ! call s_get_divergence()
+                call nvtxStartRange("RHS-Compute bubble sources")
                 call s_compute_bubble_source(qK_prim_vf_flat, qK_cons_vf_flat, &
                                              bub_adv_src, bub_r_src, bub_v_src)
+                call nvtxEndRange
+
+                call nvtxStartRange("RHS-Add bubble sources to RHS")
                 !$acc parallel loop gang vector
                 do k = 0, m
                     rhs_vf_flat(k,0,0,alf_idx) = rhs_vf_flat(k,0,0,alf_idx) + bub_adv_src(k,0,0)
@@ -352,6 +356,7 @@ contains
                     end do
                 end do
                 !$acc end parallel loop
+                call nvtxEndRange
             end if
         
             call nvtxStartRange("RHS-Add RHS to Cons")

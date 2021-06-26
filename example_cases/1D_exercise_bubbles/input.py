@@ -54,7 +54,7 @@ nbubbles = 1
 myr0    = R0ref
 
 cfl     = 0.1
-Nx      = 100
+Nx      = 1000000
 Ldomain = 20.E-03
 L       = Ldomain/x0
 dx      = L/float(Nx)
@@ -215,10 +215,13 @@ case_dict =                                                                     
                     'bubble_model'          : 3,                  \
                     'polytropic'            : 'T',                  \
                     'polydisperse'          : 'F',                  \
-                    #'poly_sigma'            : 0.3,                  \
+                    # 'polydisperse'          : 'T',                  \
+                    # 'poly_sigma'            : 0.3,                  \
                     # 'thermal'               : 3,           \
                     'R0ref'                 : myr0,                 \
                     'nb'                    : 1,             \
+                    # 'nb'                    : 11,             \
+                    # 'R0_type'               : 1,                 \
                     # 'Ca'                    : Ca,                   \
                     # 'Web'                   : We,                   \
                     # 'Re_inv'                : Re_inv,               \

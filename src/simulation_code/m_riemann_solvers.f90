@@ -490,14 +490,14 @@ contains
                         rho_R*R3V2Rbar/R3Rbar )
                     
                     ! Compute sound speeds
-                    c_L =   & 
-                            (1d0/gamma_L + 1d0) *   &
-                            (pres_L + pi_inf_L) /   &
-                            (rho_L*(1d0-alpha_L(num_fluids))) 
-                    c_R =   & 
-                            (1d0/gamma_R + 1d0) *   &
-                            (pres_R + pi_inf_R) /   &
-                            (rho_R*(1d0-alpha_R(num_fluids))) 
+                    c_L =  & 
+                           (1d0/gamma_L + 1d0) *   &
+                           (pres_L + pi_inf_L) /   &
+                           (rho_L*(1d0-alpha_L(num_fluids))) 
+                    c_R =  & 
+                           (1d0/gamma_R + 1d0) *   &
+                           (pres_R + pi_inf_R) /   &
+                           (rho_R*(1d0-alpha_R(num_fluids))) 
 
                     if (mixture_err .and. c_L < 0d0) then
                         c_L = 100.d0*sgm_eps
