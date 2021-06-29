@@ -218,7 +218,7 @@ case_dict =                                                                     
                     # 'polydisperse'          : 'F',                  \
                     # 'nb'                    : 1,             \
                     'polydisperse'          : 'T',                  \
-                    'nb'                    : 11,             \
+                    'nb'                    : 9,             \
                     'R0_type'               : 1,                 \
                     'poly_sigma'            : 0.1,                  \
                     # 'Ca'                    : Ca,                   \

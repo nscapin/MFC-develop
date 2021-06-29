@@ -524,8 +524,8 @@ contains
                 !$acc end kernels
 
 
-                ! !$acc host_data use_device( q_cons_buff_recv, q_cons_buff_send )
-                !$acc update host(q_cons_buff_send)
+                ! !$acc update host(q_cons_buff_send)
+                !$acc host_data use_device( q_cons_buff_recv, q_cons_buff_send )
                 call MPI_SENDRECV( &
                     q_cons_buff_send(0), &
                     buff_size*sys_size, &
@@ -534,10 +534,9 @@ contains
                     buff_size*sys_size, &
                     MPI_DOUBLE_PRECISION, bc_xb, 0, &
                     MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
-                !$acc update device(q_cons_buff_recv)
-
-                ! !$acc end host_data
-                ! !$acc wait
+                !$acc end host_data
+                !$acc wait
+                ! !$acc update device(q_cons_buff_recv)
             else
                 ! PBC at the beginning only
 
@@ -558,8 +557,8 @@ contains
 
 
                 ! Send/receive buffer to/from bc_x%beg/bc_x%beg
-                ! !$acc host_data use_device( q_cons_buff_send, q_cons_buff_recv )
-                !$acc update host(q_cons_buff_send)
+                ! !$acc update host(q_cons_buff_send)
+                !$acc host_data use_device( q_cons_buff_send, q_cons_buff_recv )
                 call MPI_SENDRECV( &
                     q_cons_buff_send(0), &
                     buff_size*sys_size, &
@@ -568,9 +567,9 @@ contains
                     buff_size*sys_size, &
                     MPI_DOUBLE_PRECISION, bc_xb, 0, &
                     MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
-                !$acc update device(q_cons_buff_recv)
-                ! !$acc end host_data
-                ! !$acc wait
+                !$acc end host_data
+                !$acc wait
+                ! !$acc update device(q_cons_buff_recv)
             end if
 
             ! Unpacking buffer received from bc_x%beg
@@ -610,9 +609,8 @@ contains
                 !$acc end kernels
 
                 ! Send/receive buffer to/from bc_x%beg/bc_x%end
-                ! !$acc host_data use_device( q_cons_buff_send, q_cons_buff_recv )
-
-                !$acc update host(q_cons_buff_send)
+                ! !$acc update host(q_cons_buff_send)
+                !$acc host_data use_device( q_cons_buff_send, q_cons_buff_recv )
                 call MPI_SENDRECV( &
                     q_cons_buff_send(0), &
                     buff_size*sys_size, &
@@ -621,10 +619,9 @@ contains
                     buff_size*sys_size, &
                     MPI_DOUBLE_PRECISION, bc_xe, 1, &
                     MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
+                !$acc end host_data
+                !$acc wait
                 ! !$acc update device(q_cons_buff_recv)
-
-                ! !$acc end host_data
-                ! !$acc wait
 
             else
                 ! PBC at the end only
@@ -646,9 +643,8 @@ contains
 
                 ! Send/receive buffer to/from bc_x%end/bc_x%end
 
-                !!$acc host_data use_device( q_cons_buff_send, q_cons_buff_recv )
-
-                !$acc update host(q_cons_buff_send)
+                ! !$acc update host(q_cons_buff_send)
+                !$acc host_data use_device( q_cons_buff_send, q_cons_buff_recv )
                 call MPI_SENDRECV( &
                     q_cons_buff_send(0), &
                     buff_size*sys_size*(n + 1)*(p + 1), &
@@ -657,11 +653,9 @@ contains
                     buff_size*sys_size*(n + 1)*(p + 1), &
                     MPI_DOUBLE_PRECISION, bc_xe, 1, &
                     MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
-                !$acc update device(q_cons_buff_recv)
-
-                ! !$acc end host_data
-                ! !$acc wait
-
+                !$acc end host_data
+                !$acc wait
+                ! !$acc update device(q_cons_buff_recv)
 
             end if
 

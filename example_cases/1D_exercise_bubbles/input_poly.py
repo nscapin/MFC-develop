@@ -54,7 +54,7 @@ nbubbles = 1
 myr0    = R0ref
 
 cfl     = 0.1
-Nx      = 1000000
+Nx      = XXNX
 Ldomain = 20.E-03
 L       = Ldomain/x0
 dx      = L/float(Nx)
@@ -218,7 +218,7 @@ case_dict =                                                                     
                     # 'polydisperse'          : 'F',                  \
                     # 'nb'                    : 1,             \
                     'polydisperse'          : 'T',                  \
-                    'nb'                    : 11,             \
+                    'nb'                    : XXNB,             \
                     'R0_type'               : 1,                 \
                     'poly_sigma'            : 0.1,                  \
                     # 'Ca'                    : Ca,                   \

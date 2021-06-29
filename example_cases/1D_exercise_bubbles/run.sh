@@ -60,7 +60,7 @@ nvidia-cuda-mps-server
 # jsrun -r1 -a1 -c1 -g1 nsys profile -o output-sys.prof --stats=true -t openacc,nvtx  --force-overwrite true ../../src/simulation_code/simulation
 
 mpirun -n 1 ../../src/pre_process_code/pre_process
-mpirun -n 1 ../../src/simulation_code/simulation
+# mpirun -n 1 ../../src/simulation_code/simulation
 
 # mpirun -n 2 ../../src/pre_process_code/pre_process
 # mpirun -n 2 ../../src/simulation_code/simulation
@@ -69,7 +69,7 @@ mpirun -n 1 ../../src/simulation_code/simulation
 # mpirun -n 4 ../../src/simulation_code/simulation
 
 # mpirun -n 2 nsys profile -o output-sys.prof_%q{OMPI_COMM_WORLD_RANK} --stats=true -t openacc,nvtx  --force-overwrite true ../../src/simulation_code/simulation
-# mpirun -n 1 nsys profile -o output-sys.prof --stats=true -t openacc,nvtx  --force-overwrite true ../../src/simulation_code/simulation
+mpirun -n 1 nsys profile -o output-sys.prof --stats=true -t openacc,nvtx  --force-overwrite true ../../src/simulation_code/simulation
 
 # mpirun -n 1 nvprof --export-profile output.nvvp -f --analysis-metrics  ../../src/simulation_code/simulation
 
