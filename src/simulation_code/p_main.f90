@@ -81,11 +81,19 @@ program p_main
     ! implicit none
 
     integer :: t_step !< Iterator for the time-stepping loop
+    integer :: num_devices
 
     call system_clock(COUNT=cpu_start, COUNT_RATE=cpu_rate)
 
     ! Initializing MPI execution environment
     call s_mpi_initialize()
+
+    num_devices = acc_get_num_devices(acc_device_default)
+    my_device_num = floor(proc_rank * num_devices / (1d0*num_procs))
+    call acc_set_device_num(my_device_num,acc_device_default)
+
+    if (proc_rank == 0) print*, 'Number of GPUs', num_devices
+    print*, 'rank,device', proc_rank, my_device_num
 
     ! The rank 0 processor assigns default values to the user inputs prior to
     ! reading them in from the input file. Next, the user inputs are read and
@@ -96,6 +104,7 @@ program p_main
         call s_read_input_file()
         call s_check_input_file()
     end if
+
 
 
     ! Broadcasting the user inputs to all of the processors and performing the
