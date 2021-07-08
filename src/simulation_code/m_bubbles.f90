@@ -51,29 +51,29 @@ module m_bubbles
 contains
 
     subroutine s_compute_bubble_source(q_prim_vf, q_cons_vf, &
-                                       bub_adv_src, bub_r_src, bub_v_src)
+                                       bub_adv_src, bub_r_src, bub_v_src, nb)
 
         real(kind(0d0)), dimension(-4:,0:,0:,1:) :: q_prim_vf, q_cons_vf
 
         real(kind(0d0)), dimension(0:,0:,0:),    intent(INOUT) ::  bub_adv_src
         real(kind(0d0)), dimension(0:,0:,0:,1:), intent(INOUT) :: bub_r_src, bub_v_src
+        integer, intent(in) :: nb
 
         real(kind(0d0)) :: c_liquid, Cpbw, Cpinf, rddot
         real(kind(0d0)) :: n_tait, B_tait
         real(kind(0d0)) :: nbub
 
-        real(kind(0d0)), dimension(nb)  :: Rtmp, Vtmp, q_temp
+        real(kind(0d0)), dimension(nb)  :: Rtmp, Vtmp, qq_temp
         real(kind(0d0)) :: myR, myV, alf, myP, myRho, R2Vav
 
         integer :: j, k, l, q
 
-        ! call s_convert_to_mixture_variables(q_cons_vf, myRho, n_tait, B_tait, j, k, l)
         n_tait = gammas(1)
         B_tait = pi_infs(1)
         n_tait = 1.d0/n_tait + 1.d0
 
         !$acc data present(q_prim_vf, q_cons_vf, bub_idx_rs, bub_idx_vs, bub_adv_src, bub_r_src, bub_v_src) 
-        !$acc parallel loop collapse(3) gang vector private(Rtmp, Vtmp, q_temp)
+        !$acc parallel loop collapse(3) gang vector private(Rtmp, Vtmp, qq_temp)
         do l = 0, p
             do k = 0, n
                 do j = 0, m
@@ -81,12 +81,12 @@ contains
                     do q = 1, nb
                         Rtmp(q) = q_prim_vf(j, k, l, bub_idx_rs(q))
                         Vtmp(q) = q_prim_vf(j, k, l, bub_idx_vs(q))
+                        qq_temp(q) = (Rtmp(q)**2d0)*Vtmp(q)
                     end do
 
                     call s_comp_n_from_prim(q_prim_vf(j, k, l, alf_idx), Rtmp, nbub)
 
-                    q_temp = (Rtmp**2d0)*Vtmp
-                    call s_quad(q_temp, R2Vav)
+                    call s_quad_bub(qq_temp, R2Vav)
                     bub_adv_src(j, k, l) = 4.d0*pi*nbub*R2Vav
 
                     do q = 1, nb
@@ -98,25 +98,9 @@ contains
                         myR   = q_prim_vf(j, k, l, bub_idx_rs(q))
                         myV   = q_prim_vf(j, k, l, bub_idx_vs(q))
 
-                        ! if (bubble_model == 2) then
-                        !     ! Keller-Miksis bubbles
-                        !     Cpinf = myP
-                        !     Cpbw = f_cpbw_KM(R0(q), myR, myV, pb)
-                        !     c_liquid = sqrt(n_tait*(myP + B_tait)/(myRho*(1.d0 - alf)))
-                        !     rddot = f_rddot_KM(pbdot, Cpinf, Cpbw, myRho, myR, myV, R0(q), c_liquid)
-                        ! else if (bubble_model == 3) then
-                            ! Rayleigh-Plesset bubbles
                         Cpbw = f_cpbw_KM(R0(q), myR, myV)
                         rddot = f_rddot_RP(myP, myRho, myR, myV, R0(q), Cpbw)
-                        ! end if
-
                         bub_v_src(j, k, l, q) = nbub*rddot
-
-                        ! if (alf < 1.d-11) then
-                        !     bub_adv_src(j, k, l) = 0d0
-                        !     bub_r_src(q, j, k, l) = 0d0
-                        !     bub_v_src(q, j, k, l) = 0d0
-                        ! end if
                     end do
                 end do
             end do
@@ -184,5 +168,18 @@ contains
 
     end function f_rddot_KM
 
+    subroutine s_quad_bub(func, mom)
+        !$acc routine seq
+
+        real(kind(0d0)), dimension(nb), intent(in) :: func
+        real(kind(0d0)), intent(out) :: mom
+        integer :: i
+
+        mom = 0d0
+        do i = 1,nb
+            mom = mom + weight(i)*func(i)
+        end do
+
+    end subroutine s_quad_bub
 
 end module m_bubbles

@@ -1,0 +1,4 @@
+* this case now seems to be randomly working and not working
+* If you use O0 it works, if you use O3 it doesn't (for any configuration)
+* 40 ranks on 1 node is faster than 40 ranks on 2 (by about a factor of 2)
+

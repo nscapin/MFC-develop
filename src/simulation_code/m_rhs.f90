@@ -188,7 +188,7 @@ contains
 
         ! print*, 'after flatten proc rank', proc_rank
 
-        !$acc data copyin(qK_cons_vf_flat) copyout(rhs_vf_flat,flux_vf_flat, vL_vf_flat, vR_vf_flat) create(qK_prim_vf_flat, flux_src_vf_flat, bub_adv_src, bub_r_src, bub_v_src)
+        !$acc data copyin(qK_cons_vf_flat) create(qK_prim_vf_flat, flux_src_vf_flat, bub_adv_src, bub_r_src, bub_v_src, rhs_vf_flat,flux_vf_flat, vL_vf_flat, vR_vf_flat)
         do it_t = 1,t_step_stop
             call nvtxStartRange("Time step")
 
@@ -343,10 +343,10 @@ contains
                 ! call s_get_divergence()
                 call nvtxStartRange("RHS-Compute bubble sources")
                 call s_compute_bubble_source(qK_prim_vf_flat, qK_cons_vf_flat, &
-                                             bub_adv_src, bub_r_src, bub_v_src)
+                                             bub_adv_src, bub_r_src, bub_v_src, nb)
                 call nvtxEndRange
 
-                call nvtxStartRange("RHS-Add bubble sources to RHS")
+                 call nvtxStartRange("RHS-Add bubble sources to RHS")
                 !$acc parallel loop gang vector
                 do k = 0, m
                     rhs_vf_flat(k,0,0,alf_idx) = rhs_vf_flat(k,0,0,alf_idx) + bub_adv_src(k,0,0)
@@ -356,8 +356,10 @@ contains
                     end do
                 end do
                 !$acc end parallel loop
-                call nvtxEndRange
+                 call nvtxEndRange
             end if
+
+
         
             call nvtxStartRange("RHS-Add RHS to Cons")
             !$acc parallel loop collapse (2) gang vector
@@ -621,7 +623,7 @@ contains
                     buff_size*sys_size, &
                     MPI_DOUBLE_PRECISION, bc_xe, 1, &
                     MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr)
-                ! !$acc update device(q_cons_buff_recv)
+                !$acc update device(q_cons_buff_recv)
 
                 ! !$acc end host_data
                 ! !$acc wait

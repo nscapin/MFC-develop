@@ -81,19 +81,19 @@ program p_main
     ! implicit none
 
     integer :: t_step !< Iterator for the time-stepping loop
-    integer :: num_devices
+    integer :: num_devices, num_nodes, ppn, my_device_num
 
     call system_clock(COUNT=cpu_start, COUNT_RATE=cpu_rate)
 
     ! Initializing MPI execution environment
     call s_mpi_initialize()
 
-    num_devices = acc_get_num_devices(acc_device_default)
-    my_device_num = floor(proc_rank * num_devices / (1d0*num_procs))
-    call acc_set_device_num(my_device_num,acc_device_default)
-
-    if (proc_rank == 0) print*, 'Number of GPUs', num_devices
-    print*, 'rank,device', proc_rank, my_device_num
+    ! num_nodes = 2
+    ! num_devices = acc_get_num_devices(acc_device_default)
+    ! ppn =  num_procs / num_nodes
+    ! my_device_num = floor(mod(proc_rank,ppn) * num_devices / (1d0*ppn))
+    ! call acc_set_device_num(my_device_num,acc_device_default)
+    ! print*, 'rank, device', proc_rank, my_device_num, acc_get_device_num(acc_device_default)
 
     ! The rank 0 processor assigns default values to the user inputs prior to
     ! reading them in from the input file. Next, the user inputs are read and

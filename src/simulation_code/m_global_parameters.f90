@@ -582,10 +582,12 @@ contains
                         stop 'Invalid value of nb'
                     end if
                     !$acc update device( weight, R0, V0 ) 
-                    !$acc update device( nb, gam, polytropic, Ca, Web, Re_inv)
-
-                    print *, 'R0 weights: ', weight(:)
-                    print *, 'R0 abscissas: ', R0(:)
+                    ! !$acc update device( nb, gam, polytropic, Ca, Web, Re_inv)
+    
+                    if (proc_rank == 0) then
+                        print *, 'R0 weights: ', weight(:)
+                        print *, 'R0 abscissas: ', R0(:)
+                    end if
 
                     if (.not. polytropic) then
                         call s_initialize_nonpoly
@@ -693,6 +695,7 @@ contains
         end do
         !$acc update device( gammas, pi_infs )
 
+        print*, 'nb before allocate = ', nb
         allocate(bub_idx_rs(1:nb))
         allocate(bub_idx_vs(1:nb))
 
@@ -700,7 +703,7 @@ contains
             bub_idx_rs(i) = bub_idx%rs(i)
             bub_idx_vs(i) = bub_idx%vs(i)
         end do
-        !$acc update device(bub_idx_rs,bub_idx_vs)
+        !$acc update device(bub_idx_rs, bub_idx_vs)
 
         ! Configuring Coordinate Direction Indexes =========================
         if (bubbles) then
