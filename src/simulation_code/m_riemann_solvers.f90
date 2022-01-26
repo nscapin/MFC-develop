@@ -281,6 +281,7 @@ module m_riemann_solvers
     real(kind(0d0))                              ::         c_L, c_R
     real(kind(0d0)), dimension(2)   ::        Re_L, Re_R
     real(kind(0d0)), allocatable, dimension(:)   ::     tau_e_L, tau_e_R
+    real(kind(0d0)), allocatable, dimension(:)   :: G_L, G_R
 
 !$acc declare create(alpha_rho_L, alpha_rho_R,rho_L, rho_R,vel_L, vel_R,pres_L, pres_R, &
 !$acc    E_L, E_R, H_L, H_R, alpha_L, alpha_R, Y_L, Y_R, gamma_L, gamma_R,pi_inf_L, pi_inf_R, &
