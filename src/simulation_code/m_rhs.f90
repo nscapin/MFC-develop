@@ -174,8 +174,9 @@ module m_rhs
     real(kind(0d0)) :: advxb, advxe
 
     real(kind(0d0)) :: bubxb, bubxe
-    real(kind(0d0)),allocatable, dimension(:) :: gammas, pi_infs
-!$acc declare create(gammas, pi_infs)
+    real(kind(0d0)) :: strxb, strxe
+    real(kind(0d0)),allocatable, dimension(:) :: gammas, pi_infs, Gs
+!$acc declare create(gammas, pi_infs, Gs)
 
 
     character(50) :: file_path !< Local file path for saving debug files
@@ -185,7 +186,7 @@ module m_rhs
 !$acc   dqL_prim_dz_n,dqR_prim_dx_n,dqR_prim_dy_n,dqR_prim_dz_n,gm_alpha_qp,       &
 !$acc   gm_alphaL_n,gm_alphaR_n,flux_n,flux_src_n,flux_gsrc_n,       &
 !$acc   tau_Re_vf,iv,ix, iy, iz,bub_adv_src,bub_r_src,bub_v_src, bub_p_src, bub_m_src, &
-!$acc   bub_mom_src, mono_mass_src, mono_e_src,mono_mom_src, myflux_vf, myflux_src_vf,alf_sum, momxb, momxe, contxb, contxe, advxb, advxe, bubxb, bubxe, &
+!$acc   bub_mom_src, mono_mass_src, mono_e_src,mono_mom_src, myflux_vf, myflux_src_vf,alf_sum, momxb, momxe, contxb, contxe, advxb, advxe, bubxb, bubxe, strxb, strxe, &
 !$acc   blkmod1, blkmod2, alpha1, alpha2, Kterm, divu, qL_rsx_vf_flat, qL_rsy_vf_flat, qL_rsz_vf_flat, qR_rsx_vf_flat, qR_rsy_vf_flat, qR_rsz_vf_flat)
 
 
@@ -767,13 +768,14 @@ contains
           allocate(blkmod1(0:m, 0:n, 0:p), blkmod2(0:m, 0:n, 0:p), alpha1(0:m, 0:n, 0:p), alpha2(0:m, 0:n, 0:p), Kterm(0:m, 0:n, 0:p))
         end if 
 
-        allocate(gammas(1:num_fluids), pi_infs(1:num_fluids))
+        allocate(gammas(1:num_fluids), pi_infs(1:num_fluids), Gs(1:num_fluids))
 
         do i = 1, num_fluids
             gammas(i) = fluid_pp(i)%gamma
             pi_infs(i) = fluid_pp(i)%pi_inf
+            Gs(i) = fluid_pp(i)%G
         end do
-!$acc update device(gammas, pi_infs)
+!$acc update device(gammas, pi_infs, Gs)
 
 
         momxb = mom_idx%beg
@@ -784,7 +786,9 @@ contains
         contxe = cont_idx%end
         bubxb = bub_idx%beg
         bubxe = bub_idx%end
-!$acc update device(momxb, momxe, advxb, advxe, contxb, contxe, bubxb, bubxe, sys_size, buff_size, E_idx, alf_idx)
+        strxb = stress_idx%beg
+        strxe = stress_idx%end
+!$acc update device(momxb, momxe, advxb, advxe, contxb, contxe, bubxb, bubxe, sys_size, buff_size, E_idx, alf_idx,strxb,strxe)
         ! Associating procedural pointer to the subroutine that will be
         ! utilized to calculate the solution of a given Riemann problem
         if (riemann_solver == 1) then

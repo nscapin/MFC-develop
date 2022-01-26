@@ -111,7 +111,7 @@ module m_global_parameters
 
     integer         :: cpu_start, cpu_end, cpu_rate
 
-!$acc declare create(weno_polyn, mpp_lim, num_fluids, model_eqns, num_dims, mixture_err, alt_soundspeed, avg_state, mapped_weno, mp_weno, weno_eps)
+!$acc declare create(weno_polyn, mpp_lim, num_fluids, model_eqns, num_dims, mixture_err, alt_soundspeed, avg_state, mapped_weno, mp_weno, weno_eps, hypoelasticity)
 
     !> @name Boundary conditions (BC) in the x-, y- and z-directions, respectively
     !> @{
@@ -174,7 +174,7 @@ module m_global_parameters
     real(kind(0d0)), dimension(3) :: dir_flg
     integer, dimension(3) :: dir_idx_tau !!used for hypoelasticity=true
     !> @}
-!$acc declare create(dir_idx, dir_flg)
+!$acc declare create(dir_idx, dir_flg, dir_idx_tau)
 
     integer :: buff_size !<
     !! The number of cells that are necessary to be able to store enough boundary
@@ -183,7 +183,7 @@ module m_global_parameters
 
     integer :: startx, starty, startz
 
-!$acc declare create(sys_size, buff_size, startx, starty, startz, E_idx, gamma_idx, pi_inf_idx, alf_idx)
+!$acc declare create(sys_size, buff_size, startx, starty, startz, E_idx, gamma_idx, pi_inf_idx, alf_idx, stress_idx)
 
     ! END: Simulation Algorithm Parameters =====================================
 

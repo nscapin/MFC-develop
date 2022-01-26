@@ -422,11 +422,12 @@ module m_riemann_solvers
     real(kind(0d0)) :: advxb, advxe
     real(kind(0d0)) :: bubxb, bubxe
     real(kind(0d0)) :: intxb, intxe
+    real(kind(0d0)) :: strxb, strxe
 
-!$acc declare create(momxb, momxe, contxb, contxe, advxb, advxe, bubxb, bubxe, intxb, intxe)
+!$acc declare create(momxb, momxe, contxb, contxe, advxb, advxe, bubxb, bubxe, intxb, intxe, strxb, strxe)
 
-    real(kind(0d0)),allocatable, dimension(:) :: gammas, pi_infs
-!$acc declare create(gammas, pi_infs)
+    real(kind(0d0)),allocatable, dimension(:) :: gammas, pi_infs, Gs
+!$acc declare create(gammas, pi_infs, Gs)
     
 contains
 
@@ -475,8 +476,8 @@ contains
         real(kind(0d0))                              ::     gamma_L_acc, gamma_R_acc
         real(kind(0d0))                              ::    pi_inf_L_acc, pi_inf_R_acc
         real(kind(0d0))                              ::         c_L_acc, c_R_acc
-        real(kind(0d0)), dimension(:)                :: tau_e_L_acc, tau_e_R_acc
-        real(kind(0d0))                              :: G_L, G_R
+        real(kind(0d0)), dimension(6)                :: tau_e_L_acc, tau_e_R_acc !TODO: dimension for 2,3D
+        real(kind(0d0))                              :: G_L_acc, G_R_acc
 
         real(kind(0d0))                                 :: rho_avg_acc
         real(kind(0d0)),dimension(3)   :: vel_avg_acc
@@ -515,7 +516,7 @@ contains
                                          flux_gsrc_vf, &
                                              norm_dir, ix, iy, iz)
             if(norm_dir == 1) then
-    !$acc parallel loop collapse(3) gang vector default(present) private(alpha_rho_L_acc, alpha_rho_R_acc, vel_L_acc, vel_R_acc, alpha_L_acc, alpha_R_acc, vel_avg_acc)        
+    !$acc parallel loop collapse(3) gang vector default(present) private(alpha_rho_L_acc, alpha_rho_R_acc, vel_L_acc, vel_R_acc, alpha_L_acc, alpha_R_acc, vel_avg_acc, G_L_acc, G_R_acc)        
                 do l = is3%beg, is3%end
                     do k = is2%beg, is2%end
                         do j = is1%beg, is1%end
@@ -579,6 +580,30 @@ contains
 
                             H_L_acc = (E_L_acc + pres_L_acc)/rho_L_acc
                             H_R_acc = (E_R_acc + pres_R_acc)/rho_R_acc
+
+                            if (hypoelasticity) then
+    !$acc loop seq
+                                do i = 1, (num_dims*(num_dims+1)) / 2
+                                    tau_e_L_acc(i) = qL_prim_rsx_vf_flat(j, k, l, strxb-1+i)
+                                    tau_e_R_acc(i) = qR_prim_rsx_vf_flat(j+1, k, l, strxb-1+i)
+                                end do
+
+                                G_L_acc = 0d0
+                                G_R_acc = 0d0
+    !$acc loop seq
+                               do i = 1, num_fluids
+                                    G_L_acc = G_L_acc + alpha_L_acc(i)*Gs(i)
+                                    G_R_acc = G_R_acc + alpha_R_acc(i)*Gs(i)
+                                end do
+                                
+                                ! add elastic contribution to energy if G large enough TODO: >0
+                                if ((G_L_acc > 1000) .and. (G_R_acc > 1000)) then
+                                    E_L_acc = E_L_acc + (tau_e_L_acc(i)*tau_e_L_acc(i))/(4d0*G_L_acc)
+                                    E_R_acc = E_R_acc + (tau_e_R_acc(i)*tau_e_R_acc(i))/(4d0*G_R_acc)
+                                end if
+                                !TODO: add 2D and 3D contributions
+                            end if
+
                             if(avg_state == 2) then
 
                                 rho_avg_acc = 5d-1*(rho_L_acc + rho_R_acc)
@@ -790,8 +815,9 @@ contains
                             end if
 
                             if (hypoelasticity) then
+    !$acc loop seq
                                 do i = 1, (num_dims*(num_dims+1))/2
-                                    flux_rsx_vf_flat(j, k, l, stress_idx%beg-1+i) = &
+                                    flux_rsx_vf_flat(j, k, l, strxb-1+i) = &
                                         (s_M_acc*(rho_R_acc*vel_R_acc(dir_idx(1))       &
                                                            *tau_e_R_acc(i))             &
                                         -s_P_acc*(rho_L_acc*vel_L_acc(dir_idx(1))       &
@@ -838,7 +864,7 @@ contains
                         end do
                     end do
                 end do
-            elseif(norm_dir == 2) then
+            elseif(norm_dir == 2) then !TODO: hypoelasticity in other directions
     !$acc parallel loop collapse(3) gang vector default(present) private(alpha_rho_L_acc, alpha_rho_R_acc, vel_L_acc, vel_R_acc, alpha_L_acc, alpha_R_acc, vel_avg_acc)        
                 do l = is3%beg, is3%end
                     do k = is2%beg, is2%end
@@ -6436,20 +6462,23 @@ contains
 
         allocate(gammas(1:num_fluids))
         allocate(pi_infs(1:num_fluids))
+        allocate(Gs(1:num_fluids))
 
 
         do i = 1, num_fluids
             gammas(i) = fluid_pp(i)%gamma
             pi_infs(i) = fluid_pp(i)%pi_inf
+            Gs(i) = fluid_pp(i)%G
         end do
-!$acc update device(gammas, pi_infs)
+!$acc update device(gammas, pi_infs, Gs)
 
         momxb = mom_idx%beg; momxe = mom_idx%end
         contxb = cont_idx%beg; contxe = cont_idx%end
         bubxb = bub_idx%beg; bubxe = bub_idx%end
         advxb = adv_idx%beg; advxe = adv_idx%end
         intxb = internalEnergies_idx%beg; intxe = internalEnergies_idx%end
-!$acc update device(momxb, momxe, contxb, contxe, bubxb, bubxe, advxb, advxe, intxb, intxe)
+        strxb = stress_idx%beg; strxb = stress_idx%end
+!$acc update device(momxb, momxe, contxb, contxe, bubxb, bubxe, advxb, advxe, intxb, intxe, strxb, strxe)
 
         allocate (qL_prim_rsx_vf(1:sys_size), qR_prim_rsx_vf(1:sys_size))
         allocate (qL_prim_rsy_vf(1:sys_size), qR_prim_rsy_vf(1:sys_size))
@@ -8267,7 +8296,7 @@ contains
             deallocate (V0_L, V0_R)
         end if
 
-        deallocate(gammas, pi_infs)
+        deallocate(gammas, pi_infs, Gs)
         ! Disassociating procedural pointer to the subroutine which was
         ! utilized to calculate the solution of a given Riemann problem
         s_riemann_solver => null()

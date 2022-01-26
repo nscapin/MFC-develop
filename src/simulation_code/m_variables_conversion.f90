@@ -120,8 +120,9 @@ module m_variables_conversion
     real(kind(0d0)) :: momxb, momxe
     real(kind(0d0)) :: bubxb, bubxe
     real(kind(0d0)) :: advxb, advxe
-    real(kind(0d0)),allocatable, dimension(:) :: gammas, pi_infs, bubrs
-!$acc declare create(ixb, ixe, iyb, iye, iye, izb, ize, momxb, momxe, bubxb, bubxe, advxb, advxe, gammas, pi_infs, bubrs)
+    real(kind(0d0)) :: strxb, strxe
+    real(kind(0d0)),allocatable, dimension(:) :: gammas, pi_infs, bubrs, Gs
+!$acc declare create(ixb, ixe, iyb, iye, iye, izb, ize, momxb, momxe, bubxb, bubxe, advxb, advxe, strxb, strxe, gammas, pi_infs, bubrs, Gs)
 
 
 
@@ -510,7 +511,8 @@ contains
         momxb = mom_idx%beg; momxe = mom_idx%end
         bubxb = bub_idx%beg; bubxe = bub_idx%end
         advxb = adv_idx%beg; advxe = adv_idx%end
-!$acc update device(momxb, momxe, bubxb, bubxe, advxb, advxe)
+        strxb = stress_idx%beg; strxe = stress_idx%end
+!$acc update device(momxb, momxe, bubxb, bubxe, advxb, advxe, strxb, strxe)
 
         ixb = -buff_size
         ixe = m - ixb
@@ -531,14 +533,16 @@ contains
         
         allocate(gammas(1:num_fluids))
         allocate(pi_infs(1:num_fluids))
+        allocate(Gs(1:num_fluids))
 
         allocate(bubrs(1:nb))
 
         do i = 1, num_fluids
             gammas(i) = fluid_pp(i)%gamma
             pi_infs(i) = fluid_pp(i)%pi_inf
+            Gs(i) = fluid_pp(i)%G
         end do
-!$acc update device(gammas, pi_infs)
+!$acc update device(gammas, pi_infs, Gs)
 
         do i = 1, nb
             bubrs(i) = bub_idx%rs(i)
@@ -547,7 +551,7 @@ contains
 
         allocate(nRtmp(1:nb))
 
-!$acc update device(sys_size, pref, rhoref, gamma_idx, pi_inf_idx, E_idx, alf_idx, mpp_lim, bubbles, alt_soundspeed, avg_state, num_fluids, model_eqns, num_dims, mixture_err, nb, weight, nbub, grid_geometry, cyl_coord, mapped_weno, mp_weno, weno_eps)
+!$acc update device(sys_size, pref, rhoref, gamma_idx, pi_inf_idx, E_idx, alf_idx, stress_idx, mpp_lim, bubbles, alt_soundspeed, avg_state, num_fluids, model_eqns, num_dims, mixture_err, nb, weight, nbub, grid_geometry, cyl_coord, mapped_weno, mp_weno, weno_eps, hypoelasticity)
 
         ! Associating the procedural pointer to the appropriate subroutine
         ! that will be utilized in the conversion to the mixture variables
@@ -903,7 +907,7 @@ contains
 
     subroutine s_finalize_variables_conversion_module() ! ------------------
 
-        deallocate(gammas, pi_infs)
+        deallocate(gammas, pi_infs, Gs)
         deallocate(nRtmp)
         deallocate(bubrs)
 
