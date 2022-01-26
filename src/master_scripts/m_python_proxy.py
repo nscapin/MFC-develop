@@ -1253,6 +1253,8 @@ simulation_dict =                                                              \
                     'Mono(1)%npulse'                : None,                     \
                     'Mono(1)%pulse'                 : None,                     \
                     'Mono(1)%support'               : None,                     \
+                    'Mono(1)%foc_length'            : None,                     \
+                    'Mono(1)%aperture'              : None,                     \
                     'Mono(2)%loc(1)'                : None,                     \
                     'Mono(2)%loc(2)'                : None,                     \
                     'Mono(2)%loc(3)'                : None,                     \
@@ -1262,6 +1264,8 @@ simulation_dict =                                                              \
                     'Mono(2)%npulse'                : None,                     \
                     'Mono(2)%pulse'                 : None,                     \
                     'Mono(2)%support'               : None,                     \
+                    'Mono(2)%foc_length'            : None,                     \
+                    'Mono(2)%aperture'              : None,                     \
                     'Mono(3)%loc(1)'                : None,                     \
                     'Mono(3)%loc(2)'                : None,                     \
                     'Mono(3)%loc(3)'                : None,                     \
@@ -1271,6 +1275,8 @@ simulation_dict =                                                              \
                     'Mono(3)%npulse'                : None,                     \
                     'Mono(3)%pulse'                 : None,                     \
                     'Mono(3)%support'               : None,                     \
+                    'Mono(3)%foc_length'            : None,                     \
+                    'Mono(3)%aperture'              : None,                     \
                     'Mono(4)%loc(1)'                : None,                     \
                     'Mono(4)%loc(2)'                : None,                     \
                     'Mono(4)%loc(3)'                : None,                     \
@@ -1280,6 +1286,8 @@ simulation_dict =                                                              \
                     'Mono(4)%npulse'                : None,                     \
                     'Mono(4)%pulse'                 : None,                     \
                     'Mono(4)%support'               : None,                     \
+                    'Mono(4)%foc_length'            : None,                     \
+                    'Mono(4)%aperture'              : None,                     \
                     'Mono(1)%delay'                 : None,                     \
                     'Mono(2)%delay'                 : None,                     \
                     'Mono(3)%delay'                 : None,                     \

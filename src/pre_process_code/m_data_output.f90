@@ -166,6 +166,8 @@ contains
                             write (2, FMT) x_cb(j), q_cons_vf(i)%sf(j, 0, 0)
                         else if (i .eq. mom_idx%beg) then !u
                             write (2, FMT) x_cb(j), q_cons_vf(mom_idx%beg)%sf(j, 0, 0)/rho
+                        ELSE IF (i.eq.stress_idx%beg) THEN !tau_e
+                            WRITE(2,FMT) x_cb(j),q_cons_vf(stress_idx%beg)%sf(j,0,0)/rho
                         else if (i .eq. E_idx) then !p
                             if (model_eqns == 4) then
                                 !Tait pressure from density
@@ -175,6 +177,7 @@ contains
                                      (rhoref*(1.d0 - q_cons_vf(4)%sf(j, 0, 0))) &
                                      )**lit_gamma) &
                                     - pi_inf
+                            !TODO: add elastic contribution here for cases with initial tau_e nonzero
                             else if (model_eqns == 2 .and. (bubbles .neqv. .true.)) then
                                 !Stiffened gas pressure from energy
                                 write (2, FMT) x_cb(j), &
@@ -321,7 +324,8 @@ contains
                                         MPI_DOUBLE_PRECISION, status, ierr)
             end do
         else
-            do i = 1, adv_idx%end
+            do i = 1, sys_size !TODO: check if this is right
+!            do i = 1, adv_idx%end
                 var_MOK = int(i, MPI_OFFSET_KIND)
 
                 ! Initial displacement to skip at beginning of file

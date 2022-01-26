@@ -26,6 +26,17 @@ tests/*/restart*
 tests/*/*.out
 tests/*/binary
 
+tests_hypoelastic/*/D/*
+tests_hypoelastic/*/p*
+tests_hypoelastic/*/D_*
+tests_hypoelastic/*/*.inp
+tests_hypoelastic/*/*.inf
+tests_hypoelastic/*/*.dat
+tests_hypoelastic/*/silo*
+tests_hypoelastic/*/restart*
+tests_hypoelastic/*/*.out
+tests_hypoelastic/*/binary
+
 samples/*batch/*/
 samples/*/D/*
 samples/*/p*

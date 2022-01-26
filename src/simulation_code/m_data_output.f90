@@ -593,6 +593,7 @@ contains
         real(kind(0d0)) :: gamma, lit_gamma, pi_inf     !< Temporary EOS params
         real(kind(0d0)) :: rho                          !< Temporary density
         real(kind(0d0)), dimension(2)                   :: Re !< Temporary Reynolds number
+        real(kind(0d0)) :: E_e                          !< Temp. elastic energy contrbution
 
         ! Creating or overwriting the time-step root directory
         write (t_step_dir, '(A,I0,A,I0)') trim(case_dir)//'/p_all'
@@ -676,7 +677,8 @@ contains
 
                     open (2, FILE=trim(file_path))
                     do j = 0, m
-                        call s_convert_to_mixture_variables(q_cons_vf, rho, gamma, pi_inf, Re, j, 0, 0)
+                        call s_convert_to_mixture_variables(q_cons_vf, rho, gamma, pi_inf, Re, j, 0, 0, &
+                                                                                        G, fluid_pp(:)%G)
                         lit_gamma = 1d0/gamma + 1d0
 
                         if (((i .ge. cont_idx%beg) .and. (i .le. cont_idx%end)) &
@@ -686,6 +688,8 @@ contains
                             write (2, FMT) x_cb(j), q_cons_vf(i)%sf(j, 0, 0)
                         else if (i .eq. mom_idx%beg) then !u
                             write (2, FMT) x_cb(j), q_cons_vf(mom_idx%beg)%sf(j, 0, 0)/rho
+                        ELSE IF (i.eq.stress_idx%beg) THEN !tau_e
+                            WRITE(2,FMT) x_cb(j),q_cons_vf(stress_idx%beg)%sf(j,0,0)/rho
                         else if (i .eq. E_idx) then !p
                             if (model_eqns == 4) then
                                 !Tait pressure from density
@@ -695,6 +699,29 @@ contains
                                      (rhoref*(1.d0 - q_cons_vf(4)%sf(j, 0, 0))) &
                                      )**lit_gamma) &
                                     - pi_inf
+                            ELSE IF (hypoelasticity) THEN
+                                ! elastic contribution to energy
+                                E_e = 0d0
+                                DO k = stress_idx%beg, stress_idx%end
+                                    IF (G > 1000) THEN
+                                        E_e = E_e + ((q_cons_vf(stress_idx%beg)%sf(j,0,0)/rho)**2d0) &
+                                                    /(4d0*G)
+                                        ! Additional terms in 2D and 3D
+                                        IF ((k == stress_idx%beg + 1) .OR. &
+                                            (k == stress_idx%beg + 3) .OR. &
+                                            (k == stress_idx%beg + 4)) THEN
+                                                E_e = E_e + ((q_cons_vf(stress_idx%beg)%sf(j,0,0)/rho)**2d0) &
+                                                            /(4d0*G)
+                                        END IF
+                                    END IF
+                                END DO
+
+                                WRITE(2,FMT) x_cb(j), &
+                                    (                                       &
+                                    q_cons_vf(E_idx)%sf(j,0,0)  -            &
+                                    0.5d0*(q_cons_vf(mom_idx%beg)%sf(j,0,0)**2.d0)/rho - &
+                                    pi_inf - E_e &
+                                    ) / gamma                             
                             else if (model_eqns == 2 .and. (bubbles .neqv. .true.)) then
                                 !Stiffened gas pressure from energy
                                 write (2, FMT) x_cb(j), &
@@ -848,7 +875,7 @@ contains
                                         MPI_DOUBLE_PRECISION, status, ierr)
             end do
         else
-            do i = 1, adv_idx%end
+            do i = 1, sys_size !TODO: check if correct (sys_size
                 var_MOK = int(i, MPI_OFFSET_KIND)
 
                 ! Initial displacement to skip at beginning of file
@@ -1613,7 +1640,8 @@ contains
         real(kind(0d0))                                   :: accel
         real(kind(0d0))                                   :: int_pres
         real(kind(0d0))                                   :: max_pres
-        real(kind(0d0)), dimension(2)             :: Re
+        real(kind(0d0)), dimension(2)                     :: Re
+        real(kind(0d0))                                   :: E_e
 
         integer :: i, j, k, l, s !< Generic loop iterator
 
@@ -1679,7 +1707,8 @@ contains
                     ! Computing/Sharing necessary state variables
                     call s_convert_to_mixture_variables(q_cons_vf, rho, &
                                                         gamma, pi_inf, &
-                                                        Re, j - 2, k, l)
+                                                        Re, j - 2, k, l, &
+                                                        G, fluid_pp(:)%G)
                     do s = 1, num_dims
                         vel(s) = q_cons_vf(cont_idx%end + s)%sf(j - 2, k, l)/rho
                     end do
@@ -1693,6 +1722,29 @@ contains
                                 (rhoref*(1.d0 - q_cons_vf(4)%sf(j - 2, k, l))) &
                                 )**lit_gamma) &
                                - pi_inf
+                    ELSE IF (hypoelasticity) THEN
+                        ! calculate elastic contribution to Energy
+                        E_e = 0d0
+                        DO s = stress_idx%beg, stress_idx%end
+                            IF (G > 0) THEN
+                                E_e = E_e + ((q_cons_vf(stress_idx%beg)%sf(j-2,k,l)/rho)**2d0) &
+                                            /(4d0*G)
+                                ! Additional terms in 2D and 3D
+                                IF ((s == stress_idx%beg + 1) .OR. &
+                                    (s == stress_idx%beg + 3) .OR. &
+                                    (s == stress_idx%beg + 4)) THEN
+                                        E_e = E_e + ((q_cons_vf(stress_idx%beg)%sf(j-2,k,l)/rho)**2d0) &
+                                                    /(4d0*G)
+                                END IF
+                            END IF
+                        END DO
+
+                        pres = (                                      &
+                               q_cons_vf(E_idx)%sf(j-2,k,l)  -            &
+                               0.5d0*(q_cons_vf(mom_idx%beg)%sf(j-2,k,l)**2.d0)/rho - &
+                               pi_inf - E_e &
+                               ) / gamma
+
                     else if (model_eqns == 2 .and. (bubbles .neqv. .true.)) then
                         !Stiffened gas pressure from energy
                         pres = ( &
@@ -1788,7 +1840,8 @@ contains
                         ! Computing/Sharing necessary state variables
                         call s_convert_to_mixture_variables(q_cons_vf, rho, &
                                                             gamma, pi_inf, &
-                                                            Re, j - 2, k - 2, l)
+                                                            Re, j - 2, k - 2, l, &
+                                                            G, fluid_pp(:)%G)
                         do s = 1, num_dims
                             vel(s) = q_cons_vf(cont_idx%end + s)%sf(j - 2, k - 2, l)/rho
                         end do
@@ -1802,6 +1855,29 @@ contains
                                     (rhoref*(1.d0 - q_cons_vf(4)%sf(j - 2, k - 2, l))) &
                                     )**lit_gamma) &
                                    - pi_inf
+                        ELSE IF (hypoelasticity) THEN
+                            ! calculate elastic contribution to Energy
+                            E_e = 0d0
+                            DO s = stress_idx%beg, stress_idx%end
+                                IF (G > 0) THEN
+                                    E_e = E_e + ((q_cons_vf(stress_idx%beg)%sf(j-2,k-2,l)/rho)**2d0) &
+                                                /(4d0*G)
+                                    ! Additional terms in 2D and 3D
+                                    IF ((s == stress_idx%beg + 1) .OR. &
+                                        (s == stress_idx%beg + 3) .OR. &
+                                        (s == stress_idx%beg + 4)) THEN
+                                            E_e = E_e + ((q_cons_vf(stress_idx%beg)%sf(j-2,k-2,l)/rho)**2d0) &
+                                                        /(4d0*G)
+                                    END IF
+                                END IF
+                            END DO
+                            
+                            pres = (                                      &
+                                   q_cons_vf(E_idx)%sf(j-2,k-2,l)  -            &
+                                   0.5d0*(q_cons_vf(mom_idx%beg)%sf(j-2,k-2,l)**2.d0)/rho - &
+                                   pi_inf - E_e &
+                                   ) / gamma
+
                         else if (model_eqns == 2 .and. (bubbles .neqv. .true.)) then
                             !Stiffened gas pressure from energy
                             pres = ( &
@@ -1882,7 +1958,8 @@ contains
                             ! Computing/Sharing necessary state variables
                             call s_convert_to_mixture_variables(q_cons_vf, rho, &
                                                                 gamma, pi_inf, &
-                                                                Re, j - 2, k - 2, l - 2)
+                                                                Re, j - 2, k - 2, l - 2, &
+                                                                G, fluid_pp(:)%G)
                             do s = 1, num_dims
                                 vel(s) = q_cons_vf(cont_idx%end + s)%sf(j - 2, k - 2, l - 2)/rho
                             end do

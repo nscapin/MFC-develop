@@ -62,6 +62,7 @@ module m_derived_types
         real(kind(0d0)) :: M_v  !< Bubble constants (see Preston (2007), Ando (2010))
         real(kind(0d0)) :: mu_v !< Bubble constants (see Preston (2007), Ando (2010))
         real(kind(0d0)) :: k_v  !< Bubble constants (see Preston (2007), Ando (2010))
+        real(kind(0d0)) :: G    !< Shear modulus
     end type physical_parameters
 
     !> Derived type annexing the flow probe location
@@ -91,6 +92,8 @@ module m_derived_types
         real(kind(0d0)) :: delay !< Time-delay of pulse start
         integer :: pulse
         integer :: support
+        real(kind(0d0)) :: foc_length !< transducer focal length for support=5
+        real(kind(0d0)) :: aperture !< transducer aperture for support=5
     end type mono_parameters
 
 end module m_derived_types

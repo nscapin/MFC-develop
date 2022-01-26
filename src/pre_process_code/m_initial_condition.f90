@@ -444,6 +444,15 @@ contains
                 + (1d0 - eta)*orig_prim_vf(i)
         end do
 
+        ! Elastic Shear Stress
+        IF (hypoelasticity) THEN
+            DO i = 1, (stress_idx%end - stress_idx%beg) + 1
+                q_prim_vf(i+stress_idx%beg - 1)%sf(j,k,l) = &
+                    (eta * patch_icpp(patch_id)%tau_e(i) &
+                    + (1d0-eta)*orig_prim_vf(i+stress_idx%beg -1))
+            END DO
+        END IF
+
         if (mpp_lim .and. bubbles) then
             !adjust volume fractions, according to modeled gas void fraction
             alf_sum%sf = 0d0
@@ -679,6 +688,15 @@ contains
         q_prim_vf(E_idx)%sf(j, k, l) = &
             (eta*patch_icpp(patch_id)%pres &
              + (1d0 - eta)*orig_prim_vf(E_idx))
+
+        ! Elastic Shear Stress
+        IF (hypoelasticity) THEN
+            DO i = 1, (stress_idx%end - stress_idx%beg) + 1
+                q_prim_vf(i+stress_idx%beg - 1)%sf(j,k,l) = &
+                    (eta * patch_icpp(patch_id)%tau_e(i) &
+                     + (1d0-eta)*orig_prim_vf(i+stress_idx%beg -1))
+            END DO
+        END IF     
 
         ! Set partial pressures to mixture pressure
         if (model_eqns == 3) then
