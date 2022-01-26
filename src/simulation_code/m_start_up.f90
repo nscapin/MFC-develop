@@ -819,9 +819,9 @@ contains
 
             ! Read the data for each variable
             if (bubbles .or. hypoelasticity) then
+
                 do i = 1, sys_size!adv_idx%end
                     var_MOK = int(i, MPI_OFFSET_KIND)
-                    print*, 'marker 1'
                     ! Initial displacement to skip at beginning of file
                     disp = m_MOK*max(MOK, n_MOK)*max(MOK, p_MOK)*WP_MOK*(var_MOK - 1)
 

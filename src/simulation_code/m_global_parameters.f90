@@ -587,7 +587,7 @@ contains
                     end if
                 end if
 
-                IF (hypoelasticity) THEN
+                IF (hypoelasticity) THEN 
                     stress_idx%beg = sys_size + 1
                     stress_idx%end = sys_size + (num_dims*(num_dims+1)) / 2
                     ! number of distinct stresses is 1 in 1D, 3 in 2D, 6 in 3D
@@ -718,7 +718,7 @@ contains
         ! the next one
         if (any(Re_size > 0)) then
             buff_size = 2*weno_polyn + 2
-        elseif (hypoelasticity) then !TODO: check if necessary
+        else if (hypoelasticity) then !TODO: check if necessary
             buff_size = 2*weno_polyn + 2
         else
             buff_size = weno_polyn + 2

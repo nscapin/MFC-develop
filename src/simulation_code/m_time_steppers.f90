@@ -143,6 +143,7 @@ contains
         end if
 
         if (hypoelasticity) then
+                
             do i = stress_idx%beg, stress_idx%end
                 allocate (q_prim_vf(i)%sf( ix%beg:ix%end, &
                                            iy%beg:iy%end, &
@@ -370,7 +371,6 @@ contains
 
 
 
-
 !$acc parallel loop collapse(4) gang vector default(present)
         do i = 1, sys_size
             do l = 0, p
@@ -389,7 +389,6 @@ contains
         ! ==================================================================
 
         ! Stage 2 of 3 =====================================================
-
 
         call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
 
@@ -414,7 +413,6 @@ contains
 
         ! Stage 3 of 3 =====================================================
         call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
-
 
 !$acc parallel loop collapse(4) gang vector default(present)
         do i = 1, sys_size

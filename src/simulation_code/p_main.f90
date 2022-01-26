@@ -152,8 +152,6 @@ program p_main
     end if
     finaltime = t_step_stop*dt
 
-
-
     ! Time-stepping Loop =======================================================
     do
         if (proc_rank == 0) then

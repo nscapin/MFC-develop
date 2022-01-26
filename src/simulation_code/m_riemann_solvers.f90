@@ -475,6 +475,8 @@ contains
         real(kind(0d0))                              ::     gamma_L_acc, gamma_R_acc
         real(kind(0d0))                              ::    pi_inf_L_acc, pi_inf_R_acc
         real(kind(0d0))                              ::         c_L_acc, c_R_acc
+        real(kind(0d0)), dimension(:)                :: tau_e_L_acc, tau_e_R_acc
+        real(kind(0d0))                              :: G_L, G_R
 
         real(kind(0d0))                                 :: rho_avg_acc
         real(kind(0d0)),dimension(3)   :: vel_avg_acc
@@ -494,7 +496,6 @@ contains
         real(kind(0d0)) :: Ms_L, Ms_R, pres_SL, pres_SR
 
         integer :: i, j, k, l !< Generic loop iterators
-
         ! Populating the buffers of the left and right Riemann problem
         ! states variables, based on the choice of boundary conditions
         call s_populate_riemann_states_variables_buffers( &
@@ -507,14 +508,12 @@ contains
             dqR_prim_dz_vf, &
             gm_alphaR_vf, &
             norm_dir, ix, iy, iz)
-
         ! Reshaping inputted data based on dimensional splitting direction
         call s_initialize_riemann_solver(&
                                          q_prim_vf, &
                                          flux_vf, flux_src_vf, &
                                          flux_gsrc_vf, &
                                              norm_dir, ix, iy, iz)
- 
             if(norm_dir == 1) then
     !$acc parallel loop collapse(3) gang vector default(present) private(alpha_rho_L_acc, alpha_rho_R_acc, vel_L_acc, vel_R_acc, alpha_L_acc, alpha_R_acc, vel_avg_acc)        
                 do l = is3%beg, is3%end
@@ -758,6 +757,7 @@ contains
                                         /(s_M_acc - s_P_acc)
                                 end do
                             else
+                                    !TODO: stress contribution to mom
     !$acc loop seq
                                 do i = 1, num_dims
                                     flux_rsx_vf_flat(j, k, l, contxe + dir_idx(i)) = &
@@ -781,11 +781,25 @@ contains
                                      + s_M_acc*s_P_acc*(E_L_acc - E_R_acc)) &
                                     /(s_M_acc - s_P_acc)
                             else
+                                    !TODO: add stress contribution to energy
                                 flux_rsx_vf_flat(j, k, l, E_idx) = &
                                     (s_M_acc*vel_R_acc(dir_idx(1))*(E_R_acc + pres_R_acc) &
                                      - s_P_acc*vel_L_acc(dir_idx(1))*(E_L_acc + pres_L_acc) &
                                      + s_M_acc*s_P_acc*(E_L_acc - E_R_acc)) &
                                     /(s_M_acc - s_P_acc)
+                            end if
+
+                            if (hypoelasticity) then
+                                do i = 1, (num_dims*(num_dims+1))/2
+                                    flux_rsx_vf_flat(j, k, l, stress_idx%beg-1+i) = &
+                                        (s_M_acc*(rho_R_acc*vel_R_acc(dir_idx(1))       &
+                                                           *tau_e_R_acc(i))             &
+                                        -s_P_acc*(rho_L_acc*vel_L_acc(dir_idx(1))       &
+                                                           *tau_e_L_acc(i))             &
+                                        +s_M_acc*s_P_acc*(rho_L_acc*tau_e_L_acc(i)      &
+                                                         -rho_R_acc*tau_e_R_acc(i) ) )  &
+                                        / (s_M_acc - s_P_acc)
+                                end do
                             end if
 
                             ! Advection
@@ -1444,14 +1458,12 @@ contains
                 end do
             end if                
 
- 
 
 
 
         call s_finalize_riemann_solver(flux_vf, flux_src_vf, &
                                        flux_gsrc_vf, &
                                        norm_dir, ix, iy, iz)
-
     end subroutine s_hll_riemann_solver_acc 
 
     !> This procedure is the implementation of the Harten, Lax,
@@ -8190,7 +8202,6 @@ contains
                         end do
                     end do
                 end do               
-
     !$acc parallel loop collapse(3) gang vector default(present)
                 do l = is3%beg, is3%end
                     do k = is2%beg, is2%end
@@ -8203,7 +8214,7 @@ contains
 
                 if (riemann_solver == 1) then
     !$acc parallel loop collapse(4) gang vector default(present)
-                do i = advxb + 1, sys_size
+                do i = advxb + 1, advxe
                     do l = is3%beg, is3%end
                         do k = is2%beg, is2%end
                             do j = is1%beg, is1%end
@@ -8215,7 +8226,6 @@ contains
                     end do
                 end if            
             end if
-
 
  
 

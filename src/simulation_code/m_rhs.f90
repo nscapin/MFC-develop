@@ -259,7 +259,11 @@ contains
 !$acc enter data attach(q_prim_qp%vf(l)%sf)
         end do
 
-
+        do l = stress_idx%beg, stress_idx%end
+            q_prim_qp%vf(l)%sf => &
+                q_cons_qp%vf(l)%sf
+!$acc enter data attach(q_prim_qp%vf(l)%sf)
+        end do
 
         ! ==================================================================
 
@@ -862,7 +866,6 @@ contains
         ix%end = m - ix%beg; iy%end = n - iy%beg; iz%end = p - iz%beg
         ! ==================================================================
 
-
 !$acc update device(ix, iy, iz)
 
 
@@ -882,7 +885,6 @@ contains
         call nvtxStartRange("RHS-MPI")
         call s_populate_conservative_variables_buffers()
         call nvtxEndRange
-
         ! ==================================================================
 
         ! Converting Conservative to Primitive Variables ==================
@@ -905,7 +907,6 @@ contains
         if (t_step == t_step_stop) return
         ! ==================================================================
 
-
         ! Dimensional Splitting Loop =======================================
         do id = 1, num_dims
 
@@ -916,7 +917,6 @@ contains
 
             ix%end = m - ix%beg; iy%end = n - iy%beg; iz%end = p - iz%beg
             ! ===============================================================
-
             ! Reconstructing Primitive/Conservative Variables ===============
             
             
@@ -930,7 +930,6 @@ contains
                 qR_rsx_vf_flat, qR_rsy_vf_flat, qR_rsz_vf_flat, &
                 id)
             call nvtxEndRange
-
 !           do j = 1, sys_size
 !!$acc update host( qL_rsz_vf_flat, qR_rsz_vf_flat)
 !            end do
@@ -948,7 +947,6 @@ contains
             else
                 ix%beg = 0; iy%beg = 0; iz%beg = -1
             end if
-
             ix%end = m; iy%end = n; iz%end = p
             ! ===============================================================
             call nvtxStartRange("RHS-Riemann")
@@ -969,7 +967,6 @@ contains
                                   flux_gsrc_n(id)%vf, &
                                   id, ix, iy, iz)
             call nvtxEndRange
-
             iv%beg = 1; iv%end = adv_idx%end
 
             ! ===============================================================
@@ -1336,7 +1333,6 @@ contains
         ! END: Dimensional Splitting Loop ================================== 
 
         ! ==================================================================
-
 
 
     end subroutine s_compute_rhs ! -----------------------------------------
@@ -4034,7 +4030,6 @@ contains
         type(bounds_info) :: is1, is2, is3 !< Indical bounds in the s1-, s2- and s3-directions
 
         ! Reconstruction in s1-direction ===================================
-        
 
         if (norm_dir == 1) then
             is1 = ix; is2 = iy; is3 = iz
@@ -4049,13 +4044,11 @@ contains
             weno_dir = 3; is1%beg = is1%beg + weno_polyn
             is1%end = is1%end - weno_polyn
         end if
-
         call s_weno_alt(v_vf(iv%beg:iv%end), &  
                     vL_x_flat, vL_y_flat, vL_z_flat, vR_x_flat, vR_y_flat, vR_z_flat, &
                     norm_dir, weno_dir,  &
                     is1, is2, is3)
         ! ==================================================================
-
     end subroutine s_reconstruct_cell_boundary_values_alt ! --------------------
 
      subroutine s_reconstruct_cell_boundary_values(v_vf, vL_qp, vR_qp, & ! -
