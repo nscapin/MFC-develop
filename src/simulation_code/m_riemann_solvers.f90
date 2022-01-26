@@ -284,7 +284,7 @@ module m_riemann_solvers
 
 !$acc declare create(alpha_rho_L, alpha_rho_R,rho_L, rho_R,vel_L, vel_R,pres_L, pres_R, &
 !$acc    E_L, E_R, H_L, H_R, alpha_L, alpha_R, Y_L, Y_R, gamma_L, gamma_R,pi_inf_L, pi_inf_R, &
-!$acc    c_L, c_R,Re_L, Re_R,tau_e_L, tau_e_R)
+!$acc    c_L, c_R,Re_L, Re_R, tau_e_L, tau_e_R)
 
     !> @}
 
@@ -582,11 +582,11 @@ contains
                             H_R_acc = (E_R_acc + pres_R_acc)/rho_R_acc
 
                             if (hypoelasticity) then
-    !$acc loop seq
-                                do i = 1, (num_dims*(num_dims+1)) / 2
-                                    tau_e_L_acc(i) = qL_prim_rsx_vf_flat(j, k, l, strxb-1+i)
-                                    tau_e_R_acc(i) = qR_prim_rsx_vf_flat(j+1, k, l, strxb-1+i)
-                                end do
+!    !$acc loop seq
+!                                do i = 1, (num_dims*(num_dims+1)) / 2
+!                                    tau_e_L_acc(i) = qL_prim_rsx_vf_flat(j, k, l, strxb-1+i)
+!                                    tau_e_R_acc(i) = qR_prim_rsx_vf_flat(j+1, k, l, strxb-1+i)
+!                                end do
 
                                 G_L_acc = 0d0
                                 G_R_acc = 0d0
@@ -597,10 +597,10 @@ contains
                                 end do
                                 
                                 ! add elastic contribution to energy if G large enough TODO: >0
-                                if ((G_L_acc > 1000) .and. (G_R_acc > 1000)) then
-                                    E_L_acc = E_L_acc + (tau_e_L_acc(i)*tau_e_L_acc(i))/(4d0*G_L_acc)
-                                    E_R_acc = E_R_acc + (tau_e_R_acc(i)*tau_e_R_acc(i))/(4d0*G_R_acc)
-                                end if
+!                                if ((G_L_acc > 1000) .and. (G_R_acc > 1000)) then
+!                                    E_L_acc = E_L_acc + (tau_e_L_acc(i)*tau_e_L_acc(i))/(4d0*G_L_acc)
+!                                    E_R_acc = E_R_acc + (tau_e_R_acc(i)*tau_e_R_acc(i))/(4d0*G_R_acc)
+!                                end if
                                 !TODO: add 2D and 3D contributions
                             end if
 
@@ -814,19 +814,19 @@ contains
                                     /(s_M_acc - s_P_acc)
                             end if
 
-                            if (hypoelasticity) then
-    !$acc loop seq
-                                do i = 1, (num_dims*(num_dims+1))/2
-                                    flux_rsx_vf_flat(j, k, l, strxb-1+i) = &
-                                        (s_M_acc*(rho_R_acc*vel_R_acc(dir_idx(1))       &
-                                                           *tau_e_R_acc(i))             &
-                                        -s_P_acc*(rho_L_acc*vel_L_acc(dir_idx(1))       &
-                                                           *tau_e_L_acc(i))             &
-                                        +s_M_acc*s_P_acc*(rho_L_acc*tau_e_L_acc(i)      &
-                                                         -rho_R_acc*tau_e_R_acc(i) ) )  &
-                                        / (s_M_acc - s_P_acc)
-                                end do
-                            end if
+!                            if (hypoelasticity) then
+!    !$acc loop seq
+!                                do i = 1, (num_dims*(num_dims+1))/2
+!                                    flux_rsx_vf_flat(j, k, l, strxb-1+i) = &
+!                                        (s_M_acc*(rho_R_acc*vel_R_acc(dir_idx(1))       &
+!                                                           *tau_e_R_acc(i))             &
+!                                        -s_P_acc*(rho_L_acc*vel_L_acc(dir_idx(1))       &
+!                                                           *tau_e_L_acc(i))             &
+ !                                       +s_M_acc*s_P_acc*(rho_L_acc*tau_e_L_acc(i)      &
+ !                                                        -rho_R_acc*tau_e_R_acc(i) ) )  &
+ !                                       / (s_M_acc - s_P_acc)
+ !                               end do
+ !                           end if
 
                             ! Advection
     !$acc loop seq
@@ -6508,6 +6508,9 @@ contains
         allocate (alpha_L(1:num_fluids))
         allocate (alpha_R(1:num_fluids))
 
+        allocate (G_L(1:num_fluids))
+        allocate (G_R(1:num_fluids))
+
 
 
 
@@ -8279,7 +8282,7 @@ contains
 
         deallocate (vel_avg)
 
-        deallocate (alpha_L, alpha_R)
+        deallocate (alpha_L, alpha_R, G_L, G_R)
 
         if (any(Re_size > 0)) deallocate (Re_avg_rs_vf)
 
