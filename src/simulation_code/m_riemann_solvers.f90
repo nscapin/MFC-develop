@@ -477,7 +477,7 @@ contains
         real(kind(0d0))                              ::     gamma_L_acc, gamma_R_acc
         real(kind(0d0))                              ::    pi_inf_L_acc, pi_inf_R_acc
         real(kind(0d0))                              ::         c_L_acc, c_R_acc
-        real(kind(0d0)), dimension(6)                :: tau_e_L_acc, tau_e_R_acc !TODO: dimension for 2,3D
+        real(kind(0d0)), dimension(6)                :: tau_e_L_acc, tau_e_R_acc
         real(kind(0d0))                              :: G_L_acc, G_R_acc
 
         real(kind(0d0))                                 :: rho_avg_acc
@@ -517,7 +517,7 @@ contains
                                          flux_gsrc_vf, &
                                              norm_dir, ix, iy, iz)
             if(norm_dir == 1) then
-    !$acc parallel loop collapse(3) gang vector default(present) private(alpha_rho_L_acc, alpha_rho_R_acc, vel_L_acc, vel_R_acc, alpha_L_acc, alpha_R_acc, vel_avg_acc, G_L_acc, G_R_acc)        
+    !$acc parallel loop collapse(3) gang vector default(present) private(alpha_rho_L_acc, alpha_rho_R_acc, vel_L_acc, vel_R_acc, alpha_L_acc, alpha_R_acc, vel_avg_acc, tau_e_L_acc, tau_e_R_acc, G_L_acc, G_R_acc)        
                 do l = is3%beg, is3%end
                     do k = is2%beg, is2%end
                         do j = is1%beg, is1%end
@@ -583,26 +583,30 @@ contains
                             H_R_acc = (E_R_acc + pres_R_acc)/rho_R_acc
 
                             if (hypoelasticity) then
-!    !$acc loop seq
-!                                do i = 1, (num_dims*(num_dims+1)) / 2
-!                                    tau_e_L_acc(i) = qL_prim_rsx_vf_flat(j, k, l, strxb-1+i)
-!                                    tau_e_R_acc(i) = qR_prim_rsx_vf_flat(j+1, k, l, strxb-1+i)
-!                                end do
+    !$acc loop seq
+                                do i = 1, strxe-strxb+1!(num_dims*(num_dims+1)) / 2
+                                    tau_e_L_acc(i) = qL_prim_rsx_vf_flat(j, k, l, strxb-1+i)
+                                    tau_e_R_acc(i) = qR_prim_rsx_vf_flat(j+1, k, l, strxb-1+i)
+                                end do
 
                                 G_L_acc = 0d0
                                 G_R_acc = 0d0
     !$acc loop seq
-                               do i = 1, num_fluids
+                                do i = 1, num_fluids
                                     G_L_acc = G_L_acc + alpha_L_acc(i)*Gs(i)
                                     G_R_acc = G_R_acc + alpha_R_acc(i)*Gs(i)
                                 end do
                                 
                                 ! add elastic contribution to energy if G large enough TODO: >0
-!                                if ((G_L_acc > 1000) .and. (G_R_acc > 1000)) then
-!                                    E_L_acc = E_L_acc + (tau_e_L_acc(i)*tau_e_L_acc(i))/(4d0*G_L_acc)
-!                                    E_R_acc = E_R_acc + (tau_e_R_acc(i)*tau_e_R_acc(i))/(4d0*G_R_acc)
-!                                end if
-                                !TODO: add 2D and 3D contributions
+                                if ((G_L_acc > 1000) .and. (G_R_acc > 1000)) then
+                                    E_L_acc = E_L_acc + (tau_e_L_acc(i)*tau_e_L_acc(i))/(4d0*G_L_acc)
+                                    E_R_acc = E_R_acc + (tau_e_R_acc(i)*tau_e_R_acc(i))/(4d0*G_R_acc)
+                                    ! Additional terms in 2D and 3D
+                                    if ((i == 2) .or. (i == 4) .or. (i == 5)) then
+                                        E_L_acc = E_L_acc + (tau_e_L_acc(i)*tau_e_L_acc(i))/(4d0*G_L_acc)
+                                        E_R_acc = E_R_acc + (tau_e_R_acc(i)*tau_e_R_acc(i))/(4d0*G_R_acc)
+                                    end if
+                                end if
                             end if
 
                             if(avg_state == 2) then
@@ -715,8 +719,24 @@ contains
                             end if
 
                             if(wave_speeds == 1) then
+
+                                if (hypoelasticity) then
+                                    s_L_acc = min(vel_L_acc(dir_idx(1)) - sqrt(c_L_acc*c_L_acc + &
+                                                                          (((4d0*G_L_acc)/3d0) + &
+                                                         tau_e_L_acc(dir_idx_tau(1)))/rho_L_acc) &
+                                                 ,vel_R_acc(dir_idx(1)) - sqrt(c_R_acc*c_R_acc + &
+                                                                          (((4d0*G_R_acc)/3d0) + &
+                                                         tau_e_R_acc(dir_idx_tau(1)))/rho_R_acc) )
+                                    s_R_acc = max(vel_R_acc(dir_idx(1)) + sqrt(c_R_acc*c_R_acc + &
+                                                                          (((4d0*G_R_acc)/3d0) + &
+                                                         tau_e_R_acc(dir_idx_tau(1)))/rho_R_acc) &
+                                                 ,vel_L_acc(dir_idx(1)) + sqrt(c_L_acc*c_L_acc + &
+                                                                          (((4d0*G_L_acc)/3d0) + &
+                                                         tau_e_L_acc(dir_idx_tau(1)))/rho_L_acc) )
+                                else
                                 s_L_acc = min(vel_L_acc(dir_idx(1)) - c_L_acc, vel_R_acc(dir_idx(1)) - c_R_acc)
                                 s_R_acc = max(vel_R_acc(dir_idx(1)) + c_R_acc, vel_L_acc(dir_idx(1)) + c_L_acc)
+                                end if
 
                                 s_S_acc = (pres_R_acc - pres_L_acc + rho_L_acc*vel_L_acc(dir_idx(1))* &
                                    (s_L_acc - vel_L_acc(dir_idx(1))) - &
@@ -782,8 +802,23 @@ contains
                                                     - rho_R_acc*vel_R_acc(dir_idx(i)))) &
                                         /(s_M_acc - s_P_acc)
                                 end do
+                            else if (hypoelasticity) then
+     !$acc loop seq
+                                do i = 1, num_dims
+                                    flux_rsx_vf_flat(j, k, l, contxe + dir_idx(i)) = &
+                                        (s_M_acc*(rho_R_acc*vel_R_acc(dir_idx(1)) &
+                                              *vel_R_acc(dir_idx(i)) &
+                                              + dir_flg(dir_idx(i))*pres_R_acc  &
+                                              - tau_e_R_acc(dir_idx_tau(i)) )   &
+                                         - s_P_acc*(rho_L_acc*vel_L_acc(dir_idx(1)) &
+                                                *vel_L_acc(dir_idx(i)) &
+                                                + dir_flg(dir_idx(i))*pres_L_acc  &
+                                                - tau_e_L_acc(dir_idx_tau(i)) )   &
+                                         + s_M_acc*s_P_acc*(rho_L_acc*vel_L_acc(dir_idx(i)) &
+                                                    - rho_R_acc*vel_R_acc(dir_idx(i)))) &
+                                        /(s_M_acc - s_P_acc)
+                                end do                               
                             else
-                                    !TODO: stress contribution to mom
     !$acc loop seq
                                 do i = 1, num_dims
                                     flux_rsx_vf_flat(j, k, l, contxe + dir_idx(i)) = &
@@ -806,8 +841,40 @@ contains
                                      - s_P_acc*vel_L_acc(dir_idx(1))*(E_L_acc + pres_L_acc - ptilde_L_acc) &
                                      + s_M_acc*s_P_acc*(E_L_acc - E_R_acc)) &
                                     /(s_M_acc - s_P_acc)
+                            else if (hypoelasticity) then
+                                !TODO: do this with a loop from 1 to num_dims?
+                                if (num_dims == 1) then
+                                    flux_rsx_vf_flat(j, k, l, E_idx) = &
+                                        (s_M_acc * (vel_R_acc(dir_idx(1))*(E_R_acc + pres_R_acc) &
+                                                 - (tau_e_R_acc(dir_idx_tau(1)) * vel_R_acc(dir_idx(1)))) &
+                                        - s_P_acc* (vel_L_acc(dir_idx(1))*(E_L_acc + pres_L_acc) &
+                                                 - (tau_e_L_acc(dir_idx_tau(1)) * vel_L_acc(dir_idx(1)))) &
+                                         + s_M_acc*s_P_acc*(E_L_acc - E_R_acc)) &
+                                        /(s_M_acc - s_P_acc)
+                                else if (num_dims == 2) then
+                                    flux_rsx_vf_flat(j, k, l, E_idx) = &
+                                        (s_M_acc * (vel_R_acc(dir_idx(1))*(E_R_acc + pres_R_acc) &
+                                                 - (tau_e_R_acc(dir_idx_tau(1)) * vel_R_acc(dir_idx(1))) &
+                                                 - (tau_e_R_acc(dir_idx_tau(2)) * vel_R_acc(dir_idx(2)))) &
+                                        - s_P_acc* (vel_L_acc(dir_idx(1))*(E_L_acc + pres_L_acc) &
+                                                 - (tau_e_L_acc(dir_idx_tau(1)) * vel_L_acc(dir_idx(1))) &
+                                                 - (tau_e_L_acc(dir_idx_tau(2)) * vel_L_acc(dir_idx(2)))) &
+                                         + s_M_acc*s_P_acc*(E_L_acc - E_R_acc)) &
+                                        /(s_M_acc - s_P_acc)
+                                else if (num_dims == 3) then
+                                    flux_rsx_vf_flat(j, k, l, E_idx) = &
+                                        (s_M_acc * (vel_R_acc(dir_idx(1))*(E_R_acc + pres_R_acc) &
+                                                 - (tau_e_R_acc(dir_idx_tau(1)) * vel_R_acc(dir_idx(1))) &
+                                                 - (tau_e_R_acc(dir_idx_tau(2)) * vel_R_acc(dir_idx(2))) &
+                                                 - (tau_e_R_acc(dir_idx_tau(3)) * vel_R_acc(dir_idx(3)))) &
+                                        - s_P_acc* (vel_L_acc(dir_idx(1))*(E_L_acc + pres_L_acc) &
+                                                 - (tau_e_L_acc(dir_idx_tau(1)) * vel_L_acc(dir_idx(1))) &
+                                                 - (tau_e_L_acc(dir_idx_tau(2)) * vel_L_acc(dir_idx(2))) &
+                                                 - (tau_e_L_acc(dir_idx_tau(3)) * vel_L_acc(dir_idx(3)))) &
+                                         + s_M_acc*s_P_acc*(E_L_acc - E_R_acc)) &
+                                        /(s_M_acc - s_P_acc)
+                                end if
                             else
-                                    !TODO: add stress contribution to energy
                                 flux_rsx_vf_flat(j, k, l, E_idx) = &
                                     (s_M_acc*vel_R_acc(dir_idx(1))*(E_R_acc + pres_R_acc) &
                                      - s_P_acc*vel_L_acc(dir_idx(1))*(E_L_acc + pres_L_acc) &
@@ -815,19 +882,19 @@ contains
                                     /(s_M_acc - s_P_acc)
                             end if
 
-!                            if (hypoelasticity) then
-!    !$acc loop seq
-!                                do i = 1, (num_dims*(num_dims+1))/2
-!                                    flux_rsx_vf_flat(j, k, l, strxb-1+i) = &
-!                                        (s_M_acc*(rho_R_acc*vel_R_acc(dir_idx(1))       &
-!                                                           *tau_e_R_acc(i))             &
-!                                        -s_P_acc*(rho_L_acc*vel_L_acc(dir_idx(1))       &
-!                                                           *tau_e_L_acc(i))             &
- !                                       +s_M_acc*s_P_acc*(rho_L_acc*tau_e_L_acc(i)      &
- !                                                        -rho_R_acc*tau_e_R_acc(i) ) )  &
- !                                       / (s_M_acc - s_P_acc)
- !                               end do
- !                           end if
+                            if (hypoelasticity) then
+    !$acc loop seq
+                            do i = 1, strxe-strxb+1 !TODO: this indexing may be slow
+                                    flux_rsx_vf_flat(j, k, l, strxb-1+i) = &
+                                        (s_M_acc*(rho_R_acc*vel_R_acc(dir_idx(1))       &
+                                                           *tau_e_R_acc(i))             &
+                                        -s_P_acc*(rho_L_acc*vel_L_acc(dir_idx(1))       &
+                                                           *tau_e_L_acc(i))             &
+                                        +s_M_acc*s_P_acc*(rho_L_acc*tau_e_L_acc(i)      &
+                                                         -rho_R_acc*tau_e_R_acc(i) ) )  &
+                                        / (s_M_acc - s_P_acc)
+                                end do
+                            end if
 
                             ! Advection
     !$acc loop seq
@@ -6729,6 +6796,16 @@ contains
             is1 = iz; is2 = iy; is3 = ix
             dir_idx = (/3, 1, 2/); dir_flg = (/0d0, 0d0, 1d0/)
         end if
+
+        if (hypoelasticity) then
+            if (norm_dir == 1) then
+                dir_idx_tau = (/1,2,4/)
+            else if (norm_dir == 2) then
+                dir_idx_tau = (/3,2,5/)
+            else
+                dir_idx_tau = (/6,4,5/)
+            end if
+        end if 
 
 !$acc update device(is1, is2, is3, dir_idx, dir_flg)
 
