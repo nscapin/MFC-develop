@@ -98,7 +98,7 @@ case_dict =                                                                     
                                                                                \
                     # Formatted Database Files Structure Parameters ============
                     'format'                       : 1,                        \
-                    'precision'                    : 2,                        \
+                    'precision'                    : 1,                        \
                     'prim_vars_wrt'                :'T',                       \
 		    'parallel_io'                  :'F',                       \
 		    # ==========================================================
