@@ -6545,7 +6545,7 @@ contains
         bubxb = bub_idx%beg; bubxe = bub_idx%end
         advxb = adv_idx%beg; advxe = adv_idx%end
         intxb = internalEnergies_idx%beg; intxe = internalEnergies_idx%end
-        strxb = stress_idx%beg; strxb = stress_idx%end
+        strxb = stress_idx%beg; strxe = stress_idx%end
 !$acc update device(momxb, momxe, contxb, contxe, bubxb, bubxe, advxb, advxe, intxb, intxe, strxb, strxe)
 
         allocate (qL_prim_rsx_vf(1:sys_size), qR_prim_rsx_vf(1:sys_size))

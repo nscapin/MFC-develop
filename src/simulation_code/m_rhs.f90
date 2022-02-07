@@ -49,7 +49,8 @@ module m_rhs
          s_pressure_relaxation_procedure, &
          s_populate_variables_buffers, &
          s_finalize_rhs_module, &
-         s_get_viscous
+         s_get_viscous, &
+         s_compute_rhs_full
 
     type(vector_field) :: q_cons_qp !<
     !! This variable contains the WENO-reconstructed values of the cell-average
@@ -247,6 +248,11 @@ contains
 !$acc enter data create(q_prim_qp%vf(l)%sf(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end))
         end do
 
+        do l = stress_idx%beg, stress_idx%end
+            allocate(q_prim_qp%vf(l)%sf(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end))
+!$acc enter data create(q_prim_qp%vf(l)%sf(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end))
+        end do
+
         do l = 1, cont_idx%end
             q_prim_qp%vf(l)%sf => &
                 q_cons_qp%vf(l)%sf
@@ -260,11 +266,11 @@ contains
 !$acc enter data attach(q_prim_qp%vf(l)%sf)
         end do
 
-        do l = stress_idx%beg, stress_idx%end
-            q_prim_qp%vf(l)%sf => &
-                q_cons_qp%vf(l)%sf
-!$acc enter data attach(q_prim_qp%vf(l)%sf)
-        end do
+!        do l = stress_idx%beg, stress_idx%end
+!            q_prim_qp%vf(l)%sf => &
+!                q_cons_qp%vf(l)%sf
+!!$acc enter data attach(q_prim_qp%vf(l)%sf)
+!        end do
 
         ! ==================================================================
 
@@ -386,8 +392,9 @@ contains
 !$acc enter data create(qR_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
                     end do
                 end if
-
-                do l = adv_idx%beg, sys_size
+                !TODO: check that this should indeed be to adv_idx%end (was to sys_size)
+!                do l = adv_idx%beg, sys_size
+                do l = adv_idx%beg, adv_idx%end
                     allocate (qL_cons_n(i)%vf(l)%sf( &
                               ix%beg:ix%end, &
                               iy%beg:iy%end, &
@@ -414,6 +421,22 @@ contains
 !$acc enter data create(qR_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
                     end do
                 end if
+
+                if (hypoelasticity) then
+                    do l = stress_idx%beg, stress_idx%end
+                        allocate (qL_prim_n(i)%vf(l)%sf( &
+                                  ix%beg:ix%end, &
+                                  iy%beg:iy%end, &
+                                  iz%beg:iz%end))
+                        allocate (qR_prim_n(i)%vf(l)%sf( &
+                                  ix%beg:ix%end, &
+                                  iy%beg:iy%end, &
+                                  iz%beg:iz%end))
+!$acc enter data create(qL_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+!$acc enter data create(qR_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+                    end do
+                end if
+ 
             else
                 ! i /= 1
                 do l = 1, sys_size
@@ -849,6 +872,15 @@ contains
         type(scalar_field), dimension(sys_size), intent(INOUT) :: rhs_vf
         integer, intent(IN) :: t_step
 
+        !these are necessary for hypoelasticity (currently in rhs_full)
+        real(kind(0d0)) :: Re_K, rho_K, G_K
+        real(kind(0d0)), dimension(0:m,0:n,0:p) :: rho_K_field, G_K_field
+        real(kind(0d0)) :: gamma_K, pi_inf_K
+
+        !Velocity gradients (calculated via central finite differences only if hypoelasticity = true
+        real(kind(0d0)), dimension(0:m,0:n,0:p) :: du_dx, du_dy, du_dz
+        real(kind(0d0)), dimension(0:m,0:n,0:p) :: dv_dx, dv_dy, dv_dz
+        real(kind(0d0)), dimension(0:m,0:n,0:p) :: dw_dx, dw_dy, dw_dz
 
         real(kind(0d0)) :: top, bottom  !< Numerator and denominator when evaluating flux limiter function
 
@@ -925,8 +957,9 @@ contains
             
             
             call nvtxStartRange("RHS-WENO")
-            
+
             iv%beg = 1; iv%end = sys_size
+
             !call nvtxStartRange("RHS-WENO")
             call s_reconstruct_cell_boundary_values_alt( &
                q_prim_qp%vf(iv%beg:iv%end), &
@@ -971,7 +1004,8 @@ contains
                                   flux_gsrc_n(id)%vf, &
                                   id, ix, iy, iz)
             call nvtxEndRange
-            iv%beg = 1; iv%end = adv_idx%end
+!            iv%beg = 1; iv%end = adv_idx%end
+            iv%beg = 1; iv%end = sys_size
 
             ! ===============================================================
 
@@ -1333,6 +1367,62 @@ contains
             end if  ! i loop
             call nvtxEndRange
 
+
+            ! RHS additions for hypoelasticity
+            call nvtxStartRange("RHS_Hypoelasticity")
+
+            if (hypoelasticity) then
+            ! Need these fields throughout loops below, unsure if this enter data create is
+            ! the best way to do this
+!$acc enter data create(rho_K_field, G_K_field, du_dx)
+                if (id == 1) then
+                    ! calculate du/dx (only derivative required in 1D) + rho_K and G_K
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do q = 0, p
+                        do l = 0, n
+                            do k = 0, m
+                                du_dx(k,l,q) = &
+                                    (       q_prim_qp%vf(momxb)%sf(k-2,l,q)  &
+                                    - 8d0 * q_prim_qp%vf(momxb)%sf(k-1,l,q)  &
+                                    + 8d0 * q_prim_qp%vf(momxb)%sf(k+1,l,q)  &
+                                    -       q_prim_qp%vf(momxb)%sf(k+2,l,q)) &
+                                    / (12d0*(x_cc(k+1) - x_cc(k) ))
+
+                                call s_convert_to_mixture_variables(q_prim_qp%vf, rho_K, gamma_K, &
+                                                                    pi_inf_K, Re_K, k,l,q, &
+                                                                    G_K, Gs)
+                                rho_K_field(k,l,q) = rho_K
+                                G_K_field(k,l,q) = G_K
+                                !TODO: take this out if not needed
+                                if (G_K < 1000) then
+                                    G_K_field(k,l,q) = 0
+                                end if
+                            end do
+                        end do
+                    end do
+
+                    ! apply rhs source term to elastic stress equation
+!$acc parallel loop collapse(4) gang vector default(present)                   
+                    do j = strxb, strxe
+                        do q = 0, p
+                            do l = 0, n
+                                do k = 0, m
+                                    rhs_vf(j)%sf(k, l, q) = &
+                                        rhs_vf(j)%sf(k,l,q) + rho_K_field(k,l,q) * &
+                                                ((4d0*G_K_field(k,l,q)/3d0) + &
+                                                q_prim_qp%vf(j)%sf(k,l,q)) * &
+                                                du_dx(k,l,q)
+                                end do
+                            end do
+                        end do
+                    end do
+                !TODO: add 2D, 3D
+!$acc exit data delete(rho_K_field, G_K_field, du_dx)
+                end if
+
+            end if
+            call nvtxEndRange
+
         end do
         ! END: Dimensional Splitting Loop ================================== 
 
@@ -1359,6 +1449,15 @@ contains
         real(kind(0d0)), dimension(0:m, 0:n, 0:p) :: rho_K_field
         real(kind(0d0)) :: gamma_K, pi_inf_K
         real(kind(0d0)), dimension(2) :: Re_K
+
+        ! For hypoelasticity
+        real(kind(0d0)) :: G_K
+        real(kind(0d0)), dimension(0:m,0:n,0:p) :: G_K_field
+
+        !Velocity gradients (calculated via central finite differences only if hypoelasticity = true
+        real(kind(0d0)), dimension(0:m,0:n,0:p) :: du_dx, du_dy, du_dz
+        real(kind(0d0)), dimension(0:m,0:n,0:p) :: dv_dx, dv_dy, dv_dz
+        real(kind(0d0)), dimension(0:m,0:n,0:p) :: dw_dx, dw_dy, dw_dz
 
         integer :: i, j, k, l, r, ii !< Generic loop iterators
 
@@ -1398,7 +1497,8 @@ contains
         ! ==================================================================
 
         ! Converting Conservative to Primitive Variables ===================
-        iv%beg = 1; iv%end = adv_idx%end
+!        iv%beg = 1; iv%end = adv_idx%end
+        iv%beg = 1; iv%end = sys_size
 
         !convert conservative variables to primitive
         !   (except first and last, \alpha \rho and \alpha)
@@ -1439,7 +1539,7 @@ contains
 
                 iv%beg = 1 
                 iv%end = adv_idx%end
-                if (bubbles) iv%end = sys_size
+                if (bubbles .or. hypoelasticity) iv%end = sys_size
 
 
                 !reconstruct either primitive or conservative vars
@@ -1531,6 +1631,26 @@ contains
                     qR_cons_n(i), &
                     i)
 
+                ! Reconstructing Elastic Stress Variables ====================
+                if (hypoelasticity) then
+                    iv%beg = stress_idx%beg; iv%end = stress_idx%end
+
+                    if (weno_vars == 1) then
+                        call s_reconstruct_cell_boundary_values(      &
+                                   q_cons_qp%vf(iv%beg:iv%end), &
+                                   qL_cons_n(i), &
+                                   qR_cons_n(i), &
+                                   i)
+                    else
+                         call s_reconstruct_cell_boundary_values(      &
+                                   q_prim_qp%vf(iv%beg:iv%end), &
+                                   qL_prim_n(i), &
+                                   qR_prim_n(i), &
+                                   i)
+                    end if
+                end if
+                ! ===============================================================
+
             end if
 
             ! END: Reconstructing Volume Fraction Variables =================
@@ -1615,7 +1735,8 @@ contains
                                   flux_gsrc_n(i)%vf, &
                                   i, ix, iy, iz)
 
-            iv%beg = 1; iv%end = adv_idx%end
+           ! iv%beg = 1; iv%end = adv_idx%end
+           iv%beg = 1; iv%end = sys_size
 
             if (any(Re_size > 0)) then
                 iv%beg = mom_idx%beg
@@ -1776,6 +1897,136 @@ contains
                         rhs_vf(k)%sf(:, :, :) = rhs_vf(k)%sf(:, :, :) + mono_mom_src(k - cont_idx%end, :, :, :)
                     end do
                     rhs_vf(E_idx)%sf(:, :, :) = rhs_vf(E_idx)%sf(:, :, :) + mono_e_src(:, :, :)
+                end if
+
+                if (hypoelasticity) then
+
+                    ix%beg = -buff_size; iy%beg = -2; iz%beg = -2
+                    if (n > 0) iy%beg = -buff_size; if (p > 0) iz%beg = -buff_size
+                    ix%end = m - ix%beg; iy%end = n - iy%beg; iz%end = p - iz%beg
+
+                    ! Calculating velocity derivatives
+
+                    ! u
+                    DO j = 0, m
+                        DO k = 0, n
+                            DO l = 0, p
+                                du_dx(j,k,l) = &
+                                    ( q_prim_qp%vf(mom_idx%beg)%sf(j-2,k,l)         &
+                                    - 8d0 * q_prim_qp%vf(mom_idx%beg)%sf(j-1,k,l)   &
+                                    + 8d0 * q_prim_qp%vf(mom_idx%beg)%sf(j+1,k,l)   &
+                                    - q_prim_qp%vf(mom_idx%beg)%sf(j+2,k,l) )       &
+                                    / (12d0*(x_cc(j+1) - x_cc(j)))
+                                IF (n > 0) THEN
+                                    du_dy(j,k,l) =           &
+                                        ( q_prim_qp%vf(mom_idx%beg)%sf(j,k-2,l)         &
+                                        - 8d0 * q_prim_qp%vf(mom_idx%beg)%sf(j,k-1,l)   &
+                                        + 8d0 * q_prim_qp%vf(mom_idx%beg)%sf(j,k+1,l)   &
+                                        - q_prim_qp%vf(mom_idx%beg)%sf(j,k+2,l) )       &
+                                        / (12d0*(y_cc(k+1) - y_cc(k)))
+                                    IF (p > 0) THEN
+                                        du_dz(j,k,l) = &
+                                            ( q_prim_qp%vf(mom_idx%beg)%sf(j,k,l-2)         &
+                                            - 8d0 * q_prim_qp%vf(mom_idx%beg)%sf(j,k,l-1)   &
+                                            + 8d0 * q_prim_qp%vf(mom_idx%beg)%sf(j,k,l+1)   &
+                                            - q_prim_qp%vf(mom_idx%beg)%sf(j,k,l+2) )       &
+                                            / (12d0*(z_cc(l+1) - z_cc(l)))
+                                    END IF
+                                END IF
+                            END DO
+                        END DO
+                    END DO
+
+                    ! v
+                    IF(n > 0) THEN
+                        DO j = 0, m
+                            DO k = 0, n
+                                DO l = 0, p
+                                    dv_dx(j,k,l) = &
+                                        ( q_prim_qp%vf(mom_idx%beg+1)%sf(j-2,k,l)         &
+                                        - 8d0 * q_prim_qp%vf(mom_idx%beg+1)%sf(j-1,k,l)   &
+                                        + 8d0 * q_prim_qp%vf(mom_idx%beg+1)%sf(j+1,k,l)   &
+                                        - q_prim_qp%vf(mom_idx%beg+1)%sf(j+2,k,l) )       &
+                                        / (12d0*(x_cc(j+1) - x_cc(j)))
+                                    IF (n > 0) THEN
+                                        dv_dy(j,k,l) =           &
+                                            ( q_prim_qp%vf(mom_idx%beg+1)%sf(j,k-2,l)         &
+                                            - 8d0 * q_prim_qp%vf(mom_idx%beg+1)%sf(j,k-1,l)   &
+                                            + 8d0 * q_prim_qp%vf(mom_idx%beg+1)%sf(j,k+1,l)   &
+                                            - q_prim_qp%vf(mom_idx%beg+1)%sf(j,k+2,l) )       &
+                                            / (12d0*(y_cc(k+1) - y_cc(k)))
+                                        IF (p > 0) THEN
+                                            dv_dz(j,k,l) = &
+                                                ( q_prim_qp%vf(mom_idx%beg+1)%sf(j,k,l-2)         &
+                                                - 8d0 * q_prim_qp%vf(mom_idx%beg+1)%sf(j,k,l-1)   &
+                                                + 8d0 * q_prim_qp%vf(mom_idx%beg+1)%sf(j,k,l+1)   &
+                                                - q_prim_qp%vf(mom_idx%beg+1)%sf(j,k,l+2) )       &
+                                                / (12d0*(z_cc(l+1) - z_cc(l)))
+                                        END IF
+                                    END IF
+                                END DO
+                            END DO
+                        END DO
+                    END IF
+
+                    ! w derivatives
+                    IF(p > 0) THEN
+                        DO j = 0, m
+                            DO k = 0, n
+                                DO l = 0, p
+                                    dw_dx(j,k,l) = &
+                                        ( q_prim_qp%vf(mom_idx%end)%sf(j-2,k,l)         &
+                                        - 8d0 * q_prim_qp%vf(mom_idx%end)%sf(j-1,k,l)   &
+                                        + 8d0 * q_prim_qp%vf(mom_idx%end)%sf(j+1,k,l)   &
+                                        - q_prim_qp%vf(mom_idx%end)%sf(j+2,k,l) )       &
+                                        / (12d0*(x_cc(j+1) - x_cc(j)))
+                                    IF (n > 0) THEN
+                                        dw_dy(j,k,l) =           &
+                                            ( q_prim_qp%vf(mom_idx%end)%sf(j,k-2,l)         &
+                                            - 8d0 * q_prim_qp%vf(mom_idx%end)%sf(j,k-1,l)   &
+                                            + 8d0 * q_prim_qp%vf(mom_idx%end)%sf(j,k+1,l)   &
+                                            - q_prim_qp%vf(mom_idx%end)%sf(j,k+2,l) )       &
+                                            / (12d0*(y_cc(k+1) - y_cc(k)))
+                                        IF (p > 0) THEN
+                                            dw_dz(j,k,l) = &
+                                                ( q_prim_qp%vf(mom_idx%end)%sf(j,k,l-2)         &
+                                                - 8d0 * q_prim_qp%vf(mom_idx%end)%sf(j,k,l-1)   &
+                                                + 8d0 * q_prim_qp%vf(mom_idx%end)%sf(j,k,l+1)   &
+                                                - q_prim_qp%vf(mom_idx%end)%sf(j,k,l+2) )       &
+                                                / (12d0*(z_cc(l+1) - z_cc(l)))
+                                        END IF
+                                    END IF
+                                END DO
+                            END DO
+                        END DO
+                    END IF
+
+                    ! Building shear modulus and viscosity mixture variable fields (dimension m*n*p)
+                        DO j = 0,m
+                            DO k = 0,n
+                                DO l = 0,p
+                                    CALL s_convert_to_mixture_variables(q_prim_qp%vf, rho_K, gamma_K, &
+                                                                        pi_inf_K, Re_K, j,k,l, &
+                                                                        G_K, fluid_pp(:)%G)
+                                    rho_K_field(j,k,l) = rho_K
+                                    G_K_field(j,k,l) = G_K
+                                    !TODO: take this out if not needed (or change to smaller max value)
+                                    IF (G_K < 1000) THEN
+                                        G_K_field(j,k,l) = 0
+                                    END IF
+                                END DO
+                            END DO
+                        END DO
+
+                        DO k = 0,m
+                            j = stress_idx%beg
+
+                            ! Best fin diff version:
+                            rhs_vf(j)%sf(k,:,:) = rhs_vf(j)%sf(k,:,:) + rho_K_field(k,0:n,0:p) * &
+                                ((4d0*G_K_field(k,0:n,0:p)/3d0) + &
+                                q_prim_qp%vf(j)%sf(k,0:n,0:p)) * &
+                                du_dx(k,0:n,0:p)
+                        END DO
                 end if
 
                 ! Applying source terms to the RHS of the internal energy equations
@@ -4295,6 +4546,13 @@ contains
                     deallocate (qL_cons_n(i)%vf(l)%sf)
                     deallocate (qR_cons_n(i)%vf(l)%sf)
                 end do
+
+                if (hypoelasticity) then
+                    do l = stress_idx%beg, stress_idx%end
+                        deallocate(qL_prim_n(i)%vf(l)%sf)
+                        deallocate(qR_prim_n(i)%vf(l)%sf)
+                    end do
+                end if
             end if
 
             deallocate (qL_cons_n(i)%vf, qL_prim_n(i)%vf)

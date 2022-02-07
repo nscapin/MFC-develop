@@ -606,7 +606,7 @@ contains
 
 
         if((model_eqns .ne. 4) .and. (bubbles .neqv. .true.)) then 
-!$acc parallel loop collapse(3) gang vector default(present) private( alpha_K, alpha_rho_K)
+!$acc parallel loop collapse(3) gang vector default(present) private( alpha_K, alpha_rho_K, fluid_pp)
             do l = izb, ize
                 do k = iyb, iye
                     do j = ixb, ixe
@@ -631,13 +631,13 @@ contains
 
                         end if
 
-!                        if (hypoelasticity) then
-!                            call s_convert_species_to_mixture_variables_acc(rho_K, gamma_K, pi_inf_K, alpha_K, &
-!                                                                         alpha_rho_K, j, k, l, G_K, fluid_pp(:)%G)
-!                        else
+                        if (hypoelasticity) then
+                            call s_convert_species_to_mixture_variables_acc(rho_K, gamma_K, pi_inf_K, alpha_K, &
+                                                                         alpha_rho_K, j, k, l, G_K, fluid_pp(:)%G)
+                        else
                         call s_convert_species_to_mixture_variables_acc(rho_K, gamma_K, pi_inf_K, alpha_K, alpha_rho_K, &
                                                                                                                 j, k, l)
-!                        end if
+                        end if
 
 
 !$acc loop seq
@@ -651,25 +651,27 @@ contains
 
                         qK_prim_vf(E_idx)%sf(j, k, l) = (qK_cons_vf(E_idx)%sf(j, k, l) &
                                  - dyn_pres_K - pi_inf_K )/gamma_K
-!! !$acc loop seq
-!                        IF (hypoelasticity) THEN
-!                            DO i = stress_idx%beg, stress_idx%end
-!                                qK_prim_vf(i)%sf(j,k,l) = qK_cons_vf(i)%sf(j,k,l) &
-!                                                          / MAX(rho_K,sgm_eps)
-!                                ! subtracting elastic contribution for pressure calculation
-!                                IF (G_K > 1000) THEN !TODO: check if stable for >0
-!                                    qK_prim_vf(E_idx)%sf(j,k,l) = qK_prim_vf(E_idx)%sf(j,k,l) - &
-!                                               ((qK_prim_vf(i)%sf(j,k,l)**2d0)/(4d0*G_K))/gamma_K
-!                                ! extra terms in 2 and 3D
-!                                    IF ((i == stress_idx%beg + 1) .OR. &
-!                                        (i == stress_idx%beg + 3) .OR. &
-!                                        (i == stress_idx%beg + 4)) THEN
-!                                            qK_prim_vf(E_idx)%sf(j,k,l) = qK_prim_vf(E_idx)%sf(j,k,l) - &
-!                                                       ((qK_prim_vf(i)%sf(j,k,l)**2d0)/(4d0*G_K))/gamma_K
-!                                    END IF
-!                                END IF
-!                            END DO
-!                        END IF
+
+
+                        IF (hypoelasticity) THEN
+!$acc loop seq
+                            DO i = strxb, strxe
+                                qK_prim_vf(i)%sf(j,k,l) = qK_cons_vf(i)%sf(j,k,l) &
+                                                          / MAX(rho_K,sgm_eps)
+                               ! subtracting elastic contribution for pressure calculation
+                                IF (G_K > 1000) THEN !TODO: check if stable for >0
+                                    qK_prim_vf(E_idx)%sf(j,k,l) = qK_prim_vf(E_idx)%sf(j,k,l) - &
+                                               ((qK_prim_vf(i)%sf(j,k,l)**2d0)/(4d0*G_K))/gamma_K
+                               ! extra terms in 2 and 3D
+                                    IF ((i == strxb + 1) .OR. &
+                                        (i == strxb + 3) .OR. &
+                                        (i == strxb + 4)) THEN
+                                            qK_prim_vf(E_idx)%sf(j,k,l) = qK_prim_vf(E_idx)%sf(j,k,l) - &
+                                                       ((qK_prim_vf(i)%sf(j,k,l)**2d0)/(4d0*G_K))/gamma_K
+                                    END IF
+                                END IF
+                            END DO
+                        END IF
 
                     end do
                 end do
@@ -848,17 +850,17 @@ contains
                     end do
 
                     pres_K = qK_prim_vf(E_idx)%sf(j, k, l)
-!                    if (hypoelasticity) then
-!                        call s_convert_to_mixture_variables(qK_prim_vf, rho_K, &
-!                                                            gamma_K, pi_inf_K, &
-!                                                            Re_K, j, k, l, &
-!                                                            G_K, fluid_pp(:)%G)
-!                    else
+                    if (hypoelasticity) then
+                        call s_convert_to_mixture_variables(qK_prim_vf, rho_K, &
+                                                            gamma_K, pi_inf_K, &
+                                                            Re_K, j, k, l, &
+                                                            G_K, fluid_pp(:)%G)
+                    else
 
                     call s_convert_to_mixture_variables(qK_prim_vf, rho_K, &
                                                         gamma_K, pi_inf_K, &
                                                         Re_K, j, k, l)
-!                    end if
+                    end if
                     ! Computing the energy from the pressure
                     E_K = gamma_K*pres_K + pi_inf_K &
                           + 5d-1*rho_K*sum(vel_K**2d0)

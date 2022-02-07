@@ -358,6 +358,7 @@ contains
         call nvtxStartRange("Time_Step")
 
         call s_compute_rhs(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
+!        call s_compute_rhs_full(q_cons_ts(1)%vf, q_prim_vf, rhs_vf, t_step)
 
         if (run_time_info) then
             call s_write_run_time_information(q_prim_vf, t_step)
@@ -391,6 +392,7 @@ contains
         ! Stage 2 of 3 =====================================================
 
         call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
+!        call s_compute_rhs_full(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
 
 !$acc parallel loop collapse(4) gang vector default(present)
         do i = 1, sys_size
@@ -413,6 +415,7 @@ contains
 
         ! Stage 3 of 3 =====================================================
         call s_compute_rhs(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
+!        call s_compute_rhs_full(q_cons_ts(2)%vf, q_prim_vf, rhs_vf, t_step)
 
 !$acc parallel loop collapse(4) gang vector default(present)
         do i = 1, sys_size

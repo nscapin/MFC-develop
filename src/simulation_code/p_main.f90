@@ -92,13 +92,13 @@ program p_main
     ! and/or the execution of any other tasks needed to properly configure the
     ! modules. The preparations below DO NOT DEPEND on the grid being complete.
     call s_initialize_global_parameters_module()
-    
+
     call s_initialize_mpi_proxy_module()
     call s_initialize_variables_conversion_module()
     call s_initialize_start_up_module()
     call s_initialize_riemann_solvers_module()
     call s_initialize_rhs_module()
-    
+
     call s_initialize_data_output_module()
     call s_initialize_derived_variables_module()
     call s_initialize_time_steppers_module()
@@ -142,7 +142,6 @@ program p_main
     allocate(proc_time(0:num_procs - 1))
 
 
-    
     ! Setting the time-step iterator to the first time-step
     t_step = t_step_start
     if (t_step == 0) then
