@@ -1852,6 +1852,7 @@ MODULE m_data_output
             REAL(KIND(0d0)), DIMENSION(2)             :: Re
             REAL(KIND(0d0)), ALLOCATABLE, DIMENSION(:,:)      :: We
             REAL(KIND(0d0))                                   :: E_e
+            real(kind(0d0)), dimension(3)                     :: tau_e
             
             INTEGER :: i,j,k,l,s !< Generic loop iterator
 
@@ -1931,6 +1932,7 @@ MODULE m_data_output
                                                 /(4d0*G)
                                  END IF
                                 END IF
+                                tau_e(s) = q_cons_vf(s)%sf(j-2,k,l)/rho
                             END DO
                             
                             pres = (                                      &
@@ -2046,6 +2048,7 @@ MODULE m_data_output
                                                 /(4d0*G)
                                  END IF
                                 END IF
+                                tau_e(s) = q_cons_vf(s)%sf(j-2,k-2,l)/rho
                             END DO
                             
                             pres = (                                      &
@@ -2285,6 +2288,17 @@ MODULE m_data_output
                                 nRdot(1), &
                                 R(1), &
                                 Rdot(1)
+                        else if (hypoelasticity) then
+                            WRITE(i+30,'(6X,F12.6,F24.8,F24.8,F24.8,F24.8,' // &
+                                           'F24.8,F24.8,F24.8)') &
+                                nondim_time, &
+                                rho, &
+                                vel(1), &
+                                vel(2), &
+                                pres, &
+                                tau_e(1), &
+                                tau_e(2), &
+                                tau_e(3)
                         ELSE
                             WRITE(i+30,'(6X,F12.6,F24.8,F24.8,F24.8,F24.8)') &
                                 nondim_time, &
