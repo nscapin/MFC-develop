@@ -1932,8 +1932,9 @@ MODULE m_data_output
                                                 /(4d0*G)
                                  END IF
                                 END IF
-                                tau_e(s) = q_cons_vf(s)%sf(j-2,k,l)/rho
+
                             END DO
+                            tau_e(1) = q_cons_vf(s)%sf(j-2,k,l)/rho
                             
                             pres = (                                      &
                                q_cons_vf(E_idx)%sf(j-2,k,l)  -            &
@@ -2048,8 +2049,11 @@ MODULE m_data_output
                                                 /(4d0*G)
                                  END IF
                                 END IF
-                                tau_e(s) = q_cons_vf(s)%sf(j-2,k-2,l)/rho
+
                             END DO
+                            do s = 1,3
+                                tau_e(s) = q_cons_vf(s)%sf(j-2,k-2,l)/rho
+                            end do
                             
                             pres = (                                      &
                                q_cons_vf(E_idx)%sf(j-2,k-2,l)  -            &
