@@ -596,7 +596,7 @@ contains
                                     G_L_acc = G_L_acc + alpha_L_acc(i)*Gs(i)
                                     G_R_acc = G_R_acc + alpha_R_acc(i)*Gs(i)
                                 end do
-                                
+
                                 ! add elastic contribution to energy if G large enough TODO: >0
                                 if ((G_L_acc > 1000) .and. (G_R_acc > 1000)) then
                                     E_L_acc = E_L_acc + (tau_e_L_acc(i)*tau_e_L_acc(i))/(4d0*G_L_acc)
@@ -803,6 +803,8 @@ contains
                                         /(s_M_acc - s_P_acc)
                                 end do
                             else if (hypoelasticity) then
+
+
      !$acc loop seq
                                 do i = 1, num_dims
                                     flux_rsx_vf_flat(j, k, l, contxe + dir_idx(i)) = &
@@ -6807,7 +6809,7 @@ contains
             end if
         end if 
 
-!$acc update device(is1, is2, is3, dir_idx, dir_flg)
+!$acc update device(is1, is2, is3, dir_idx, dir_flg, dir_idx_tau)
 
 
         ! Population of Buffers in x-direction =============================

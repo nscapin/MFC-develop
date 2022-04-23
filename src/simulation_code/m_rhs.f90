@@ -179,6 +179,13 @@ module m_rhs
     real(kind(0d0)),allocatable, dimension(:) :: gammas, pi_infs, Gs
 !$acc declare create(gammas, pi_infs, Gs)
 
+    real(kind(0d0)), allocatable, dimension(:, :, :) :: rho_K_field, G_K_field
+!$acc declare create(rho_K_field, G_K_field)
+
+    real(kind(0d0)), allocatable, dimension(:, :, :) :: du_dx, du_dy, du_dz
+    real(kind(0d0)), allocatable, dimension(:, :, :) :: dv_dx, dv_dy, dv_dz
+    real(kind(0d0)), allocatable, dimension(:, :, :) :: dw_dx, dw_dy, dw_dz
+!$acc declare create(du_dx,du_dy,du_dz)
 
     character(50) :: file_path !< Local file path for saving debug files
 
@@ -793,6 +800,12 @@ contains
 
         allocate(gammas(1:num_fluids), pi_infs(1:num_fluids), Gs(1:num_fluids))
 
+        if(hypoelasticity) then
+          allocate(rho_K_field(0:m,0:n,0:p), G_K_field(0:m,0:n,0:p))
+          allocate(du_dx(0:m,0:n,0:p))
+!$acc enter data create(rho_K_field,G_K_field,du_dx)
+        end if
+
         do i = 1, num_fluids
             gammas(i) = fluid_pp(i)%gamma
             pi_infs(i) = fluid_pp(i)%pi_inf
@@ -874,13 +887,7 @@ contains
 
         !these are necessary for hypoelasticity (currently in rhs_full)
         real(kind(0d0)) :: Re_K, rho_K, G_K
-        real(kind(0d0)), dimension(0:m,0:n,0:p) :: rho_K_field, G_K_field
         real(kind(0d0)) :: gamma_K, pi_inf_K
-
-        !Velocity gradients (calculated via central finite differences only if hypoelasticity = true
-        real(kind(0d0)), dimension(0:m,0:n,0:p) :: du_dx, du_dy, du_dz
-        real(kind(0d0)), dimension(0:m,0:n,0:p) :: dv_dx, dv_dy, dv_dz
-        real(kind(0d0)), dimension(0:m,0:n,0:p) :: dw_dx, dw_dy, dw_dz
 
         real(kind(0d0)) :: top, bottom  !< Numerator and denominator when evaluating flux limiter function
 
@@ -1372,9 +1379,7 @@ contains
             call nvtxStartRange("RHS_Hypoelasticity")
 
             if (hypoelasticity) then
-            ! Need these fields throughout loops below, unsure if this enter data create is
-            ! the best way to do this
-!$acc enter data create(rho_K_field, G_K_field, du_dx)
+
                 if (id == 1) then
                     ! calculate du/dx (only derivative required in 1D) + rho_K and G_K
 !$acc parallel loop collapse(3) gang vector default(present)
@@ -1388,9 +1393,20 @@ contains
                                     -       q_prim_qp%vf(momxb)%sf(k+2,l,q)) &
                                     / (12d0*(x_cc(k+1) - x_cc(k) ))
 
-                                call s_convert_to_mixture_variables(q_prim_qp%vf, rho_K, gamma_K, &
-                                                                    pi_inf_K, Re_K, k,l,q, &
-                                                                    G_K, Gs)
+!                                call s_convert_to_mixture_variables(q_prim_qp%vf, rho_K, gamma_K, &
+!                                                                    pi_inf_K, Re_K, k,l,q, &
+!                                                                    G_K, Gs)
+                                ! call to convert routine not working: write explicitly below (need to adjust for multiple fluids)
+                                rho_K = 0d0; G_K = 0d0
+                                ! Hard-coded for 1D/1 liquid below
+!                                do i = 1, num_fluids
+!                                    alpha_rho_K(1) = q_prim_qp%vf(1)%sf(k,l,q)
+!                                    alpha_K(1) = q_prim_qp%vf(advxb + 1 - 1)%sf(k,l,q)
+
+                                    rho_K = rho_K + q_prim_qp%vf(1)%sf(k,l,q) !alpha_rho_K(1)
+                                    G_K = G_K + q_prim_qp%vf(advxb)%sf(k,l,q)*Gs(1)  !alpha_K(1) * Gs(1)
+!                                end do
+
                                 rho_K_field(k,l,q) = rho_K
                                 G_K_field(k,l,q) = G_K
                                 !TODO: take this out if not needed
@@ -1402,7 +1418,7 @@ contains
                     end do
 
                     ! apply rhs source term to elastic stress equation
-!$acc parallel loop collapse(4) gang vector default(present)                   
+!$acc parallel loop collapse(4) gang vector default(present)
                     do j = strxb, strxe
                         do q = 0, p
                             do l = 0, n
@@ -1416,8 +1432,7 @@ contains
                             end do
                         end do
                     end do
-                !TODO: add 2D, 3D
-!$acc exit data delete(rho_K_field, G_K_field, du_dx)
+
                 end if
 
             end if
