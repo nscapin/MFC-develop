@@ -372,6 +372,7 @@ contains
 
         real(kind(0d0)), optional, intent(OUT) :: G_K
         real(kind(0d0)), optional, dimension(num_fluids), intent(IN) :: G
+!        real(kind(0d0)), intent(INOUT) :: G_K
 
         integer, intent(IN) :: k, l, r
 
@@ -394,13 +395,14 @@ contains
             pi_inf_K = pi_inf_K + alpha_K(i)*pi_infs(i)
         end do
 
-        IF (present(G_K)) THEN
+        if (present(G_K)) then
             G_K = 0d0
-            DO i = 1, num_fluids
+            do i = 1, num_fluids
+            !TODO: change to use Gs directly here?
                 G_K = G_K + alpha_K(i)*G(i)
-            END DO
+            end do
             G_K = MAX(0d0,G_K)
-        END IF
+        end if
 
     end subroutine s_convert_species_to_mixture_variables_acc ! ----------------
 
@@ -633,7 +635,7 @@ contains
 
                         if (hypoelasticity) then
                             call s_convert_species_to_mixture_variables_acc(rho_K, gamma_K, pi_inf_K, alpha_K, &
-                                                                         alpha_rho_K, j, k, l, G_K, fluid_pp(:)%G)
+                                                                         alpha_rho_K, j, k, l, G_K, Gs)!fluid_pp(:)%G)
                         else
                         call s_convert_species_to_mixture_variables_acc(rho_K, gamma_K, pi_inf_K, alpha_K, alpha_rho_K, &
                                                                                                                 j, k, l)
@@ -651,7 +653,6 @@ contains
 
                         qK_prim_vf(E_idx)%sf(j, k, l) = (qK_cons_vf(E_idx)%sf(j, k, l) &
                                  - dyn_pres_K - pi_inf_K )/gamma_K
-
 
                         IF (hypoelasticity) THEN
 !$acc loop seq

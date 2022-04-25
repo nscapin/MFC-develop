@@ -255,10 +255,12 @@ contains
 !$acc enter data create(q_prim_qp%vf(l)%sf(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end))
         end do
 
-        do l = stress_idx%beg, stress_idx%end
-            allocate(q_prim_qp%vf(l)%sf(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end))
+        if (hypoelasticity) then
+            do l = stress_idx%beg, stress_idx%end
+                allocate(q_prim_qp%vf(l)%sf(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end))
 !$acc enter data create(q_prim_qp%vf(l)%sf(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end))
-        end do
+            end do
+        end if
 
         do l = 1, cont_idx%end
             q_prim_qp%vf(l)%sf => &
@@ -803,7 +805,7 @@ contains
         if(hypoelasticity) then
           allocate(rho_K_field(0:m,0:n,0:p), G_K_field(0:m,0:n,0:p))
           allocate(du_dx(0:m,0:n,0:p))
-!$acc enter data create(rho_K_field,G_K_field,du_dx)
+        !$acc enter data create(rho_K_field,G_K_field,du_dx)
         end if
 
         do i = 1, num_fluids
