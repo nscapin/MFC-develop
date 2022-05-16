@@ -838,6 +838,7 @@ contains
         real(kind(0d0))                            ::     dgamma_dt
         real(kind(0d0))                            ::    dpi_inf_dt
         real(kind(0d0)), dimension(contxe)   :: alpha_rho, dalpha_rho_ds, mf
+        real(kind(0d0)), dimension(2) :: Re_cbc
         real(kind(0d0)), dimension(1:num_dims)     :: vel, dvel_ds
         real(kind(0d0)), dimension(1:advxe-E_idx) :: adv, dadv_ds
         real(kind(0d0)), dimension(1:advxe)       :: L
@@ -993,7 +994,7 @@ contains
                         call s_convert_species_to_mixture_variables_bubbles_acc(rho, gamma, pi_inf, adv, alpha_rho, 0, k, r)
 
                     else
-                        call s_convert_species_to_mixture_variables_acc(rho, gamma, pi_inf, adv, alpha_rho, 0, k, r)
+                        call s_convert_species_to_mixture_variables_acc(rho, gamma, pi_inf, adv, alpha_rho, Re_cbc, 0, k, r)
                     end if
 
                     E = gamma*pres + pi_inf + 5d-1*rho*vel_K_sum
@@ -1340,7 +1341,7 @@ contains
                         call s_convert_species_to_mixture_variables_bubbles_acc(rho, gamma, pi_inf, adv, alpha_rho, 0, k, r)
 
                     else
-                        call s_convert_species_to_mixture_variables_acc(rho, gamma, pi_inf, adv, alpha_rho, 0, k, r)
+                        call s_convert_species_to_mixture_variables_acc(rho, gamma, pi_inf, adv, alpha_rho, Re_cbc, 0, k, r)
                     end if
 
                     E = gamma*pres + pi_inf + 5d-1*rho*vel_K_sum
@@ -1691,7 +1692,7 @@ contains
                         call s_convert_species_to_mixture_variables_bubbles_acc(rho, gamma, pi_inf, adv, alpha_rho, 0, k, r)
 
                     else
-                        call s_convert_species_to_mixture_variables_acc(rho, gamma, pi_inf, adv, alpha_rho, 0, k, r)
+                        call s_convert_species_to_mixture_variables_acc(rho, gamma, pi_inf, adv, alpha_rho, Re_cbc, 0, k, r)
                     end if
 
                     E = gamma*pres + pi_inf + 5d-1*rho*vel_K_sum

@@ -703,7 +703,8 @@ contains
             MPI_IO_DATA%var(i)%sf => null()
         end do
 
-!$acc update device(Re_size)
+!$acc update device(Re_size, Re_idx)
+
         ! Determining the number of cells that are needed in order to store
         ! sufficient boundary conditions data as to iterate the solution in
         ! the physical computational domain from one time-step iteration to

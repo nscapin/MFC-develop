@@ -121,7 +121,8 @@ module m_variables_conversion
     real(kind(0d0)) :: bubxb, bubxe
     real(kind(0d0)) :: advxb, advxe
     real(kind(0d0)),allocatable, dimension(:) :: gammas, pi_infs, bubrs
-!$acc declare create(ixb, ixe, iyb, iye, iye, izb, ize, momxb, momxe, bubxb, bubxe, contxb, contxe, advxb, advxe, gammas, pi_infs, bubrs)
+    real(kind(0d0)), allocatable, dimension(:, :) :: Res
+!$acc declare create(ixb, ixe, iyb, iye, iye, izb, ize, momxb, momxe, bubxb, bubxe, contxb, contxe, advxb, advxe, gammas, pi_infs, bubrs, Res)
 
 
     integer :: is1b, is2b, is3b, is1e, is2e, is3e
@@ -315,14 +316,14 @@ contains
         ! Computing the shear and bulk Reynolds numbers from species analogs
         do i = 1, 2
 
-            Re_K(i) = -1d6; !if (Re_size(i) > 0) Re_K(i) = 0d0
+            Re_K(i) = dflt_real; if (Re_size(i) > 0) Re_K(i) = 0d0
 
-            !do j = 1, Re_size(i)
-            !    Re_K(i) = alpha_K(Re_idx(i, j))/fluid_pp(Re_idx(i, j))%Re(i) &
-            !              + Re_K(i)
-            !end do
+            do j = 1, Re_size(i)
+                Re_K(i) = alpha_K(Re_idx(i, j))/fluid_pp(Re_idx(i, j))%Re(i) &
+                          + Re_K(i)
+            end do
 
-            Re_K(i) = 1d0/max(Re_K(i), 1d-16)
+            Re_K(i) = 1d0/max(Re_K(i), sgm_eps)
 
         end do
 
@@ -331,12 +332,13 @@ contains
 
     subroutine s_convert_species_to_mixture_variables_acc( rho_K, &
                                                       gamma_K, pi_inf_K, &
-                                                       alpha_K, alpha_rho_K,  k, l, r)
+                                                       alpha_K, alpha_rho_K, Re_K,  k, l, r)
 !$acc routine seq
 
         real(kind(0d0)), intent(INOUT) :: rho_K, gamma_K, pi_inf_K
 
         real(kind(0d0)), dimension(:), intent(IN) :: alpha_rho_K, alpha_K !<
+        real(kind(0d0)), dimension(:), intent(INOUT) :: Re_K 
             !! Partial densities and volume fractions
 
         integer, intent(IN) :: k, l, r
@@ -355,7 +357,6 @@ contains
         alpha_K_sum = 0d0
 
         if (mpp_lim) then
-!$acc loop seq
             do i = 1, num_fluids
                 alpha_rho_K(i) = max(0d0, alpha_rho_K(i))
                 alpha_K(i) = min(max(0d0, alpha_K(i)), 1d0)
@@ -370,6 +371,20 @@ contains
             rho_K = rho_K + alpha_rho_K(i)
             gamma_K = gamma_K + alpha_K(i)*gammas(i)
             pi_inf_K = pi_inf_K + alpha_K(i)*pi_infs(i)
+        end do
+
+        do i = 1, 2
+            Re_K(i) = dflt_real 
+            
+            if (Re_size(i) > 0) Re_K(i) = 0d0
+
+            do j = 1, Re_size(i)
+                Re_K(i) = alpha_K(Re_idx(i, j))/Res(i,j) &
+                          + Re_K(i)
+            end do
+
+            Re_K(i) = 1d0/max(Re_K(i), sgm_eps)
+
         end do
 
 
@@ -521,6 +536,8 @@ contains
         allocate(gammas(1:num_fluids))
         allocate(pi_infs(1:num_fluids))
 
+        allocate(Res(1:2,1:maxval(Re_size)))
+
         allocate(bubrs(1:nb))
 
         do i = 1, num_fluids
@@ -528,6 +545,15 @@ contains
             pi_infs(i) = fluid_pp(i)%pi_inf
         end do
 !$acc update device(gammas, pi_infs)
+
+        do i = 1, 2
+            do j = 1, Re_size(i)
+                Res(i, j) = fluid_pp(Re_idx(i,j))%Re(i)
+            end do
+        end do
+
+!$acc update device(Res, Re_idx, Re_size)
+
 
         do i = 1, nb
             bubrs(i) = bub_idx%rs(i)
@@ -603,6 +629,7 @@ contains
         type(bounds_info), intent(IN) :: ix, iy, iz
 
         real(kind(0d0)),   dimension(2) :: alpha_K, alpha_rho_K
+        real(kind(0d0)), dimension(2) :: Re_K
         real(kind(0d0)) :: rho_K, gamma_K, pi_inf_K, dyn_pres_K
         real(kind(0d0)), dimension(nb) :: nRtmp
         real(kind(0d0)) :: vftmp, nR3, nbub_sc
@@ -611,7 +638,7 @@ contains
 
 
         if((model_eqns .ne. 4) .and. (bubbles .neqv. .true.)) then 
-!$acc parallel loop collapse(3) gang vector default(present) private( alpha_K, alpha_rho_K)
+!$acc parallel loop collapse(3) gang vector default(present) private( alpha_K, alpha_rho_K, Re_K)
             do l = izb, ize
                 do k = iyb, iye
                     do j = ixb, ixe
@@ -623,7 +650,7 @@ contains
                             alpha_K(i) = qK_cons_vf(advxb + i - 1)%sf(j, k, l)
                         end do
 
-                        call s_convert_species_to_mixture_variables_acc(rho_K, gamma_K, pi_inf_K, alpha_K, alpha_rho_K, j, k, l)
+                        call s_convert_species_to_mixture_variables_acc(rho_K, gamma_K, pi_inf_K, alpha_K, alpha_rho_K, Re_K, j, k, l)
 
 
 !$acc loop seq
@@ -805,7 +832,7 @@ contains
         ! Computing the flux variables from the primitive variables, without
         ! accounting for the contribution of either viscosity or capillarity
 
-!$acc parallel loop collapse(3) gang vector default(present) private(alpha_rho_K, vel_K, alpha_K)
+!$acc parallel loop collapse(3) gang vector default(present) private(alpha_rho_K, vel_K, alpha_K, Re_K)
         do l = is3b, is3e
             do k = is2b, is2e
                 do j = is1b, is1e
@@ -836,7 +863,7 @@ contains
                         call s_convert_species_to_mixture_variables_bubbles_acc(rho_K, gamma_K, pi_inf_K, alpha_K, alpha_rho_K, j, k, l)
 
                     else
-                        call s_convert_species_to_mixture_variables_acc(rho_K, gamma_K, pi_inf_K, alpha_K, alpha_rho_K, j, k, l)
+                        call s_convert_species_to_mixture_variables_acc(rho_K, gamma_K, pi_inf_K, alpha_K, alpha_rho_K, Re_K, j, k, l)
                     end if
 
 

@@ -123,7 +123,7 @@ module m_weno
 !$acc                poly_coef_cbL_x,poly_coef_cbL_y,poly_coef_cbL_z, &
 !$acc                poly_coef_cbR_x,poly_coef_cbR_y,poly_coef_cbR_z,d_cbL_x,       &
 !$acc                d_cbL_y,d_cbL_z,d_cbR_x,d_cbR_y,d_cbR_z,beta_coef_x,beta_coef_y,beta_coef_z,   &
-!$acc                is1, is2, is3, test)
+!$acc                v_size, is1, is2, is3, test)
 
 contains
 
@@ -499,7 +499,7 @@ contains
                       norm_dir, weno_dir,  &
                       is1_d, is2_d, is3_d)
 
-        type(scalar_field), dimension(sys_size), intent(IN) :: v_vf
+        type(scalar_field), dimension(1:), intent(IN) :: v_vf
         real(kind(0d0)), dimension(startx:, starty:, startz:, 1:), intent(INOUT) ::  vL_rs_vf_x_flat, vL_rs_vf_y_flat, vL_rs_vf_z_flat, vR_rs_vf_x_flat, vR_rs_vf_y_flat, vR_rs_vf_z_flat
         integer, intent(IN) :: norm_dir
         integer, intent(IN) :: weno_dir
@@ -531,8 +531,6 @@ contains
         real(kind(0d0)) :: beta_mp  = 4d0/3d0
 
         integer :: is1b, is2b, is3b, is1e, is2e, is3e
-
-
 
         is1 = is1_d
         is2 = is2_d
@@ -1910,7 +1908,7 @@ contains
             end if            
  
 
-      
+            
 
     end subroutine s_weno_alt
 
@@ -1942,7 +1940,9 @@ contains
         ! y- and z-directions to those in the s1-, s2- and s3-directions
         ! as to reshape the inputted data in the coordinate direction of
         ! the WENO reconstruction
-        v_size = sys_size
+        v_size = ubound(v_vf, 1)
+        
+        !$acc update device(v_size)
 
 
             if(weno_dir == 1) then

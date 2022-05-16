@@ -79,11 +79,11 @@ module m_riemann_solvers
         subroutine s_abstract_riemann_solver(qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat, dqL_prim_dx_vf, &
                                              dqL_prim_dy_vf, &
                                              dqL_prim_dz_vf, &
-                                             gm_alphaL_vf, &
+                                             qL_prim_vf, &
                                              qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat, dqR_prim_dx_vf, &
                                              dqR_prim_dy_vf, &
                                              dqR_prim_dz_vf, &
-                                             gm_alphaR_vf, &
+                                             qR_prim_vf, &
                                              q_prim_vf, &
                                              flux_vf, flux_src_vf, &
                                              flux_gsrc_vf, &
@@ -94,12 +94,14 @@ module m_riemann_solvers
             real(kind(0d0)), dimension(startx:, starty:, startz:, 1:), intent(INOUT) :: qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat, qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat
             type(scalar_field), dimension(sys_size), intent(IN) :: q_prim_vf
 
+            type(scalar_field), allocatable, dimension(:), intent(INOUT) :: qL_prim_vf, qR_prim_vf
+
             type(scalar_field), &
                 allocatable, dimension(:), &
                 intent(INOUT) :: dqL_prim_dx_vf, dqR_prim_dx_vf, &
                                  dqL_prim_dy_vf, dqR_prim_dy_vf, &
-                                 dqL_prim_dz_vf, dqR_prim_dz_vf, &
-                                 gm_alphaL_vf, gm_alphaR_vf
+                                 dqL_prim_dz_vf, dqR_prim_dz_vf 
+                                 
 
             type(scalar_field), &
                 dimension(sys_size), &
@@ -401,9 +403,10 @@ module m_riemann_solvers
     !> @name Indical bounds in the s1-, s2- and s3-directions
     !> @{
     type(bounds_info) :: is1, is2, is3
+    type(bounds_info) :: isx, isy, isz
     !> @}
 !$acc declare create(qL_prim_rsx_vf, qL_prim_rsy_vf, qL_prim_rsz_vf, qR_prim_rsx_vf, qR_prim_rsy_vf, qR_prim_rsz_vf, &
-!$acc    is1, is2, is3,  vel_src_rsx_vf, vel_src_rsy_vf, vel_src_rsz_vf, &
+!$acc    is1, is2, is3, isx, isy, isz,  vel_src_rsx_vf, vel_src_rsy_vf, vel_src_rsz_vf, &
 !$acc    flux_gsrc_rsx_vf, flux_gsrc_rsy_vf, flux_gsrc_rsz_vf)
 
 !$acc declare create(&
@@ -431,11 +434,11 @@ contains
     subroutine s_hll_riemann_solver(qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat, dqL_prim_dx_vf, & ! -------
                                     dqL_prim_dy_vf, &
                                     dqL_prim_dz_vf, &
-                                    gm_alphaL_vf, &
+                                    qL_prim_vf, &
                                     qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat, dqR_prim_dx_vf, &
                                     dqR_prim_dy_vf, &
                                     dqR_prim_dz_vf, &
-                                    gm_alphaR_vf, &
+                                    qR_prim_vf, &
                                     q_prim_vf, &
                                     flux_vf, flux_src_vf, &
                                     flux_gsrc_vf, &
@@ -444,12 +447,14 @@ contains
         real(kind(0d0)), dimension(startx:, starty:, startz:, 1:), intent(INOUT) :: qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat, qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat
         type(scalar_field), dimension(sys_size), intent(IN) :: q_prim_vf
 
+        type(scalar_field), allocatable, dimension(:), intent(INOUT) :: qL_prim_vf, qR_prim_vf
+
         type(scalar_field), &
             allocatable, dimension(:), &
             intent(INOUT) :: dqL_prim_dx_vf, dqR_prim_dx_vf, &
                              dqL_prim_dy_vf, dqR_prim_dy_vf, &
-                             dqL_prim_dz_vf, dqR_prim_dz_vf, &
-                             gm_alphaL_vf, gm_alphaR_vf
+                             dqL_prim_dz_vf, dqR_prim_dz_vf 
+                             
 
         ! Intercell fluxes
         type(scalar_field), &
@@ -459,17 +464,18 @@ contains
         integer, intent(IN) :: norm_dir
         type(bounds_info), intent(IN) :: ix, iy, iz
 
-        real(kind(0d0)),dimension(10)   :: alpha_rho_L, alpha_rho_R
+        real(kind(0d0)),dimension(2)   :: alpha_rho_L, alpha_rho_R
         real(kind(0d0))                              ::       rho_L, rho_R
         real(kind(0d0)), dimension(3)   ::       vel_L, vel_R
         real(kind(0d0))                              ::      pres_L, pres_R
         real(kind(0d0))                              ::         E_L, E_R
         real(kind(0d0))                              ::         H_L, H_R
-        real(kind(0d0)), dimension(10)   ::     alpha_L, alpha_R
+        real(kind(0d0)), dimension(2)   ::     alpha_L, alpha_R
         real(kind(0d0))                              ::         Y_L, Y_R
         real(kind(0d0))                              ::     gamma_L, gamma_R
         real(kind(0d0))                              ::    pi_inf_L, pi_inf_R
         real(kind(0d0))                              ::         c_L, c_R
+        real(kind(0d0)), dimension(2)   :: Re_L, Re_R
 
         real(kind(0d0))                                 :: rho_avg
         real(kind(0d0)),dimension(3)   :: vel_avg
@@ -496,11 +502,11 @@ contains
             qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat, dqL_prim_dx_vf, &
             dqL_prim_dy_vf, &
             dqL_prim_dz_vf, &
-            gm_alphaL_vf, &
+            qL_prim_vf, &
             qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat, dqR_prim_dx_vf, &
             dqR_prim_dy_vf, &
             dqR_prim_dz_vf, &
-            gm_alphaR_vf, &
+            qR_prim_vf, &
             norm_dir, ix, iy, iz)
 
         ! Reshaping inputted data based on dimensional splitting direction
@@ -512,7 +518,7 @@ contains
 #:for NORM_DIR, XYZ in [(1, 'x'), (2, 'y'), (3, 'z')]
 
         if (norm_dir == ${NORM_DIR}$) then
-            !$acc parallel loop collapse(3) gang vector default(present) private(alpha_rho_L, alpha_rho_R, vel_L, vel_R, alpha_L, alpha_R, vel_avg)
+            !$acc parallel loop collapse(3) gang vector default(present) private(alpha_rho_L, alpha_rho_R, vel_L, vel_R, alpha_L, alpha_R, vel_avg, Re_L, Re_R)
             do l = is3%beg, is3%end
               do k = is2%beg, is2%end
                 do j = is1%beg, is1%end
@@ -547,27 +553,11 @@ contains
                   pres_L = qL_prim_rs${XYZ}$_vf_flat(j,     k, l, E_idx)
                   pres_R = qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx)
 
-                  rho_L    = 0d0
-                  gamma_L  = 0d0
-                  pi_inf_L = 0d0
+                  call s_convert_species_to_mixture_variables_acc(rho_L, gamma_L, pi_inf_L, alpha_L, alpha_rho_L, Re_L, j, k, l)
 
-                  !$acc loop seq
-                  do i = 1, num_fluids
-                    rho_L    = rho_L    + alpha_rho_L(i)
-                    gamma_L  = gamma_L  + alpha_L(i)*gammas(i)
-                    pi_inf_L = pi_inf_L + alpha_L(i)*pi_infs(i)
-                  end do
 
-                  rho_R    = 0d0
-                  gamma_R  = 0d0
-                  pi_inf_R = 0d0
+                  call s_convert_species_to_mixture_variables_acc(rho_R, gamma_R, pi_inf_R, alpha_R, alpha_rho_R, Re_R, j + 1, k, l)
 
-                  !$acc loop seq
-                  do i = 1, num_fluids
-                    rho_R    = rho_R    + alpha_rho_R(i)
-                    gamma_R  = gamma_R  + alpha_R(i)*gammas(i)
-                    pi_inf_R = pi_inf_R + alpha_R(i)*pi_infs(i)
-                  end do
 
                   E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*vel_L_rms
                   E_R = gamma_R*pres_R + pi_inf_R + 5d-1*rho_R*vel_R_rms
@@ -686,6 +676,13 @@ contains
                     c_R = 100.d0*sgm_eps
                   else
                     c_R = sqrt(c_R)
+                  end if
+
+                  if(any(Re_size > 0)) then
+                      !$acc loop seq
+                      do i = 1, 2
+                          Re_avg_rs${XYZ}$_vf_flat(j, k, l, i) = 2d0/(1d0/Re_L(i) + 1d0/Re_R(i))
+                       end do
                   end if
 
                   if(wave_speeds == 1) then
@@ -827,6 +824,36 @@ contains
 
 #:endfor
 
+
+
+            if(ANY(Re_size > 0) ) then
+                if(weno_Re_flux) then
+
+                    CALL s_compute_viscous_source_flux( &
+                                   qL_prim_vf(momxb:momxe), &
+                               dqL_prim_dx_vf(momxb:momxe), &
+                               dqL_prim_dy_vf(momxb:momxe), &
+                               dqL_prim_dz_vf(momxb:momxe), &
+                                   qR_prim_vf(momxb:momxe), &
+                               dqR_prim_dx_vf(momxb:momxe), &
+                               dqR_prim_dy_vf(momxb:momxe), &
+                               dqR_prim_dz_vf(momxb:momxe), &
+                                       flux_src_vf, norm_dir, ix,iy,iz  )
+                else
+                    CALL s_compute_viscous_source_flux( &
+                                    q_prim_vf(momxb:momxe), &
+                               dqL_prim_dx_vf(momxb:momxe), &
+                               dqL_prim_dy_vf(momxb:momxe), &
+                               dqL_prim_dz_vf(momxb:momxe), &
+                                    q_prim_vf(momxb:momxe), &
+                               dqR_prim_dx_vf(momxb:momxe), &
+                               dqR_prim_dy_vf(momxb:momxe), &
+                               dqR_prim_dz_vf(momxb:momxe), &
+                                       flux_src_vf, norm_dir, ix,iy,iz  )
+                end if
+            end if
+
+    
         call s_finalize_riemann_solver(flux_vf, flux_src_vf, &
                                        flux_gsrc_vf, &
                                        norm_dir, ix, iy, iz)
@@ -869,11 +896,11 @@ contains
         subroutine s_hllc_riemann_solver(qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat, dqL_prim_dx_vf, & ! ------
                                      dqL_prim_dy_vf, &
                                      dqL_prim_dz_vf, &
-                                     gm_alphaL_vf, &
+                                     qL_prim_vf, &
                                      qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat, dqR_prim_dx_vf, &
                                      dqR_prim_dy_vf, &
                                      dqR_prim_dz_vf, &
-                                     gm_alphaR_vf, &
+                                     qR_prim_vf, &
                                      q_prim_vf, &
                                      flux_vf, flux_src_vf, &
                                      flux_gsrc_vf, &
@@ -881,13 +908,15 @@ contains
 
         real(kind(0d0)), dimension(startx:, starty:, startz:, 1:), intent(INOUT) :: qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat, qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat
         type(scalar_field), dimension(sys_size), intent(IN) :: q_prim_vf
+        
+        type(scalar_field), allocatable, dimension(:), intent(INOUT) :: qL_prim_vf, qR_prim_vf
 
         type(scalar_field), &
             allocatable, dimension(:), &
             intent(INOUT) :: dqL_prim_dx_vf, dqR_prim_dx_vf, &
                              dqL_prim_dy_vf, dqR_prim_dy_vf, &
-                             dqL_prim_dz_vf, dqR_prim_dz_vf, &
-                             gm_alphaL_vf, gm_alphaR_vf
+                             dqL_prim_dz_vf, dqR_prim_dz_vf 
+                             
 
         ! Intercell fluxes
         type(scalar_field), &
@@ -909,6 +938,7 @@ contains
         real(kind(0d0))                              ::     gamma_L, gamma_R
         real(kind(0d0))                              ::    pi_inf_L, pi_inf_R
         real(kind(0d0))                              ::         c_L, c_R
+        real(kind(0d0)), dimension(2) :: Re_L, Re_R
 
         real(kind(0d0))                                 :: rho_avg
         real(kind(0d0)),dimension(3)   :: vel_avg 
@@ -949,11 +979,11 @@ contains
             qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat, dqL_prim_dx_vf, &
             dqL_prim_dy_vf, &
             dqL_prim_dz_vf, &
-            gm_alphaL_vf, &
+            qL_prim_vf, &
             qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat, dqR_prim_dx_vf, &
             dqR_prim_dy_vf, &
             dqR_prim_dz_vf, &
-            gm_alphaR_vf, &
+            qR_prim_vf, &
             norm_dir, ix, iy, iz)
 
         ! Reshaping inputted data based on dimensional splitting direction
@@ -1002,25 +1032,11 @@ contains
                             pres_L = qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx)
                             pres_R = qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx)
 
-                            rho_L = 0d0
-                            gamma_L = 0d0
-                            pi_inf_L = 0d0
-                !$acc loop seq
-                            do i = 1, num_fluids
-                                rho_L = rho_L + alpha_rho_L(i)
-                                gamma_L = gamma_L+ alpha_L(i)*gammas(i)
-                                pi_inf_L = pi_inf_L + alpha_L(i)*pi_infs(i)
-                            end do
+                            call s_convert_species_to_mixture_variables_acc(rho_L, gamma_L, pi_inf_L, alpha_L, alpha_rho_L, Re_L, j, k, l)
 
-                            rho_R = 0d0
-                            gamma_R = 0d0
-                            pi_inf_R = 0d0
-                !$acc loop seq
-                            do i = 1, num_fluids
-                                rho_R = rho_R + alpha_rho_R(i)
-                                gamma_R = gamma_R + alpha_R(i)*gammas(i)
-                                pi_inf_R = pi_inf_R + alpha_R(i)*pi_infs(i)
-                            end do
+
+                            call s_convert_species_to_mixture_variables_acc(rho_R, gamma_R, pi_inf_R, alpha_R, alpha_rho_R, Re_R, j + 1, k, l)
+
 
 
                             E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*vel_L_rms
@@ -2111,11 +2127,17 @@ contains
                     end do
                 !$acc end parallel loop
                 else
-        !$acc parallel loop collapse(3) gang vector default(present) private(vel_L, vel_R)        
+        !$acc parallel loop collapse(3) gang vector default(present) private(vel_L, vel_R, Re_L, Re_R, alpha_L, alpha_R, alpha_rho_L, alpha_rho_R)        
                     do l = is3%beg, is3%end
                         do k = is2%beg, is2%end
                             do j = is1%beg, is1%end
                                 idx1 = 1; if (dir_idx(1).eq.2) idx1 = 2; if (dir_idx(1).eq.3) idx1 = 3
+
+                                 !$acc loop seq
+                                do i = 1, num_fluids
+                                    alpha_rho_L(i) = qL_prim_rs${XYZ}$_vf_flat(j, k, l, i)
+                                    alpha_rho_R(i) = qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, i)
+                                end do
 
                                 vel_L_rms = 0d0; vel_R_rms = 0d0
         !$acc loop seq
@@ -2130,22 +2152,18 @@ contains
                                 pres_L = qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx)
                                 pres_R = qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx)
 
-                                rho_L = 0d0
-                                gamma_L = 0d0
-                                pi_inf_L = 0d0
-                                rho_R = 0d0
-                                gamma_R = 0d0
-                                pi_inf_R = 0d0
-        !$acc loop seq 
+                                !$acc loop seq
                                 do i = 1, num_fluids
-                                    rho_L = rho_L + qL_prim_rs${XYZ}$_vf_flat(j, k, l, i)
-                                    gamma_L = gamma_L + qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx + i)*gammas(i)
-                                    pi_inf_L = pi_inf_L + qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx + i)*pi_infs(i)
+                                    alpha_L(i) = qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx + i)
+                                    alpha_R(i) = qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx + i)
+                                end do
 
-                                    rho_R = rho_R + qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, i)
-                                    gamma_R = gamma_R + qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx + i)*gammas(i)
-                                    pi_inf_R = pi_inf_R + qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx + i)*pi_infs(i)
-                                end do        
+
+                                call s_convert_species_to_mixture_variables_acc(rho_L, gamma_L, pi_inf_L, alpha_L, alpha_rho_L, Re_L, j, k, l)
+
+
+                                call s_convert_species_to_mixture_variables_acc(rho_R, gamma_R, pi_inf_R,  alpha_R, alpha_rho_R, Re_R, j + 1, k, l)
+     
 
                                 E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*vel_L_rms
 
@@ -2235,6 +2253,13 @@ contains
                                     c_R = 100.d0*sgm_eps
                                 else
                                     c_R = sqrt(c_R)
+                                end if
+
+                                if(any(Re_size > 0)) then
+                                !$acc loop seq
+                                    do i = 1, 2
+                                        Re_avg_rs${XYZ}$_vf_flat(j, k, l, i) = 2d0/(1d0/Re_L(i) + 1d0/Re_R(i))
+                                    end do
                                 end if
 
                                 if(wave_speeds == 1) then
@@ -2431,6 +2456,35 @@ contains
 
                     ! print*, 'about to get average state'
 
+
+
+
+            IF(ANY(Re_size > 0) ) THEN
+                if(weno_Re_flux) then
+                    CALL s_compute_viscous_source_flux( &
+                                   qL_prim_vf(momxb:momxe), &
+                               dqL_prim_dx_vf(momxb:momxe), &
+                               dqL_prim_dy_vf(momxb:momxe), &
+                               dqL_prim_dz_vf(momxb:momxe), &
+                                   qR_prim_vf(momxb:momxe), &
+                               dqR_prim_dx_vf(momxb:momxe), &
+                               dqR_prim_dy_vf(momxb:momxe), &
+                               dqR_prim_dz_vf(momxb:momxe), &
+                                       flux_src_vf, norm_dir, ix,iy,iz  )
+                else
+                    CALL s_compute_viscous_source_flux( &
+                                    q_prim_vf(momxb:momxe), &
+                               dqL_prim_dx_vf(momxb:momxe), &
+                               dqL_prim_dy_vf(momxb:momxe), &
+                               dqL_prim_dz_vf(momxb:momxe), &
+                                    q_prim_vf(momxb:momxe), &
+                               dqR_prim_dx_vf(momxb:momxe), &
+                               dqR_prim_dy_vf(momxb:momxe), &
+                               dqR_prim_dz_vf(momxb:momxe), &
+                                       flux_src_vf, norm_dir, ix,iy,iz  )
+                end if
+            end if
+
             call s_finalize_riemann_solver(flux_vf, flux_src_vf, &
                                        flux_gsrc_vf, &
                                        norm_dir, ix, iy, iz)
@@ -2476,11 +2530,11 @@ contains
     subroutine s_exact_riemann_solver(qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat, dqL_prim_dx_vf, & ! -----
                                       dqL_prim_dy_vf, &
                                       dqL_prim_dz_vf, &
-                                      gm_alphaL_vf, &
+                                      qL_prim_vf, &
                                       qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat, dqR_prim_dx_vf, &
                                       dqR_prim_dy_vf, &
                                       dqR_prim_dz_vf, &
-                                      gm_alphaR_vf, &
+                                      qR_prim_vf, &
                                       q_prim_vf, &
                                       flux_vf, flux_src_vf, &
                                       flux_gsrc_vf, &
@@ -2489,12 +2543,14 @@ contains
         real(kind(0d0)), dimension(startx:, starty:, startz:, 1:), intent(INOUT) :: qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat, qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat
         type(scalar_field), dimension(sys_size), intent(IN) :: q_prim_vf
 
+        type(scalar_field), allocatable, dimension(:), intent(INOUT) :: qL_prim_vf, qR_prim_vf
+
         type(scalar_field), &
             allocatable, dimension(:), &
             intent(INOUT) :: dqL_prim_dx_vf, dqR_prim_dx_vf, &
                              dqL_prim_dy_vf, dqR_prim_dy_vf, &
-                             dqL_prim_dz_vf, dqR_prim_dz_vf, &
-                             gm_alphaL_vf, gm_alphaR_vf
+                             dqL_prim_dz_vf, dqR_prim_dz_vf 
+                             
 
         type(scalar_field), &
             dimension(sys_size), &
@@ -2511,11 +2567,11 @@ contains
             qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat, dqL_prim_dx_vf, &
             dqL_prim_dy_vf, &
             dqL_prim_dz_vf, &
-            gm_alphaL_vf, &
+            qL_prim_vf, &
             qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat, dqR_prim_dx_vf, &
             dqR_prim_dy_vf, &
             dqR_prim_dz_vf, &
-            gm_alphaR_vf, &
+            qR_prim_vf, &
             norm_dir, ix, iy, iz)
 
         ! Reshaping inputted data based on dimensional splitting direction
@@ -2600,11 +2656,11 @@ contains
 
         call s_convert_species_to_mixture_variables_acc( &
                                             rho_L, gamma_L, &
-                                            pi_inf_L, alpha_L, alpha_rho_L, &
+                                            pi_inf_L, alpha_L, alpha_rho_L, Re_L, &
                                             j, k, l)
         call s_convert_species_to_mixture_variables_acc( &
                                             rho_R, gamma_R, &
-                                            pi_inf_R, alpha_R, alpha_rho_R, &
+                                            pi_inf_R, alpha_R, alpha_rho_R, Re_R, &
                                             j + 1, k, l)
 
         E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*sum(vel_L**2d0)
@@ -3154,11 +3210,11 @@ contains
 
         call s_convert_species_to_mixture_variables_acc( &
                                             rho_L, gamma_L, &
-                                            pi_inf_L, alpha_L, alpha_rho_L, &
+                                            pi_inf_L, alpha_L, alpha_rho_L, Re_L, &
                                             j, k, l)
         call s_convert_species_to_mixture_variables_acc( &
                                             rho_R, gamma_R, &
-                                            pi_inf_R, alpha_R, alpha_rho_R, &
+                                            pi_inf_R, alpha_R, alpha_rho_R, Re_R, &
                                             j + 1, k, l)
 
         E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*sum(vel_L**2d0)
@@ -3231,11 +3287,11 @@ contains
 
         call s_convert_species_to_mixture_variables_acc( &
                                             rho_L, gamma_L, &
-                                            pi_inf_L, alpha_L, alpha_rho_L, &
+                                            pi_inf_L, alpha_L, alpha_rho_L, Re_L, &
                                             j, k, l)
         call s_convert_species_to_mixture_variables_acc( &
                                             rho_R, gamma_R, &
-                                            pi_inf_R, alpha_R, alpha_rho_R, &
+                                            pi_inf_R, alpha_R, alpha_rho_R, Re_R, &
                                             j + 1, k, l)
 
 
@@ -3585,7 +3641,7 @@ contains
             allocate(mom_sp_rsx_vf_flat(is1%beg:is1%end+1,is2%beg:is2%end, is3%beg:is3%end, 1:4))
         end if
 
-        if(Re_size(1) > 0) then
+        if(any(Re_size > 0)) then
             allocate (Re_avg_rsx_vf_flat(is1%beg:is1%end, &
                                              is2%beg:is2%end, &
                                              is3%beg:is3%end, 1:2))
@@ -3618,7 +3674,7 @@ contains
             allocate(mom_sp_rsy_vf_flat(is1%beg:is1%end+1,is2%beg:is2%end, is3%beg:is3%end, 1:4))
         end if
 
-        if(Re_size(1) > 0) then
+        if(any(Re_size > 0)) then
             allocate (Re_avg_rsy_vf_flat(is1%beg:is1%end, &
                                              is2%beg:is2%end, &
                                              is3%beg:is3%end, 1:2))
@@ -3650,7 +3706,7 @@ contains
             allocate(mom_sp_rsz_vf_flat(is1%beg:is1%end+1,is2%beg:is2%end, is3%beg:is3%end, 1:4))
         end if
 
-        if(Re_size(1) > 0) then
+        if(any(Re_size > 0)) then
             allocate (Re_avg_rsz_vf_flat(is1%beg:is1%end, &
                                              is2%beg:is2%end, &
                                              is3%beg:is3%end, 1:2))
@@ -3689,11 +3745,11 @@ contains
         qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat,  dqL_prim_dx_vf, &
         dqL_prim_dy_vf, &
         dqL_prim_dz_vf, &
-        gm_alphaL_vf, &
+        qL_prim_vf, &
         qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat, dqR_prim_dx_vf, &
         dqR_prim_dy_vf, &
         dqR_prim_dz_vf, &
-        gm_alphaR_vf, &
+        qR_prim_vf, &
         norm_dir, ix, iy, iz)
 
         real(kind(0d0)), dimension(startx:, starty:, startz:, 1:), intent(INOUT) :: qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat, qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat
@@ -3703,7 +3759,7 @@ contains
             intent(INOUT) :: dqL_prim_dx_vf, dqR_prim_dx_vf, &
                              dqL_prim_dy_vf, dqR_prim_dy_vf, &
                              dqL_prim_dz_vf, dqR_prim_dz_vf, &
-                             gm_alphaL_vf, gm_alphaR_vf
+                             qL_prim_vf, qR_prim_vf
 
         integer, intent(IN) :: norm_dir
 
@@ -3722,7 +3778,9 @@ contains
             dir_idx = (/3, 1, 2/); dir_flg = (/0d0, 0d0, 1d0/)
         end if
 
-!$acc update device(is1, is2, is3, dir_idx, dir_flg)
+        isx = ix; isy = iy; isz = iz
+
+!$acc update device(is1, is2, is3, dir_idx, dir_flg, isx, isy, isz)
 
 
         ! Population of Buffers in x-direction =============================
@@ -3740,36 +3798,40 @@ contains
                 end do
 
                 if (any(Re_size > 0)) then
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do i = momxb, momxe
+                        do l = isz%beg, isz%end
+                            do k = isy%beg, isy%end
 
-                    do i = mom_idx%beg, mom_idx%end
-                        dqL_prim_dx_vf(i)%sf(-1, &
-                                             iy%beg:iy%end, &
-                                             iz%beg:iz%end) = &
-                            dqR_prim_dx_vf(i)%sf(0, &
-                                                 iy%beg:iy%end, &
-                                                 iz%beg:iz%end)
+                                dqL_prim_dx_vf(i)%sf(-1, k, l) = &
+                                    dqR_prim_dx_vf(i)%sf(0, k, l)
+                            end do
+                        end do
                     end do
 
                     if (n > 0) then
+!$acc parallel loop collapse(3) gang vector default(present)
+                        do i = momxb, momxe
+                            do l = isz%beg, isz%end
+                                do k = isy%beg, isy%end
 
-                        do i = mom_idx%beg, mom_idx%end
-                            dqL_prim_dy_vf(i)%sf(-1, &
-                                                 iy%beg:iy%end, &
-                                                 iz%beg:iz%end) = &
-                                dqR_prim_dy_vf(i)%sf(0, &
-                                                     iy%beg:iy%end, &
-                                                     iz%beg:iz%end)
+                                    dqL_prim_dy_vf(i)%sf(-1, k, l) = &
+                                        dqR_prim_dy_vf(i)%sf(0, k, l)
+                                end do
+                            end do
                         end do
 
                         if (p > 0) then
-                            do i = mom_idx%beg, mom_idx%end
-                                dqL_prim_dz_vf(i)%sf(-1, &
-                                                     iy%beg:iy%end, &
-                                                     iz%beg:iz%end) = &
-                                    dqR_prim_dz_vf(i)%sf(0, &
-                                                         iy%beg:iy%end, &
-                                                         iz%beg:iz%end)
-                            end do
+!$acc parallel loop collapse(3) gang vector default(present)
+                                do i = momxb, momxe
+                                    do l = isz%beg, isz%end
+                                        do k = isy%beg, isy%end
+
+                                            dqL_prim_dz_vf(i)%sf(-1, k, l) = &
+                                                dqR_prim_dz_vf(i)%sf(0, k, l)
+                                        end do
+                                    end do
+                                end do
                         end if
 
                     end if
@@ -3793,35 +3855,40 @@ contains
 
                 if (any(Re_size > 0)) then
 
-                    do i = mom_idx%beg, mom_idx%end
-                        dqR_prim_dx_vf(i)%sf(m + 1, &
-                                             iy%beg:iy%end, &
-                                             iz%beg:iz%end) = &
-                            dqL_prim_dx_vf(i)%sf(m, &
-                                                 iy%beg:iy%end, &
-                                                 iz%beg:iz%end)
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do i = momxb, momxe
+                        do l = isz%beg, isz%end
+                            do k = isy%beg, isy%end
+
+                                dqR_prim_dx_vf(i)%sf(m + 1, k, l) = &
+                                    dqL_prim_dx_vf(i)%sf(m, k, l)
+                            end do
+                        end do
                     end do
 
                     if (n > 0) then
+!$acc parallel loop collapse(3) gang vector default(present)
+                        do i = momxb, momxe
+                            do l = isz%beg, isz%end
+                                do k = isy%beg, isy%end
 
-                        do i = mom_idx%beg, mom_idx%end
-                            dqR_prim_dy_vf(i)%sf(m + 1, &
-                                                 iy%beg:iy%end, &
-                                                 iz%beg:iz%end) = &
-                                dqL_prim_dy_vf(i)%sf(m, &
-                                                     iy%beg:iy%end, &
-                                                     iz%beg:iz%end)
+                                    dqR_prim_dy_vf(i)%sf(m + 1, k, l) = &
+                                        dqL_prim_dy_vf(i)%sf(m, k, l)
+                                end do
+                            end do
                         end do
 
                         if (p > 0) then
-                            do i = mom_idx%beg, mom_idx%end
-                                dqR_prim_dz_vf(i)%sf(m + 1, &
-                                                     iy%beg:iy%end, &
-                                                     iz%beg:iz%end) = &
-                                    dqL_prim_dz_vf(i)%sf(m, &
-                                                         iy%beg:iy%end, &
-                                                         iz%beg:iz%end)
-                            end do
+!$acc parallel loop collapse(3) gang vector default(present)
+                                do i = momxb, momxe
+                                    do l = isz%beg, isz%end
+                                        do k = isy%beg, isy%end
+
+                                            dqR_prim_dz_vf(i)%sf(m + 1, k, l) = &
+                                                dqL_prim_dz_vf(i)%sf(m, k, l)
+                                        end do
+                                    end do
+                                end do
                         end if
 
                     end if
@@ -3847,33 +3914,41 @@ contains
 
                 if (any(Re_size > 0)) then
 
-                    do i = mom_idx%beg, mom_idx%end
-                        dqL_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                             -1, &
-                                             iz%beg:iz%end) = &
-                            dqR_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                                 0, &
-                                                 iz%beg:iz%end)
-                        if (n > 0) then
-                            dqL_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                                 -1, &
-                                                 iz%beg:iz%end) = &
-                                dqR_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                                     0, &
-                                                     iz%beg:iz%end)
-                        end if
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do i = momxb, momxe
+                        do l = isz%beg, isz%end
+                            do j = isx%beg, isx%end
+                                dqL_prim_dx_vf(i)%sf(j, -1, l) = &
+                                    dqR_prim_dx_vf(i)%sf(j, 0, l)
+                            end do
+                        end do
                     end do
+                    
+                    
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do i = momxb, momxe
+                        do l = isz%beg, isz%end
+                            do j = isx%beg, isx%end
+                                dqL_prim_dy_vf(i)%sf(j, -1, l) = &
+                                    dqR_prim_dy_vf(i)%sf(j, 0, l)
+                            end do
+                        end do
+                    end do
+                    
+                   
 
                     if (p > 0) then
-                        do i = mom_idx%beg, mom_idx%end
-                            dqL_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                                 -1, &
-                                                 iz%beg:iz%end) = &
-                                dqR_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                                     0, &
-                                                     iz%beg:iz%end)
+!$acc parallel loop collapse(3) gang vector default(present)
+                        do i = momxb, momxe
+                            do l = isz%beg, isz%end
+                                do j = isx%beg, isx%end
+                                    dqL_prim_dz_vf(i)%sf(j, -1, l) = &
+                                        dqR_prim_dz_vf(i)%sf(j, 0, l)
+                                end do
+                            end do
                         end do
                     end if
+                    
 
                 end if
 
@@ -3893,33 +3968,42 @@ contains
 
                 if (any(Re_size > 0)) then
 
-                    do i = mom_idx%beg, mom_idx%end
-                        dqR_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                             n + 1, &
-                                             iz%beg:iz%end) = &
-                            dqL_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                                 n, &
-                                                 iz%beg:iz%end)
-                        if (n > 0) then
-                            dqR_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                                 n + 1, &
-                                                 iz%beg:iz%end) = &
-                                dqL_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                                     n, &
-                                                     iz%beg:iz%end)
-                        end if
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do i = momxb, momxe
+                        do l = isz%beg, isz%end
+                            do j = isx%beg, isx%end
+                                dqR_prim_dx_vf(i)%sf(j, n + 1, l) = &
+                                    dqL_prim_dx_vf(i)%sf(j, n, l)
+                            end do
+                        end do
                     end do
+                    
+
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do i = momxb, momxe
+                        do l = isz%beg, isz%end
+                            do j = isx%beg, isx%end
+                                dqR_prim_dy_vf(i)%sf(j, n + 1, l) = &
+                                    dqL_prim_dy_vf(i)%sf(j, n, l)
+                            end do
+                        end do
+                    end do
+                    
+                   
 
                     if (p > 0) then
-                        do i = mom_idx%beg, mom_idx%end
-                            dqR_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                                 n + 1, &
-                                                 iz%beg:iz%end) = &
-                                dqL_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                                     n, &
-                                                     iz%beg:iz%end)
+!$acc parallel loop collapse(3) gang vector default(present)
+                        do i = momxb, momxe
+                            do l = isz%beg, isz%end
+                                do j = isx%beg, isx%end
+                                    dqR_prim_dz_vf(i)%sf(j, n + 1, l) = &
+                                        dqL_prim_dz_vf(i)%sf(j, n, l)
+                                end do
+                            end do
                         end do
                     end if
+                                       
+
 
                 end if
 
@@ -3941,25 +4025,32 @@ contains
                 end do
 
                 if (any(Re_size > 0)) then
-                    do i = mom_idx%beg, mom_idx%end
-                        dqL_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                             iy%beg:iy%end, &
-                                             -1) = &
-                            dqR_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                                 iy%beg:iy%end, &
-                                                 0)
-                        dqL_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                             iy%beg:iy%end, &
-                                             -1) = &
-                            dqR_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                                 iy%beg:iy%end, &
-                                                 0)
-                        dqL_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                             iy%beg:iy%end, &
-                                             -1) = &
-                            dqR_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                                 iy%beg:iy%end, &
-                                                 0)
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do i = momxb, momxe
+                        do k = isy%beg, isy%end
+                            do j = isx%beg, isx%end
+                                dqL_prim_dx_vf(i)%sf(j, k, -1) = &
+                                    dqR_prim_dx_vf(i)%sf(j, k, 0)
+                            end do
+                        end do
+                    end do
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do i = momxb, momxe
+                        do k = isy%beg, isy%end
+                            do j = isx%beg, isx%end
+                                dqL_prim_dy_vf(i)%sf(j, k, -1) = &
+                                    dqR_prim_dy_vf(i)%sf(j, k, 0)
+                            end do
+                        end do
+                    end do
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do i = momxb, momxe
+                        do k = isy%beg, isy%end
+                            do j = isx%beg, isx%end
+                                dqL_prim_dz_vf(i)%sf(j, k, -1) = &
+                                    dqR_prim_dz_vf(i)%sf(j, k, 0)
+                            end do
+                        end do
                     end do
                 end if
 
@@ -3978,25 +4069,32 @@ contains
                 end do
 
                 if (any(Re_size > 0)) then
-                    do i = mom_idx%beg, mom_idx%end
-                        dqR_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                             iy%beg:iy%end, &
-                                             p + 1) = &
-                            dqL_prim_dx_vf(i)%sf(ix%beg:ix%end, &
-                                                 iy%beg:iy%end, &
-                                                 p)
-                        dqR_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                             iy%beg:iy%end, &
-                                             p + 1) = &
-                            dqL_prim_dy_vf(i)%sf(ix%beg:ix%end, &
-                                                 iy%beg:iy%end, &
-                                                 p)
-                        dqR_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                             iy%beg:iy%end, &
-                                             p + 1) = &
-                            dqL_prim_dz_vf(i)%sf(ix%beg:ix%end, &
-                                                 iy%beg:iy%end, &
-                                                 p)
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do i = momxb, momxe
+                        do k = isy%beg, isy%end
+                            do j = isx%beg, isx%end
+                                dqR_prim_dx_vf(i)%sf(j, k, p + 1) = &
+                                    dqL_prim_dx_vf(i)%sf(j, k, p)
+                            end do
+                        end do
+                    end do
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do i = momxb, momxe
+                        do k = isy%beg, isy%end
+                            do j = isx%beg, isx%end
+                                dqR_prim_dy_vf(i)%sf(j, k, p + 1) = &
+                                    dqL_prim_dy_vf(i)%sf(j, k, p)
+                            end do
+                        end do
+                    end do
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do i = momxb, momxe
+                        do k = isy%beg, isy%end
+                            do j = isx%beg, isx%end
+                                dqR_prim_dz_vf(i)%sf(j, k, p + 1) = &
+                                    dqL_prim_dz_vf(i)%sf(j, k, p)
+                            end do
+                        end do
                     end do
                 end if
 
@@ -4188,38 +4286,38 @@ contains
         ! Arithmetic mean of the left and right, WENO-reconstructed, cell-
         ! boundary values of cell-average first-order spatial derivatives
         ! of velocity
-        real(kind(0d0)), dimension(num_dims) :: avg_vel
-        real(kind(0d0)), dimension(num_dims) :: dvel_avg_dx
-        real(kind(0d0)), dimension(num_dims) :: dvel_avg_dy
-        real(kind(0d0)), dimension(num_dims) :: dvel_avg_dz
+        real(kind(0d0)), dimension(3) :: avg_vel
+        real(kind(0d0)), dimension(3) :: dvel_avg_dx
+        real(kind(0d0)), dimension(3) :: dvel_avg_dy
+        real(kind(0d0)), dimension(3) :: dvel_avg_dz
 
         ! Viscous stress tensor
-        real(kind(0d0)), dimension(num_dims, num_dims) :: tau_Re
+        real(kind(0d0)), dimension(3, 3) :: tau_Re
 
         ! Generic loop iterators
         integer :: i, j, k, l
 
         ! Viscous Stresses in z-direction ==================================
         if (norm_dir == 1) then
-
             if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private(avg_vel, dvel_avg_dx, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             dvel_avg_dx(1) = 5d-1*(dvelL_dx_vf(1)%sf(j, k, l) &
                                                    + dvelR_dx_vf(1)%sf(j + 1, k, l))
 
                             tau_Re(1, 1) = (4d0/3d0)*dvel_avg_dx(1)/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 1)
 
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
+                            flux_src_vf(momxb)%sf(j, k, l) = &
+                                flux_src_vf(momxb)%sf(j, k, l) - &
                                 tau_Re(1, 1)
 
                             flux_src_vf(E_idx)%sf(j, k, l) = &
                                 flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
+                                vel_src_rsx_vf_flat(j, k, l, 1)* &
                                 tau_Re(1, 1)
 
                         end do
@@ -4228,23 +4326,24 @@ contains
             end if
 
             if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private(avg_vel, dvel_avg_dx, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             dvel_avg_dx(1) = 5d-1*(dvelL_dx_vf(1)%sf(j, k, l) &
                                                    + dvelR_dx_vf(1)%sf(j + 1, k, l))
 
                             tau_Re(1, 1) = dvel_avg_dx(1)/ &
-                                           Re_avg_rs_vf(2)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 2)
 
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
+                            flux_src_vf(momxb)%sf(j, k, l) = &
+                                flux_src_vf(momxb)%sf(j, k, l) - &
                                 tau_Re(1, 1)
 
                             flux_src_vf(E_idx)%sf(j, k, l) = &
                                 flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
+                                vel_src_rsx_vf_flat(j, k, l, 1)* &
                                 tau_Re(1, 1)
 
                         end do
@@ -4255,9 +4354,10 @@ contains
             if (n == 0) return
 
             if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private(avg_vel, dvel_avg_dx, dvel_avg_dy, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             avg_vel(2) = 5d-1*(velL_vf(2)%sf(j, k, l) &
                                                + velR_vf(2)%sf(j + 1, k, l))
@@ -4273,20 +4373,20 @@ contains
 
                             tau_Re(1, 1) = -(2d0/3d0)*(dvel_avg_dy(2) + &
                                                        avg_vel(2)/y_cc(k))/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 1)
 
                             tau_Re(1, 2) = (dvel_avg_dy(1) + dvel_avg_dx(2))/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 1)
 
                             do i = 1, 2
 
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
+                                flux_src_vf(contxe + i)%sf(j, k, l) = &
+                                    flux_src_vf(contxe + i)%sf(j, k, l) - &
                                     tau_Re(1, i)
 
                                 flux_src_vf(E_idx)%sf(j, k, l) = &
                                     flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(j, k, l)* &
+                                    vel_src_rsx_vf_flat(j, k, l, i)* &
                                     tau_Re(1, i)
 
                             end do
@@ -4297,9 +4397,10 @@ contains
             end if
 
             if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private(avg_vel,  dvel_avg_dy, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             avg_vel(2) = 5d-1*(velL_vf(2)%sf(j, k, l) &
                                                + velR_vf(2)%sf(j + 1, k, l))
@@ -4309,15 +4410,15 @@ contains
 
                             tau_Re(1, 1) = (dvel_avg_dy(2) + &
                                             avg_vel(2)/y_cc(k))/ &
-                                           Re_avg_rs_vf(2)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 2)
 
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
+                            flux_src_vf(momxb)%sf(j, k, l) = &
+                                flux_src_vf(momxb)%sf(j, k, l) - &
                                 tau_Re(1, 1)
 
                             flux_src_vf(E_idx)%sf(j, k, l) = &
                                 flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
+                                vel_src_rsx_vf_flat(j, k, l, 1)* &
                                 tau_Re(1, 1)
 
                         end do
@@ -4328,9 +4429,10 @@ contains
             if (p == 0) return
 
             if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private(avg_vel, dvel_avg_dx, dvel_avg_dz, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             do i = 1, 3, 2
                                 dvel_avg_dz(i) = &
@@ -4342,20 +4444,20 @@ contains
                                                    + dvelR_dx_vf(3)%sf(j + 1, k, l))
 
                             tau_Re(1, 1) = -(2d0/3d0)*dvel_avg_dz(3)/y_cc(k)/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 1)
 
                             tau_Re(1, 3) = (dvel_avg_dz(1)/y_cc(k) + dvel_avg_dx(3))/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 1)
 
                             do i = 1, 3, 2
 
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
+                                flux_src_vf(contxe + i)%sf(j, k, l) = &
+                                    flux_src_vf(contxe + i)%sf(j, k, l) - &
                                     tau_Re(1, i)
 
                                 flux_src_vf(E_idx)%sf(j, k, l) = &
                                     flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(j, k, l)* &
+                                    vel_src_rsx_vf_flat(j, k, l, i)* &
                                     tau_Re(1, i)
 
                             end do
@@ -4366,23 +4468,24 @@ contains
             end if
 
             if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private( avg_vel, dvel_avg_dz, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             dvel_avg_dz(3) = 5d-1*(dvelL_dz_vf(3)%sf(j, k, l) &
                                                    + dvelR_dz_vf(3)%sf(j + 1, k, l))
 
                             tau_Re(1, 1) = dvel_avg_dz(3)/y_cc(k)/ &
-                                           Re_avg_rs_vf(2)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 2)
 
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
+                            flux_src_vf(momxb)%sf(j, k, l) = &
+                                flux_src_vf(momxb)%sf(j, k, l) - &
                                 tau_Re(1, 1)
 
                             flux_src_vf(E_idx)%sf(j, k, l) = &
                                 flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
+                                vel_src_rsx_vf_flat(j, k, l, 1)* &
                                 tau_Re(1, 1)
 
                         end do
@@ -4395,13 +4498,15 @@ contains
         elseif (norm_dir == 2) then
 
             if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private(avg_vel, dvel_avg_dx, dvel_avg_dy, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             avg_vel(2) = 5d-1*(velL_vf(2)%sf(j, k, l) &
                                                + velR_vf(2)%sf(j, k + 1, l))
 
+!$acc loop seq
                             do i = 1, 2
 
                                 dvel_avg_dx(i) = &
@@ -4415,22 +4520,23 @@ contains
                             end do
 
                             tau_Re(2, 1) = (dvel_avg_dy(1) + dvel_avg_dx(2))/ &
-                                           Re_avg_rs_vf(1)%sf(k, j, l)
+                                           Re_avg_rsy_vf_flat(k, j, l, 1)
 
                             tau_Re(2, 2) = (4d0*dvel_avg_dy(2) &
                                             - 2d0*dvel_avg_dx(1) &
                                             - 2d0*avg_vel(2)/y_cb(k))/ &
-                                           (3d0*Re_avg_rs_vf(1)%sf(k, j, l))
+                                           (3d0*Re_avg_rsy_vf_flat(k, j, l, 1))
 
+!$acc loop seqx
                             do i = 1, 2
 
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
+                                flux_src_vf(contxe + i)%sf(j, k, l) = &
+                                    flux_src_vf(contxe + i)%sf(j, k, l) - &
                                     tau_Re(2, i)
 
                                 flux_src_vf(E_idx)%sf(j, k, l) = &
                                     flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(k, j, l)* &
+                                    vel_src_rsy_vf_flat(k, j, l, i)* &
                                     tau_Re(2, i)
 
                             end do
@@ -4441,9 +4547,10 @@ contains
             end if
 
             if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private(avg_vel, dvel_avg_dx, dvel_avg_dy, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             avg_vel(2) = 5d-1*(velL_vf(2)%sf(j, k, l) &
                                                + velR_vf(2)%sf(j, k + 1, l))
@@ -4456,15 +4563,15 @@ contains
 
                             tau_Re(2, 2) = (dvel_avg_dx(1) + dvel_avg_dy(2) + &
                                             avg_vel(2)/y_cb(k))/ &
-                                           Re_avg_rs_vf(2)%sf(k, j, l)
+                                           Re_avg_rsy_vf_flat(k, j, l, 2)
 
-                            flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) - &
+                            flux_src_vf(momxb + 1)%sf(j, k, l) = &
+                                flux_src_vf(momxb + 1)%sf(j, k, l) - &
                                 tau_Re(2, 2)
 
                             flux_src_vf(E_idx)%sf(j, k, l) = &
                                 flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(2)%sf(k, j, l)* &
+                                vel_src_rsy_vf_flat(k, j, l, 2)* &
                                 tau_Re(2, 2)
 
                         end do
@@ -4475,9 +4582,10 @@ contains
             if (p == 0) return
 
             if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private(avg_vel,  dvel_avg_dy, dvel_avg_dz, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             avg_vel(3) = 5d-1*(velL_vf(3)%sf(j, k, l) &
                                                + velR_vf(3)%sf(j, k + 1, l))
@@ -4492,21 +4600,21 @@ contains
                                                    + dvelR_dy_vf(3)%sf(j, k + 1, l))
 
                             tau_Re(2, 2) = -(2d0/3d0)*dvel_avg_dz(3)/y_cb(k)/ &
-                                           Re_avg_rs_vf(1)%sf(k, j, l)
+                                           Re_avg_rsy_vf_flat(k, j, l, 1)
 
                             tau_Re(2, 3) = ((dvel_avg_dz(2) - avg_vel(3))/ &
                                             y_cb(k) + dvel_avg_dy(3))/ &
-                                           Re_avg_rs_vf(1)%sf(k, j, l)
+                                           Re_avg_rsy_vf_flat(k, j, l, 1)
 
                             do i = 2, 3
 
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
+                                flux_src_vf(contxe + i)%sf(j, k, l) = &
+                                    flux_src_vf(contxe + i)%sf(j, k, l) - &
                                     tau_Re(2, i)
 
                                 flux_src_vf(E_idx)%sf(j, k, l) = &
                                     flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(k, j, l)* &
+                                    vel_src_rsy_vf_flat(k, j, l, i)* &
                                     tau_Re(2, i)
 
                             end do
@@ -4517,23 +4625,24 @@ contains
             end if
 
             if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private(avg_vel,  dvel_avg_dz, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             dvel_avg_dz(3) = 5d-1*(dvelL_dz_vf(3)%sf(j, k, l) &
                                                    + dvelR_dz_vf(3)%sf(j, k + 1, l))
 
                             tau_Re(2, 2) = dvel_avg_dz(3)/y_cb(k)/ &
-                                           Re_avg_rs_vf(2)%sf(k, j, l)
+                                           Re_avg_rsy_vf_flat(k, j, l, 2)
 
-                            flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) - &
+                            flux_src_vf(momxb + 1)%sf(j, k, l) = &
+                                flux_src_vf(momxb + 1)%sf(j, k, l) - &
                                 tau_Re(2, 2)
 
                             flux_src_vf(E_idx)%sf(j, k, l) = &
                                 flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(2)%sf(k, j, l)* &
+                                vel_src_rsy_vf_flat(k, j, l, 2)* &
                                 tau_Re(2, 2)
 
                         end do
@@ -4546,9 +4655,10 @@ contains
         else
 
             if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private(avg_vel, dvel_avg_dx, dvel_avg_dy, dvel_avg_dz, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             do i = 2, 3
                                 avg_vel(i) = 5d-1*(velL_vf(i)%sf(j, k, l) &
@@ -4574,30 +4684,30 @@ contains
                             end do
 
                             tau_Re(3, 1) = (dvel_avg_dz(1)/y_cc(k) + dvel_avg_dx(3))/ &
-                                           Re_avg_rs_vf(1)%sf(l, k, j)/ &
+                                           Re_avg_rsz_vf_flat(l, k, j, 1)/ &
                                            y_cc(k)
 
                             tau_Re(3, 2) = ((dvel_avg_dz(2) - avg_vel(3))/ &
                                             y_cc(k) + dvel_avg_dy(3))/ &
-                                           Re_avg_rs_vf(1)%sf(l, k, j)/ &
+                                           Re_avg_rsz_vf_flat(l, k, j, 1)/ &
                                            y_cc(k)
 
                             tau_Re(3, 3) = (4d0*dvel_avg_dz(3)/y_cc(k) &
                                             - 2d0*dvel_avg_dx(1) &
                                             - 2d0*dvel_avg_dy(2) &
                                             + 4d0*avg_vel(2)/y_cc(k))/ &
-                                           (3d0*Re_avg_rs_vf(1)%sf(l, k, j))/ &
+                                           (3d0*Re_avg_rsz_vf_flat(l, k, j, 1))/ &
                                            y_cc(k)
 
                             do i = 1, 3
 
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
+                                flux_src_vf(contxe + i)%sf(j, k, l) = &
+                                    flux_src_vf(contxe + i)%sf(j, k, l) - &
                                     tau_Re(3, i)
 
                                 flux_src_vf(E_idx)%sf(j, k, l) = &
                                     flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(l, k, j)* &
+                                    vel_src_rsz_vf_flat(l, k, j, i)* &
                                     tau_Re(3, i)
 
                             end do
@@ -4608,9 +4718,10 @@ contains
             end if
 
             if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private(avg_vel, dvel_avg_dx, dvel_avg_dy, dvel_avg_dz, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             avg_vel(2) = 5d-1*(velL_vf(2)%sf(j, k, l) &
                                                + velR_vf(2)%sf(j, k, l + 1))
@@ -4628,16 +4739,16 @@ contains
                                             + dvel_avg_dy(2) &
                                             + dvel_avg_dz(3)/y_cc(k) &
                                             + avg_vel(2)/y_cc(k))/ &
-                                           Re_avg_rs_vf(2)%sf(l, k, j)/ &
+                                           Re_avg_rsz_vf_flat(l, k, j, 2)/ &
                                            y_cc(k)
 
-                            flux_src_vf(mom_idx%end)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%end)%sf(j, k, l) - &
+                            flux_src_vf(momxe)%sf(j, k, l) = &
+                                flux_src_vf(momxe)%sf(j, k, l) - &
                                 tau_Re(3, 3)
 
                             flux_src_vf(E_idx)%sf(j, k, l) = &
                                 flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(3)%sf(l, k, j)* &
+                                vel_src_rsz_vf_flat(l, k, j, 3)* &
                                 tau_Re(3, 3)
 
                         end do
@@ -4696,11 +4807,11 @@ contains
         ! Arithmetic mean of the left and right, WENO-reconstructed, cell-
         ! boundary values of cell-average first-order spatial derivatives
         ! of velocity
-        real(kind(0d0)), dimension(num_dims) :: dvel_avg_dx
-        real(kind(0d0)), dimension(num_dims) :: dvel_avg_dy
-        real(kind(0d0)), dimension(num_dims) :: dvel_avg_dz
+        real(kind(0d0)), dimension(3) :: dvel_avg_dx
+        real(kind(0d0)), dimension(3) :: dvel_avg_dy
+        real(kind(0d0)), dimension(3) :: dvel_avg_dz
 
-        real(kind(0d0)), dimension(num_dims, num_dims) :: tau_Re !< Viscous stress tensor
+        real(kind(0d0)), dimension(3, 3) :: tau_Re !< Viscous stress tensor
 
         integer :: i, j, k, l !< Generic loop iterators
 
@@ -4708,23 +4819,24 @@ contains
         if (norm_dir == 1) then
 
             if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private( dvel_avg_dx, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             dvel_avg_dx(1) = 5d-1*(dvelL_dx_vf(1)%sf(j, k, l) &
                                                    + dvelR_dx_vf(1)%sf(j + 1, k, l))
 
                             tau_Re(1, 1) = (4d0/3d0)*dvel_avg_dx(1)/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 1)
 
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
+                            flux_src_vf(momxb)%sf(j, k, l) = &
+                                flux_src_vf(momxb)%sf(j, k, l) - &
                                 tau_Re(1, 1)
 
                             flux_src_vf(E_idx)%sf(j, k, l) = &
                                 flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
+                                vel_src_rsx_vf_flat(j, k, l, 1)* &
                                 tau_Re(1, 1)
 
                         end do
@@ -4733,23 +4845,24 @@ contains
             end if
 
             if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private( dvel_avg_dx, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             dvel_avg_dx(1) = 5d-1*(dvelL_dx_vf(1)%sf(j, k, l) &
                                                    + dvelR_dx_vf(1)%sf(j + 1, k, l))
 
                             tau_Re(1, 1) = dvel_avg_dx(1)/ &
-                                           Re_avg_rs_vf(2)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 2)
 
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
+                            flux_src_vf(momxb)%sf(j, k, l) = &
+                                flux_src_vf(momxb)%sf(j, k, l) - &
                                 tau_Re(1, 1)
 
                             flux_src_vf(E_idx)%sf(j, k, l) = &
                                 flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
+                                vel_src_rsx_vf_flat(j, k, l, 1)* &
                                 tau_Re(1, 1)
 
                         end do
@@ -4760,10 +4873,12 @@ contains
             if (n == 0) return
 
             if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private(dvel_avg_dx, dvel_avg_dy, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
+!$acc loop seq
                             do i = 1, 2
                                 dvel_avg_dy(i) = &
                                     5d-1*(dvelL_dy_vf(i)%sf(j, k, l) &
@@ -4774,20 +4889,21 @@ contains
                                                    + dvelR_dx_vf(2)%sf(j + 1, k, l))
 
                             tau_Re(1, 1) = -(2d0/3d0)*dvel_avg_dy(2)/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 1)
 
                             tau_Re(1, 2) = (dvel_avg_dy(1) + dvel_avg_dx(2))/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 1)
 
+!$acc loop seq
                             do i = 1, 2
 
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
+                                flux_src_vf(contxe + i)%sf(j, k, l) = &
+                                    flux_src_vf(contxe + i)%sf(j, k, l) - &
                                     tau_Re(1, i)
 
                                 flux_src_vf(E_idx)%sf(j, k, l) = &
                                     flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(j, k, l)* &
+                                    vel_src_rsx_vf_flat(j, k, l, i)* &
                                     tau_Re(1, i)
 
                             end do
@@ -4798,23 +4914,24 @@ contains
             end if
 
             if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private( dvel_avg_dy, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             dvel_avg_dy(2) = 5d-1*(dvelL_dy_vf(2)%sf(j, k, l) &
                                                    + dvelR_dy_vf(2)%sf(j + 1, k, l))
 
                             tau_Re(1, 1) = dvel_avg_dy(2)/ &
-                                           Re_avg_rs_vf(2)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 2)
 
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
+                            flux_src_vf(momxb)%sf(j, k, l) = &
+                                flux_src_vf(momxb)%sf(j, k, l) - &
                                 tau_Re(1, 1)
 
                             flux_src_vf(E_idx)%sf(j, k, l) = &
                                 flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
+                                vel_src_rsx_vf_flat(j, k, l, 1)* &
                                 tau_Re(1, 1)
 
                         end do
@@ -4825,10 +4942,12 @@ contains
             if (p == 0) return
 
             if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private( dvel_avg_dx, dvel_avg_dz, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
+!$acc loop seq
                             do i = 1, 3, 2
                                 dvel_avg_dz(i) = &
                                     5d-1*(dvelL_dz_vf(i)%sf(j, k, l) &
@@ -4839,20 +4958,20 @@ contains
                                                    + dvelR_dx_vf(3)%sf(j + 1, k, l))
 
                             tau_Re(1, 1) = -(2d0/3d0)*dvel_avg_dz(3)/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 1)
 
                             tau_Re(1, 3) = (dvel_avg_dz(1) + dvel_avg_dx(3))/ &
-                                           Re_avg_rs_vf(1)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 1)
 
+!$acc loop seq
                             do i = 1, 3, 2
-
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
+                                flux_src_vf(contxe + i)%sf(j, k, l) = &
+                                    flux_src_vf(contxe + i)%sf(j, k, l) - &
                                     tau_Re(1, i)
 
                                 flux_src_vf(E_idx)%sf(j, k, l) = &
                                     flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(j, k, l)* &
+                                    vel_src_rsx_vf_flat(j, k, l, i)* &
                                     tau_Re(1, i)
 
                             end do
@@ -4863,23 +4982,24 @@ contains
             end if
 
             if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private( dvel_avg_dz, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             dvel_avg_dz(3) = 5d-1*(dvelL_dz_vf(3)%sf(j, k, l) &
                                                    + dvelR_dz_vf(3)%sf(j + 1, k, l))
 
                             tau_Re(1, 1) = dvel_avg_dz(3)/ &
-                                           Re_avg_rs_vf(2)%sf(j, k, l)
+                                           Re_avg_rsx_vf_flat(j, k, l, 2)
 
-                            flux_src_vf(mom_idx%beg)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg)%sf(j, k, l) - &
+                            flux_src_vf(momxb)%sf(j, k, l) = &
+                                flux_src_vf(momxb)%sf(j, k, l) - &
                                 tau_Re(1, 1)
 
                             flux_src_vf(E_idx)%sf(j, k, l) = &
                                 flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(1)%sf(j, k, l)* &
+                                vel_src_rsx_vf_flat(j, k, l, 1)* &
                                 tau_Re(1, 1)
 
                         end do
@@ -4892,10 +5012,12 @@ contains
         elseif (norm_dir == 2) then
 
             if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private( dvel_avg_dx, dvel_avg_dy, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
+!$acc loop seq
                             do i = 1, 2
 
                                 dvel_avg_dx(i) = &
@@ -4909,21 +5031,22 @@ contains
                             end do
 
                             tau_Re(2, 1) = (dvel_avg_dy(1) + dvel_avg_dx(2))/ &
-                                           Re_avg_rs_vf(1)%sf(k, j, l)
+                                           Re_avg_rsy_vf_flat(k, j, l, 1)
 
                             tau_Re(2, 2) = (4d0*dvel_avg_dy(2) &
                                             - 2d0*dvel_avg_dx(1))/ &
-                                           (3d0*Re_avg_rs_vf(1)%sf(k, j, l))
+                                           (3d0*Re_avg_rsy_vf_flat(k, j, l, 1))
 
+!$acc loop seq
                             do i = 1, 2
 
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
+                                flux_src_vf(contxe + i)%sf(j, k, l) = &
+                                    flux_src_vf(contxe + i)%sf(j, k, l) - &
                                     tau_Re(2, i)
 
                                 flux_src_vf(E_idx)%sf(j, k, l) = &
                                     flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(k, j, l)* &
+                                    vel_src_rsy_vf_flat(k, j, l, i)* &
                                     tau_Re(2, i)
 
                             end do
@@ -4934,9 +5057,10 @@ contains
             end if
 
             if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private( dvel_avg_dx, dvel_avg_dy, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             dvel_avg_dx(1) = 5d-1*(dvelL_dx_vf(1)%sf(j, k, l) &
                                                    + dvelR_dx_vf(1)%sf(j, k + 1, l))
@@ -4945,15 +5069,15 @@ contains
                                                    + dvelR_dy_vf(2)%sf(j, k + 1, l))
 
                             tau_Re(2, 2) = (dvel_avg_dx(1) + dvel_avg_dy(2))/ &
-                                           Re_avg_rs_vf(2)%sf(k, j, l)
+                                           Re_avg_rsy_vf_flat(k, j, l, 2)
 
-                            flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) - &
+                            flux_src_vf(momxb + 1)%sf(j, k, l) = &
+                                flux_src_vf(momxb + 1)%sf(j, k, l) - &
                                 tau_Re(2, 2)
 
                             flux_src_vf(E_idx)%sf(j, k, l) = &
                                 flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(2)%sf(k, j, l)* &
+                                vel_src_rsy_vf_flat(k, j, l, 2)* &
                                 tau_Re(2, 2)
 
                         end do
@@ -4964,9 +5088,10 @@ contains
             if (p == 0) return
 
             if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private(  dvel_avg_dy, dvel_avg_dz, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             do i = 2, 3
                                 dvel_avg_dz(i) = &
@@ -4978,20 +5103,20 @@ contains
                                                    + dvelR_dy_vf(3)%sf(j, k + 1, l))
 
                             tau_Re(2, 2) = -(2d0/3d0)*dvel_avg_dz(3)/ &
-                                           Re_avg_rs_vf(1)%sf(k, j, l)
+                                           Re_avg_rsy_vf_flat(k, j, l, 1)
 
                             tau_Re(2, 3) = (dvel_avg_dz(2) + dvel_avg_dy(3))/ &
-                                           Re_avg_rs_vf(1)%sf(k, j, l)
+                                           Re_avg_rsy_vf_flat(k, j, l, 1)
 
                             do i = 2, 3
 
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
+                                flux_src_vf(contxe + i)%sf(j, k, l) = &
+                                    flux_src_vf(contxe + i)%sf(j, k, l) - &
                                     tau_Re(2, i)
 
                                 flux_src_vf(E_idx)%sf(j, k, l) = &
                                     flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(k, j, l)* &
+                                    vel_src_rsy_vf_flat(k, j, l, i)* &
                                     tau_Re(2, i)
 
                             end do
@@ -5002,23 +5127,24 @@ contains
             end if
 
             if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private( dvel_avg_dz, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             dvel_avg_dz(3) = 5d-1*(dvelL_dz_vf(3)%sf(j, k, l) &
                                                    + dvelR_dz_vf(3)%sf(j, k + 1, l))
 
                             tau_Re(2, 2) = dvel_avg_dz(3)/ &
-                                           Re_avg_rs_vf(2)%sf(k, j, l)
+                                           Re_avg_rsy_vf_flat(k, j, l, 2)
 
-                            flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%beg + 1)%sf(j, k, l) - &
+                            flux_src_vf(momxb + 1)%sf(j, k, l) = &
+                                flux_src_vf(momxb + 1)%sf(j, k, l) - &
                                 tau_Re(2, 2)
 
                             flux_src_vf(E_idx)%sf(j, k, l) = &
                                 flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(2)%sf(k, j, l)* &
+                                vel_src_rsy_vf_flat(k, j, l, 2)* &
                                 tau_Re(2, 2)
 
                         end do
@@ -5031,22 +5157,26 @@ contains
         else
 
             if (Re_size(1) > 0) then              ! Shear stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private( dvel_avg_dx, dvel_avg_dy, dvel_avg_dz, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
+!$acc loop seq
                             do i = 1, 3, 2
                                 dvel_avg_dx(i) = &
                                     5d-1*(dvelL_dx_vf(i)%sf(j, k, l) &
                                           + dvelR_dx_vf(i)%sf(j, k, l + 1))
                             end do
 
+!$acc loop seq
                             do i = 2, 3
                                 dvel_avg_dy(i) = &
                                     5d-1*(dvelL_dy_vf(i)%sf(j, k, l) &
                                           + dvelR_dy_vf(i)%sf(j, k, l + 1))
                             end do
 
+!$acc loop seq
                             do i = 1, 3
                                 dvel_avg_dz(i) = &
                                     5d-1*(dvelL_dz_vf(i)%sf(j, k, l) &
@@ -5054,25 +5184,26 @@ contains
                             end do
 
                             tau_Re(3, 1) = (dvel_avg_dz(1) + dvel_avg_dx(3))/ &
-                                           Re_avg_rs_vf(1)%sf(l, k, j)
+                                           Re_avg_rsz_vf_flat(l, k, j, 1)
 
                             tau_Re(3, 2) = (dvel_avg_dz(2) + dvel_avg_dy(3))/ &
-                                           Re_avg_rs_vf(1)%sf(l, k, j)
+                                           Re_avg_rsz_vf_flat(l, k, j, 1)
 
                             tau_Re(3, 3) = (4d0*dvel_avg_dz(3) &
                                             - 2d0*dvel_avg_dx(1) &
                                             - 2d0*dvel_avg_dy(2))/ &
-                                           (3d0*Re_avg_rs_vf(1)%sf(l, k, j))
+                                           (3d0*Re_avg_rsz_vf_flat(l, k, j, 1))
 
+!$acc loop seq
                             do i = 1, 3
 
-                                flux_src_vf(cont_idx%end + i)%sf(j, k, l) = &
-                                    flux_src_vf(cont_idx%end + i)%sf(j, k, l) - &
+                                flux_src_vf(contxe + i)%sf(j, k, l) = &
+                                    flux_src_vf(contxe + i)%sf(j, k, l) - &
                                     tau_Re(3, i)
 
                                 flux_src_vf(E_idx)%sf(j, k, l) = &
                                     flux_src_vf(E_idx)%sf(j, k, l) - &
-                                    vel_src_rs_vf(i)%sf(l, k, j)* &
+                                    vel_src_rsz_vf_flat(l, k, j, i)* &
                                     tau_Re(3, i)
 
                             end do
@@ -5083,9 +5214,10 @@ contains
             end if
 
             if (Re_size(2) > 0) then              ! Bulk stresses
-                do l = iz%beg, iz%end
-                    do k = iy%beg, iy%end
-                        do j = ix%beg, ix%end
+!$acc parallel loop collapse(3) gang vector default(present) private( dvel_avg_dx, dvel_avg_dy, dvel_avg_dz, tau_Re)
+                do l = isz%beg, isz%end
+                    do k = isy%beg, isy%end
+                        do j = isx%beg, isx%end
 
                             dvel_avg_dx(1) = 5d-1*(dvelL_dx_vf(1)%sf(j, k, l) &
                                                    + dvelR_dx_vf(1)%sf(j, k, l + 1))
@@ -5099,15 +5231,15 @@ contains
                             tau_Re(3, 3) = (dvel_avg_dx(1) &
                                             + dvel_avg_dy(2) &
                                             + dvel_avg_dz(3))/ &
-                                           Re_avg_rs_vf(2)%sf(l, k, j)
+                                           Re_avg_rsz_vf_flat(l, k, j, 2)
 
-                            flux_src_vf(mom_idx%end)%sf(j, k, l) = &
-                                flux_src_vf(mom_idx%end)%sf(j, k, l) - &
+                            flux_src_vf(momxe)%sf(j, k, l) = &
+                                flux_src_vf(momxe)%sf(j, k, l) - &
                                 tau_Re(3, 3)
 
                             flux_src_vf(E_idx)%sf(j, k, l) = &
                                 flux_src_vf(E_idx)%sf(j, k, l) - &
-                                vel_src_rs_vf(3)%sf(l, k, j)* &
+                                vel_src_rsz_vf_flat(l, k, j, 3)* &
                                 tau_Re(3, 3)
 
                         end do
@@ -5320,7 +5452,6 @@ contains
 
         deallocate (alpha_L, alpha_R)
 
-        if (any(Re_size > 0)) deallocate (Re_avg_rs_vf)
 
         if (riemann_solver == 3) then
             deallocate (alpha_rho_IC, vel_IC)
@@ -5354,7 +5485,7 @@ contains
 
 
         if(Re_size(1) > 0) then
-            deallocate(Re_avg_rsx_vf)
+            deallocate(Re_avg_rsx_vf_flat)
         end if
         deallocate(vel_src_rsx_vf_flat)
         deallocate(flux_rsx_vf_flat)
