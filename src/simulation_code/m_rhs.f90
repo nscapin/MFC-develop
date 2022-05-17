@@ -5299,7 +5299,7 @@ contains
             do i = 1, sys_size
               do k = 0, p
                 do j = 1, buff_size
-                  do l = 0, m
+                  do l = -buff_size, m + buff_size
                     q_cons_qp%vf(i)%sf(l, -j, k) = &
                         q_cons_qp%vf(i)%sf(l, 0, k)
                   end do
@@ -5312,7 +5312,7 @@ contains
 !$acc parallel loop collapse(3) gang vector default(present)            
               do k = 0, p
                 do j = 1, buff_size
-                  do l = 0, m
+                  do l = -buff_size, m + buff_size
                     if (z_cc(k) < pi) then
 !$acc loop seq
                         do i = 1, momxb
@@ -5358,7 +5358,7 @@ contains
 !$acc parallel loop collapse(3) gang vector default(present) 
           do k = 0, p
             do j = 1, buff_size
-              do l = 0, m
+              do l = -buff_size, m + buff_size
 !$acc loop seq 
                 do i = 1, momxb
                     q_cons_qp%vf(i)%sf(l, -j, k) = &
@@ -5381,7 +5381,7 @@ contains
             do i = 1, sys_size
               do k = 0, p
                 do j = 1, buff_size
-                  do l = 0, m
+                  do l = -buff_size, m + buff_size
                     q_cons_qp%vf(i)%sf(l, -j, k) = &
                         q_cons_qp%vf(i)%sf(l, n - (j - 1), k)
                 end do
@@ -5401,7 +5401,7 @@ contains
             do i = 1, sys_size
               do k = 0, p
                 do j = 1, buff_size
-                  do l = 0, m
+                  do l = -buff_size, m + buff_size
                     q_cons_qp%vf(i)%sf(l, n + j, k) = &
                         q_cons_qp%vf(i)%sf(l, n, k)
                 end do
@@ -5414,7 +5414,7 @@ contains
 !$acc parallel loop collapse(3) gang vector default(present)
           do k = 0, p
             do j = 1, buff_size
-              do l = 0, m
+              do l = -buff_size, m + buff_size
 !$acc loop seq                
                 do i = 1, momxb
                     q_cons_qp%vf(i)%sf(l, n + j, k) = &
@@ -5437,7 +5437,7 @@ contains
             do i = 1, sys_size
               do k = 0, p
                 do j = 1, buff_size
-                  do l = 0, m
+                  do l = -buff_size, m + buff_size
                     q_cons_qp%vf(i)%sf(l, n + j, k) = &
                         q_cons_qp%vf(i)%sf(l, j - 1, k)
                 end do
@@ -5465,8 +5465,8 @@ contains
 !$acc parallel loop collapse(4) gang vector default(present)
             do i = 1, sys_size
                 do j = 1, buff_size
-                  do l = 0, n
-                    do k = 0, m
+                  do l = -buff_size, n + buff_size 
+                    do k = -buff_size, m + buff_size
                     q_cons_qp%vf(i)%sf(k, l, -j) = &
                         q_cons_qp%vf(i)%sf(k, l, 0)
                 end do
@@ -5478,8 +5478,8 @@ contains
 
 !$acc parallel loop collapse(3) gang vector default(present)                    
             do j = 1, buff_size
-              do l = 0, n
-                do k = 0, m
+              do l = -buff_size, n + buff_size 
+                do k = -buff_size, m + buff_size
 !$acc loop seq                  
                   do i = 1, momxb + 1
                     q_cons_qp%vf(i)%sf(k, l, -j) = &
@@ -5501,8 +5501,8 @@ contains
 !$acc parallel loop collapse(4) gang vector default(present)
             do i = 1, sys_size
                 do j = 1, buff_size
-                  do l = 0, n 
-                    do k = 0, m
+                  do l = -buff_size, n + buff_size  
+                    do k = -buff_size, m + buff_size
                     q_cons_qp%vf(i)%sf(k, l, -j) = &
                         q_cons_qp%vf(i)%sf(k, l, p - (j - 1))
                 end do
@@ -5521,8 +5521,8 @@ contains
 !$acc parallel loop collapse(4) gang vector default(present)
             do i = 1, sys_size
                 do j = 1, buff_size
-                  do l = 0, n
-                    do k = 0, m
+                  do l = -buff_size, n + buff_size 
+                    do k = -buff_size, m + buff_size
                     q_cons_qp%vf(i)%sf(k, l, p + j) = &
                         q_cons_qp%vf(i)%sf(k, l, p)
                 end do
@@ -5533,8 +5533,8 @@ contains
         elseif (bc_z%end == -2) then     ! Symmetry BC at end
 !$acc parallel loop collapse(3) gang vector default(present)
             do j = 1, buff_size
-              do l = 0, n 
-                do k = 0, m
+              do l = -buff_size, n + buff_size  
+                do k = -buff_size, m + buff_size
 !$acc loop seq                  
                   do i = 1, momxb + 1
                       q_cons_qp%vf(i)%sf(k, l , p + j) = &
@@ -5556,8 +5556,8 @@ contains
 !$acc parallel loop collapse(4) gang vector default(present)
             do i = 1, sys_size
                 do j = 1, buff_size
-                  do l = 0, n 
-                    do k = 0, m
+                  do l = -buff_size, n + buff_size 
+                    do k = -buff_size, m + buff_size
                     q_cons_qp%vf(i)%sf(k, l, p + j) = &
                         q_cons_qp%vf(i)%sf(k, l, j - 1)
                     end do
@@ -5655,7 +5655,7 @@ contains
         type(scalar_field), dimension(iv%beg:iv%end), intent(IN) :: v_vf 
         type(scalar_field), dimension(iv%beg:iv%end), intent(INOUT) :: vL_prim_vf, vR_prim_vf
 
-        real(kind(0d0)), dimension(startx:, starty:, startz:, :), intent(INOUT) :: vL_x_flat, vL_y_flat, vL_z_flat, vR_x_flat, vR_y_flat, vR_z_flat 
+        real(kind(0d0)), dimension(startx:, starty:, startz:, 1:), intent(INOUT) :: vL_x_flat, vL_y_flat, vL_z_flat, vR_x_flat, vR_y_flat, vR_z_flat 
 
         integer, intent(IN) :: norm_dir
 
@@ -5925,6 +5925,7 @@ contains
 
         !$acc update device(ix, iy, iz, iv)
 
+
         ! First-Order Spatial Derivatives in x-direction ===================
         if (norm_dir == 1) then
 
@@ -5944,7 +5945,7 @@ contains
                             dv_ds_vf(i)%sf(j, k, l) = &
                                 1d0/dx(j) &
                                 * ( &
-                                  + vR_vf(i)%sf(j, k, l) &
+                                    vR_vf(i)%sf(j, k, l) &
                                   - vL_vf(i)%sf(j, k, l) &
                                   )
                             end do
@@ -5973,7 +5974,7 @@ contains
                             dv_ds_vf(i)%sf(j, k, l) = &
                                 1d0/dy(k) &
                                 * ( &
-                                  + vR_vf(i)%sf(j, k, l) &
+                                   vR_vf(i)%sf(j, k, l) &
                                   - vL_vf(i)%sf(j, k, l) &
                                   )
                             end do
@@ -6001,7 +6002,7 @@ contains
                             dv_ds_vf(i)%sf(j, k, l) = &
                                 1d0/dz(l) &
                                 * ( &
-                                  + vR_vf(i)%sf(j, k, l) &
+                                   vR_vf(i)%sf(j, k, l) &
                                   - vL_vf(i)%sf(j, k, l) &
                                   )
                             end do

@@ -5093,6 +5093,7 @@ contains
                     do k = isy%beg, isy%end
                         do j = isx%beg, isx%end
 
+!$acc loop seq
                             do i = 2, 3
                                 dvel_avg_dz(i) = &
                                     5d-1*(dvelL_dz_vf(i)%sf(j, k, l) &
@@ -5108,6 +5109,7 @@ contains
                             tau_Re(2, 3) = (dvel_avg_dz(2) + dvel_avg_dy(3))/ &
                                            Re_avg_rsy_vf_flat(k, j, l, 1)
 
+!$acc loop seq
                             do i = 2, 3
 
                                 flux_src_vf(contxe + i)%sf(j, k, l) = &
