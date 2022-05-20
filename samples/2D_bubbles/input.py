@@ -84,7 +84,7 @@ case_dict =                                                                    \
 		    # ==========================================================
                                                                                \
                     # Simulation Algorithm Parameters ==========================
-                    'num_patches'                  : 17,                        \
+                    'num_patches'                  : 10,                        \
                     'model_eqns'                   : 2,                        \
                     'alt_soundspeed'               : 'T',                      \
                     'num_fluids'                   : 2,                        \
