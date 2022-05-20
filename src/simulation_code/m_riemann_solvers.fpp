@@ -3812,7 +3812,7 @@ contains
                                             - 2d0*avg_vel(2)/y_cb(k))/ &
                                            (3d0*Re_avg_rsy_vf_flat(k, j, l, 1))
 
-!$acc loop seqx
+!$acc loop seq
                             do i = 1, 2
 
                                 flux_src_vf(contxe + i)%sf(j, k, l) = &
