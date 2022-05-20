@@ -23,8 +23,6 @@ module m_variables_conversion
 
     use m_mpi_proxy            !< Message passing interface (MPI) module proxy
 
-    use openacc
-
     use nvtx
     ! ==========================================================================
 
@@ -90,17 +88,7 @@ module m_variables_conversion
 
     !> @name  Left/right states
     !> @{
-    real(kind(0d0))                              ::    rho_L, rho_R      !< left/right states density
-    real(kind(0d0)), allocatable, dimension(:)   ::    vel_L, vel_R      !< left/right states velocity
-    real(kind(0d0))                              ::   pres_L, pres_R      !< left/right states pressure
-    real(kind(0d0))                              ::      E_L, E_R      !< left/right states total energy
-    real(kind(0d0))                              ::      H_L, H_R      !< left/right states enthalpy
-    real(kind(0d0)), allocatable, dimension(:)   ::     mf_L, mf_R      !< left/right states mass fraction
-    real(kind(0d0))                              ::  gamma_L, gamma_R      !< left/right states specific heat ratio
-    real(kind(0d0))                              :: pi_inf_L, pi_inf_R      !< left/right states liquid stiffness
-    real(kind(0d0)), dimension(2)                ::     Re_L, Re_R      !< left/right states Reynolds number
-    real(kind(0d0))                              ::   alpha_L, alpha_R    !< left/right states void fraction
-    !> @}
+ 
 
     !> @name Averaged states
     !> @{
@@ -115,12 +103,14 @@ module m_variables_conversion
     real(kind(0d0))                                   :: pres_avg  !< averaging for bubble mixture speed of sound
     !> @}
 
-    real(kind(0d0)) :: ixb,ixe,iyb,iye,izb,ize
-    real(kind(0d0)) :: momxb, momxe
-    real(kind(0d0)) :: contxb, contxe
-    real(kind(0d0)) :: bubxb, bubxe
-    real(kind(0d0)) :: advxb, advxe
-    real(kind(0d0)),allocatable, dimension(:) :: gammas, pi_infs, bubrs
+    integer :: ixb,ixe,iyb,iye,izb,ize
+    integer :: momxb, momxe
+    integer :: contxb, contxe
+    integer :: bubxb, bubxe
+    integer :: advxb, advxe
+    real(kind(0d0)),allocatable, dimension(:) :: gammas, pi_infs
+    integer, allocatable, dimension(:) :: bubrs
+    
     real(kind(0d0)), allocatable, dimension(:, :) :: Res
 !$acc declare create(ixb, ixe, iyb, iye, iye, izb, ize, momxb, momxe, bubxb, bubxe, contxb, contxe, advxb, advxe, gammas, pi_infs, bubrs, Res)
 
@@ -335,10 +325,10 @@ contains
                                                        alpha_K, alpha_rho_K, Re_K,  k, l, r)
 !$acc routine seq
 
-        real(kind(0d0)), intent(INOUT) :: rho_K, gamma_K, pi_inf_K
+        real(kind(0d0)), intent(OUT) :: rho_K, gamma_K, pi_inf_K
 
-        real(kind(0d0)), dimension(:), intent(IN) :: alpha_rho_K, alpha_K !<
-        real(kind(0d0)), dimension(:), intent(INOUT) :: Re_K 
+        real(kind(0d0)), dimension(:), intent(INOUT) :: alpha_rho_K, alpha_K !<
+        real(kind(0d0)), dimension(:), intent(OUT) :: Re_K 
             !! Partial densities and volume fractions
 
         integer, intent(IN) :: k, l, r
@@ -373,19 +363,22 @@ contains
             pi_inf_K = pi_inf_K + alpha_K(i)*pi_infs(i)
         end do
 
-        do i = 1, 2
-            Re_K(i) = dflt_real 
-            
-            if (Re_size(i) > 0) Re_K(i) = 0d0
+        if(any(Re_size > 0)) then
 
-            do j = 1, Re_size(i)
-                Re_K(i) = alpha_K(Re_idx(i, j))/Res(i,j) &
-                          + Re_K(i)
+            do i = 1, 2
+                Re_K(i) = dflt_real 
+                
+                if (Re_size(i) > 0) Re_K(i) = 0d0
+
+                do j = 1, Re_size(i)
+                    Re_K(i) = alpha_K(Re_idx(i, j))/Res(i,j) &
+                              + Re_K(i)
+                end do
+
+                Re_K(i) = 1d0/max(Re_K(i), sgm_eps)
+
             end do
-
-            Re_K(i) = 1d0/max(Re_K(i), sgm_eps)
-
-        end do
+        end if
 
 
     end subroutine s_convert_species_to_mixture_variables_acc ! ----------------
@@ -427,80 +420,7 @@ contains
 
     end subroutine s_convert_species_to_mixture_variables_bubbles_acc
 
-
-    !> The goal of this subroutine is to calculate the Roe
-        !!      average density, velocity, enthalpy, mass fractions,
-        !!      specific heat ratio function and the speed of sound,
-        !!      at the cell-boundaries, from the left and the right
-        !!      cell-average variables.
-        !!  @param j Cell index
-        !!  @param k Cell index
-        !!  @param l Cell index
-    subroutine s_compute_roe_average_state(j, k, l) ! ------------------------
-
-        integer, intent(IN) :: j, k, l
-        integer :: i
-
-        rho_avg_sf(j, k, l) = sqrt(rho_L*rho_R)
-
-        vel_avg = (sqrt(rho_L)*vel_L + sqrt(rho_R)*vel_R)/ &
-                  (sqrt(rho_L) + sqrt(rho_R))
-
-        H_avg = (sqrt(rho_L)*H_L + sqrt(rho_R)*H_R)/ &
-                (sqrt(rho_L) + sqrt(rho_R))
-
-        do i = 1, cont_idx%end
-            mf_avg_vf(i)%sf(j, k, l) = (sqrt(rho_L)*mf_L(i) &
-                                        + sqrt(rho_R)*mf_R(i)) &
-                                       /(sqrt(rho_L) &
-                                         + sqrt(rho_R))
-        end do
-
-        gamma_avg = (sqrt(rho_L)*gamma_L + sqrt(rho_R)*gamma_R)/ &
-                    (sqrt(rho_L) + sqrt(rho_R))
-
-        c_avg_sf(j, k, l) = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
-
-    end subroutine s_compute_roe_average_state ! ---------------------------
-
-    !>  The goal of this subroutine is to compute the arithmetic
-        !!      average density, velocity, enthalpy, mass fractions, the
-        !!      specific heat ratio function and the sound speed, at the
-        !!      cell-boundaries, from the left and right cell-averages.
-        !!  @param j Cell index
-        !!  @param k Cell index
-        !!  @param l Cell index
-    subroutine s_compute_arithmetic_average_state(j, k, l) ! -----------------
-
-        integer, intent(IN) :: j, k, l
-        integer :: i
-
-        rho_avg_sf(j, k, l) = 5d-1*(rho_L + rho_R)
-        vel_avg = 5d-1*(vel_L + vel_R)
-
-        do i = 1, cont_idx%end
-            mf_avg_vf(i)%sf(j, k, l) = 5d-1*(mf_L(i) + mf_R(i))
-        end do
-
-        H_avg = 5d-1*(H_L + H_R)
-
-        gamma_avg = 5d-1*(gamma_L + gamma_R)
-
-        alpha_avg = 5d-1*(alpha_L + alpha_R)
-        pres_avg = 5d-1*(pres_L + pres_R)
-
-        if (model_eqns .ne. 4) then
-            c_avg_sf(j, k, l) = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
-        else
-            ! For Tait EOS
-            c_avg_sf(j, k, l) = sqrt( &
-                                (1d0/fluid_pp(1)%gamma + 1d0)* &
-                                (pres_avg + fluid_pp(1)%pi_inf)/ &
-                                (rho_avg_sf(j, k, l)*(1d0 - alpha_avg)) &
-                                )
-        end if
-
-    end subroutine s_compute_arithmetic_average_state ! --------------------
+ 
 
     !>  The computation of parameters, the allocation of memory,
         !!      the association of pointers and/or the execution of any
@@ -536,7 +456,9 @@ contains
         allocate(gammas(1:num_fluids))
         allocate(pi_infs(1:num_fluids))
 
-        allocate(Res(1:2,1:maxval(Re_size)))
+        if(any(Re_size > 0)) then
+            allocate(Res(1:2,1:maxval(Re_size)))
+        end if
 
         allocate(bubrs(1:nb))
 
@@ -546,13 +468,14 @@ contains
         end do
 !$acc update device(gammas, pi_infs)
 
-        do i = 1, 2
-            do j = 1, Re_size(i)
-                Res(i, j) = fluid_pp(Re_idx(i,j))%Re(i)
+        if(any(Re_size > 0)) then
+            do i = 1, 2
+                do j = 1, Re_size(i)
+                    Res(i, j) = fluid_pp(Re_idx(i,j))%Re(i)
+                end do
             end do
-        end do
-
 !$acc update device(Res, Re_idx, Re_size)
+        end if
 
 
         do i = 1, nb

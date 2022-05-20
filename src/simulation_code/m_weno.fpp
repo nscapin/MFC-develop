@@ -512,7 +512,7 @@ contains
         real(kind(0d0)), dimension(0:2) :: beta 
         real(kind(0d0)), pointer :: beta_p(:)
 
-        integer :: i, j, k, l, r, s
+        integer :: i, j, k, l, r, s, w
 
         
         integer :: t1, t2, c_rate, c_max

@@ -40,7 +40,7 @@ module m_riemann_solvers
  s_riemann_solver, &
  s_hll_riemann_solver, &
  s_hllc_riemann_solver, &
- s_exact_riemann_solver, &
+ s_convert_species_to_mixture_variables_riemann_acc, &
  s_finalize_riemann_solvers_module
 
     abstract interface ! =======================================================
@@ -263,23 +263,7 @@ module m_riemann_solvers
     !! variables are left and right states of the Riemann problem obtained from
     !! qK_prim_rs_vf and kappaK_rs_vf.
     !> @{
-    real(kind(0d0)), allocatable, dimension(:)   :: alpha_rho_L, alpha_rho_R
-    real(kind(0d0))                              ::       rho_L, rho_R
-    real(kind(0d0)), allocatable, dimension(:)   ::       vel_L, vel_R
-    real(kind(0d0))                              ::      pres_L, pres_R
-    real(kind(0d0))                              ::         E_L, E_R
-    real(kind(0d0))                              ::         H_L, H_R
-    real(kind(0d0)), allocatable, dimension(:)   ::     alpha_L, alpha_R
-    real(kind(0d0))                              ::         Y_L, Y_R
-    real(kind(0d0))                              ::     gamma_L, gamma_R
-    real(kind(0d0))                              ::    pi_inf_L, pi_inf_R
-    real(kind(0d0))                              ::         c_L, c_R
-    real(kind(0d0)), dimension(2)   ::        Re_L, Re_R
-    real(kind(0d0)), allocatable, dimension(:)   ::     tau_e_L, tau_e_R
 
-!$acc declare create(alpha_rho_L, alpha_rho_R,rho_L, rho_R,vel_L, vel_R,pres_L, pres_R, &
-!$acc    E_L, E_R, H_L, H_R, alpha_L, alpha_R, Y_L, Y_R, gamma_L, gamma_R,pi_inf_L, pi_inf_R, &
-!$acc    c_L, c_R,Re_L, Re_R,tau_e_L, tau_e_R)
 
     !> @}
 
@@ -413,19 +397,23 @@ module m_riemann_solvers
 !$acc    flux_rsx_vf_flat, flux_src_rsx_vf_flat, flux_rsy_vf_flat, flux_src_rsy_vf_flat, flux_rsz_vf_flat, flux_src_rsz_vf_flat, vel_src_rsx_vf_flat, vel_src_rsy_vf_flat, vel_src_rsz_vf_flat, &
 !$acc    flux_gsrc_rsx_vf_flat, flux_gsrc_rsy_vf_flat, flux_gsrc_rsz_vf_flat, mom_sp_rsx_vf_flat, mom_sp_rsy_vf_flat, mom_sp_rsz_vf_flat)
 
-    real(kind(0d0)) :: momxb, momxe
-    real(kind(0d0)) :: contxb, contxe
-    real(kind(0d0)) :: advxb, advxe
-    real(kind(0d0)) :: bubxb, bubxe
-    real(kind(0d0)) :: intxb, intxe
+    integer :: momxb, momxe
+    integer :: contxb, contxe
+    integer :: advxb, advxe
+    integer :: bubxb, bubxe
+    integer :: intxb, intxe
 
 !$acc declare create(momxb, momxe, contxb, contxe, advxb, advxe, bubxb, bubxe, intxb, intxe)
 
     real(kind(0d0)),allocatable, dimension(:) :: gammas, pi_infs
 !$acc declare create(gammas, pi_infs)
 
-    real(kind(0d0)),allocatable, dimension(:) :: rs, vs, ps, ms
+    integer,allocatable, dimension(:) :: rs, vs, ps, ms
 !$acc declare create(rs, vs, ps, ms)
+
+    real(kind(0d0)), allocatable, dimension(:, :) :: Res
+!$acc declare create(Res)
+
 contains
 
 
@@ -493,8 +481,9 @@ contains
         real(kind(0d0)) :: blkmod1, blkmod2
         real(kind(0d0)) :: rho_Star, E_Star, p_Star, p_K_Star
         real(kind(0d0)) :: Ms_L, Ms_R, pres_SL, pres_SR
+        real(kind(0d0)) :: alpha_L_sum, alpha_R_sum
 
-        integer :: i, j, k, l !< Generic loop iterators
+        integer :: i, j, k, l, q !< Generic loop iterators
 
         ! Populating the buffers of the left and right Riemann problem
         ! states variables, based on the choice of boundary conditions
@@ -553,11 +542,80 @@ contains
                   pres_L = qL_prim_rs${XYZ}$_vf_flat(j,     k, l, E_idx)
                   pres_R = qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx)
 
-                  call s_convert_species_to_mixture_variables_acc(rho_L, gamma_L, pi_inf_L, alpha_L, alpha_rho_L, Re_L, j, k, l)
+                    rho_L = 0d0
+                    gamma_L = 0d0
+                    pi_inf_L = 0d0
 
+                    rho_R = 0d0
+                    gamma_R = 0d0
+                    pi_inf_R = 0d0
 
-                  call s_convert_species_to_mixture_variables_acc(rho_R, gamma_R, pi_inf_R, alpha_R, alpha_rho_R, Re_R, j + 1, k, l)
+                    alpha_L_sum = 0d0
+                    alpha_R_sum = 0d0
 
+                    if (mpp_lim) then
+                        !$acc loop seq
+                        do i = 1, num_fluids
+                            alpha_rho_L(i) = max(0d0, alpha_rho_L(i))
+                            alpha_L(i) = min(max(0d0, alpha_L(i)), 1d0)
+                            alpha_L_sum = alpha_L_sum + alpha_L(i)
+                        end do
+
+                        alpha_L = alpha_L/max(alpha_L_sum,sgm_eps)
+
+                        !$acc loop seq
+                        do i = 1, num_fluids
+                            alpha_rho_R(i) = max(0d0, alpha_rho_R(i))
+                            alpha_R(i) = min(max(0d0, alpha_R(i)), 1d0)
+                            alpha_R_sum = alpha_R_sum + alpha_R(i)
+                        end do
+
+                        alpha_R = alpha_R/max(alpha_R_sum,sgm_eps)
+                    end if
+
+                    !$acc loop seq
+                    do i = 1, num_fluids
+                        rho_L = rho_L + alpha_rho_L(i)
+                        gamma_L = gamma_L + alpha_L(i)*gammas(i)
+                        pi_inf_L = pi_inf_L + alpha_L(i)*pi_infs(i)
+
+                        rho_R = rho_R + alpha_rho_R(i)
+                        gamma_R = gamma_R + alpha_R(i)*gammas(i)
+                        pi_inf_R = pi_inf_R + alpha_R(i)*pi_infs(i)
+                    end do
+
+                    if(any(Re_size > 0)) then                                    
+                        !$acc loop seq
+                        do i = 1, 2
+                            Re_L(i) = dflt_real 
+                            
+                            if (Re_size(i) > 0) Re_L(i) = 0d0
+                            
+                            !$acc loop seq
+                            do q = 1, Re_size(i)
+                                Re_L(i) = alpha_L(Re_idx(i, q))/Res(i,q) &
+                                          + Re_L(i)
+                            end do
+
+                            Re_L(i) = 1d0/max(Re_L(i), sgm_eps)
+
+                        end do     
+
+                        !$acc loop seq
+                        do i = 1, 2
+                            Re_R(i) = dflt_real 
+                            
+                            if (Re_size(i) > 0) Re_R(i) = 0d0
+
+                            !$acc loop seq
+                            do q = 1, Re_size(i)
+                                Re_R(i) = alpha_R(Re_idx(i, q))/Res(i,q) &
+                                          + Re_R(i)
+                            end do
+
+                            Re_R(i) = 1d0/max(Re_R(i), sgm_eps)
+                        end do
+                    end if
 
                   E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*vel_L_rms
                   E_R = gamma_R*pres_R + pi_inf_R + 5d-1*rho_R*vel_R_rms
@@ -959,6 +1017,8 @@ contains
         real(kind(0d0)), dimension(nb, nmom) ::       moms_L, moms_R
         real(kind(0d0))                              ::     ptilde_L, ptilde_R
 
+        real(kind(0d0)) :: alpha_L_sum, alpha_R_sum
+
         real(kind(0d0)) :: PbwR3Lbar, Pbwr3Rbar
         real(kind(0d0)) :: R3Lbar, R3Rbar
         real(kind(0d0)) :: R3V2Lbar, R3V2Rbar
@@ -967,7 +1027,7 @@ contains
         real(kind(0d0)) :: blkmod1, blkmod2
         real(kind(0d0)) :: rho_Star, E_Star, p_Star, p_K_Star
         real(kind(0d0)) :: pres_SL, pres_SR, Ms_L, Ms_R
-        integer :: i, j, k, l !< Generic loop iterators
+        integer :: i, j, k, l, q !< Generic loop iterators
         integer :: idx1, idxi
 
 
@@ -1032,12 +1092,80 @@ contains
                             pres_L = qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx)
                             pres_R = qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx)
 
-                            call s_convert_species_to_mixture_variables_acc(rho_L, gamma_L, pi_inf_L, alpha_L, alpha_rho_L, Re_L, j, k, l)
+                            rho_L = 0d0
+                            gamma_L = 0d0
+                            pi_inf_L = 0d0
 
+                            rho_R = 0d0
+                            gamma_R = 0d0
+                            pi_inf_R = 0d0
 
-                            call s_convert_species_to_mixture_variables_acc(rho_R, gamma_R, pi_inf_R, alpha_R, alpha_rho_R, Re_R, j + 1, k, l)
+                            alpha_L_sum = 0d0
+                            alpha_R_sum = 0d0
 
+                            if (mpp_lim) then
+                                !$acc loop seq
+                                do i = 1, num_fluids
+                                    alpha_rho_L(i) = max(0d0, alpha_rho_L(i))
+                                    alpha_L(i) = min(max(0d0, alpha_L(i)), 1d0)
+                                    alpha_L_sum = alpha_L_sum + alpha_L(i)
+                                end do
 
+                                alpha_L = alpha_L/max(alpha_L_sum,sgm_eps)
+
+                                !$acc loop seq
+                                do i = 1, num_fluids
+                                    alpha_rho_R(i) = max(0d0, alpha_rho_R(i))
+                                    alpha_R(i) = min(max(0d0, alpha_R(i)), 1d0)
+                                    alpha_R_sum = alpha_R_sum + alpha_R(i)
+                                end do
+
+                                alpha_R = alpha_R/max(alpha_R_sum,sgm_eps)
+                            end if
+
+                            !$acc loop seq
+                            do i = 1, num_fluids
+                                rho_L = rho_L + alpha_rho_L(i)
+                                gamma_L = gamma_L + alpha_L(i)*gammas(i)
+                                pi_inf_L = pi_inf_L + alpha_L(i)*pi_infs(i)
+
+                                rho_R = rho_R + alpha_rho_R(i)
+                                gamma_R = gamma_R + alpha_R(i)*gammas(i)
+                                pi_inf_R = pi_inf_R + alpha_R(i)*pi_infs(i)
+                            end do
+
+                            if(any(Re_size > 0)) then                                    
+                                !$acc loop seq
+                                do i = 1, 2
+                                    Re_L(i) = dflt_real 
+                                    
+                                    if (Re_size(i) > 0) Re_L(i) = 0d0
+                                    
+                                    !$acc loop seq
+                                    do q = 1, Re_size(i)
+                                        Re_L(i) = alpha_L(Re_idx(i, q))/Res(i,q) &
+                                                  + Re_L(i)
+                                    end do
+
+                                    Re_L(i) = 1d0/max(Re_L(i), sgm_eps)
+
+                                end do     
+
+                                !$acc loop seq
+                                do i = 1, 2
+                                    Re_R(i) = dflt_real 
+                                    
+                                    if (Re_size(i) > 0) Re_R(i) = 0d0
+
+                                    !$acc loop seq
+                                    do q = 1, Re_size(i)
+                                        Re_R(i) = alpha_R(Re_idx(i, q))/Res(i,q) &
+                                                  + Re_R(i)
+                                    end do
+
+                                    Re_R(i) = 1d0/max(Re_R(i), sgm_eps)
+                                end do
+                            end if
 
                             E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*vel_L_rms
 
@@ -2152,18 +2280,88 @@ contains
                                 pres_L = qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx)
                                 pres_R = qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx)
 
+
                                 !$acc loop seq
                                 do i = 1, num_fluids
                                     alpha_L(i) = qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx + i)
                                     alpha_R(i) = qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx + i)
                                 end do
+                                
+                                rho_L = 0d0
+                                gamma_L = 0d0
+                                pi_inf_L = 0d0
 
+                                rho_R = 0d0
+                                gamma_R = 0d0
+                                pi_inf_R = 0d0
 
-                                call s_convert_species_to_mixture_variables_acc(rho_L, gamma_L, pi_inf_L, alpha_L, alpha_rho_L, Re_L, j, k, l)
+                                alpha_L_sum = 0d0
+                                alpha_R_sum = 0d0
 
+                                if (mpp_lim) then
+                                    !$acc loop seq
+                                    do i = 1, num_fluids
+                                        alpha_rho_L(i) = max(0d0, alpha_rho_L(i))
+                                        alpha_L(i) = min(max(0d0, alpha_L(i)), 1d0)
+                                        alpha_L_sum = alpha_L_sum + alpha_L(i)
+                                    end do
 
-                                call s_convert_species_to_mixture_variables_acc(rho_R, gamma_R, pi_inf_R,  alpha_R, alpha_rho_R, Re_R, j + 1, k, l)
-     
+                                    alpha_L = alpha_L/max(alpha_L_sum,sgm_eps)
+
+                                    !$acc loop seq
+                                    do i = 1, num_fluids
+                                        alpha_rho_R(i) = max(0d0, alpha_rho_R(i))
+                                        alpha_R(i) = min(max(0d0, alpha_R(i)), 1d0)
+                                        alpha_R_sum = alpha_R_sum + alpha_R(i)
+                                    end do
+
+                                    alpha_R = alpha_R/max(alpha_R_sum,sgm_eps)
+                                end if
+
+                                !$acc loop seq
+                                do i = 1, num_fluids
+                                    rho_L = rho_L + alpha_rho_L(i)
+                                    gamma_L = gamma_L + alpha_L(i)*gammas(i)
+                                    pi_inf_L = pi_inf_L + alpha_L(i)*pi_infs(i)
+
+                                    rho_R = rho_R + alpha_rho_R(i)
+                                    gamma_R = gamma_R + alpha_R(i)*gammas(i)
+                                    pi_inf_R = pi_inf_R + alpha_R(i)*pi_infs(i)
+                                end do
+
+                                if(any(Re_size > 0)) then                                    
+                                    !$acc loop seq
+                                    do i = 1, 2
+                                        Re_L(i) = dflt_real 
+                                        
+                                        if (Re_size(i) > 0) Re_L(i) = 0d0
+                                        
+                                        !$acc loop seq
+                                        do q = 1, Re_size(i)
+                                            Re_L(i) = alpha_L(Re_idx(i, q))/Res(i,q) &
+                                                      + Re_L(i)
+                                        end do
+
+                                        Re_L(i) = 1d0/max(Re_L(i), sgm_eps)
+
+                                    end do     
+
+                                    !$acc loop seq
+                                    do i = 1, 2
+                                        Re_R(i) = dflt_real 
+                                        
+                                        if (Re_size(i) > 0) Re_R(i) = 0d0
+
+                                        !$acc loop seq
+                                        do q = 1, Re_size(i)
+                                            Re_R(i) = alpha_R(Re_idx(i, q))/Res(i,q) &
+                                                      + Re_R(i)
+                                        end do
+
+                                        Re_R(i) = 1d0/max(Re_R(i), sgm_eps)
+                                    end do
+                                end if
+                              
 
                                 E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*vel_L_rms
 
@@ -2492,980 +2690,72 @@ contains
         end subroutine s_hllc_riemann_solver
 
 
+    subroutine s_convert_species_to_mixture_variables_riemann_acc( rho_K, &
+                                                      gamma_K, pi_inf_K, &
+                                                       alpha_K, alpha_rho_K, Re_K,  k, l, r)
+!$acc routine seq
 
+        real(kind(0d0)), intent(INOUT) :: rho_K, gamma_K, pi_inf_K
 
+        real(kind(0d0)), dimension(:), intent(INOUT) :: alpha_rho_K, alpha_K !<
+        real(kind(0d0)), dimension(:), intent(OUT) :: Re_K 
+            !! Partial densities and volume fractions
 
+        integer, intent(IN) :: k, l, r
 
+        integer :: i, j !< Generic loop iterators
+        real(kind(0d0)) :: alpha_K_sum
 
-    !>  This procedure is the implementation of the exact Riemann
-        !!      solver, see Toro (1999). The effects of viscosity and the
-        !!      surface tension have been incorporated following the work
-        !!      of Perigaud and Saurel (2005).
-        !!  @param qL_prim_vf The  left WENO-reconstructed cell-boundary values of the
-        !!      cell-average primitive variables
-        !!  @param qR_prim_vf The right WENO-reconstructed cell-boundary values of the
-        !!      cell-average primitive variables
-        !!  @param dqL_prim_dx_vf The  left WENO-reconstructed cell-boundary values of the
-        !!      first-order x-dir spatial derivatives
-        !!  @param dqL_prim_dy_vf The  left WENO-reconstructed cell-boundary values of the
-        !!      first-order y-dir spatial derivatives
-        !!  @param dqL_prim_dz_vf The  left WENO-reconstructed cell-boundary values of the
-        !!      first-order z-dir spatial derivatives
-        !!  @param dqR_prim_dx_vf The right WENO-reconstructed cell-boundary values of the
-        !!      first-order x-dir spatial derivatives
-        !!  @param dqR_prim_dy_vf The right WENO-reconstructed cell-boundary values of the
-        !!      first-order y-dir spatial derivatives
-        !!  @param dqR_prim_dz_vf The right WENO-reconstructed cell-boundary values of the
-        !!      first-order z-dir spatial derivatives
-        !!  @param gm_alphaL_vf  Left averaged gradient magnitude
-        !!  @param gm_alphaR_vf Right averaged gradient magnitude
-        !!  @param q_prim_vf Cell-averaged primitive variables
-        !!  @param flux_vf Intra-cell fluxes
-        !!  @param flux_src_vf  Intra-cell fluxes sources
-        !!  @param flux_gsrc_vf Intra-cell geometric fluxes sources
-        !!  @param norm_dir Dir. splitting direction
-        !!  @param ix Index bounds in the x-dir
-        !!  @param iy Index bounds in the y-dir
-        !!  @param iz Index bounds in the z-dir
-    subroutine s_exact_riemann_solver(qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat, dqL_prim_dx_vf, & ! -----
-                                      dqL_prim_dy_vf, &
-                                      dqL_prim_dz_vf, &
-                                      qL_prim_vf, &
-                                      qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat, dqR_prim_dx_vf, &
-                                      dqR_prim_dy_vf, &
-                                      dqR_prim_dz_vf, &
-                                      qR_prim_vf, &
-                                      q_prim_vf, &
-                                      flux_vf, flux_src_vf, &
-                                      flux_gsrc_vf, &
-                                      norm_dir, ix, iy, iz)
+        ! Constraining the partial densities and the volume fractions within
+        ! their physical bounds to make sure that any mixture variables that
+        ! are derived from them result within the limits that are set by the
+        ! fluids physical parameters that make up the mixture
+        rho_K = 0d0
+        gamma_K = 0d0
+        pi_inf_K = 0d0
 
-        real(kind(0d0)), dimension(startx:, starty:, startz:, 1:), intent(INOUT) :: qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat, qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat
-        type(scalar_field), dimension(sys_size), intent(IN) :: q_prim_vf
+        alpha_K_sum = 0d0
 
-        type(scalar_field), allocatable, dimension(:), intent(INOUT) :: qL_prim_vf, qR_prim_vf
+        if (mpp_lim) then
+            do i = 1, num_fluids
+                alpha_rho_K(i) = max(0d0, alpha_rho_K(i))
+                alpha_K(i) = min(max(0d0, alpha_K(i)), 1d0)
+                alpha_K_sum = alpha_K_sum + alpha_K(i)
+            end do
 
-        type(scalar_field), &
-            allocatable, dimension(:), &
-            intent(INOUT) :: dqL_prim_dx_vf, dqR_prim_dx_vf, &
-                             dqL_prim_dy_vf, dqR_prim_dy_vf, &
-                             dqL_prim_dz_vf, dqR_prim_dz_vf 
-                             
+            alpha_K = alpha_K/max(alpha_K_sum,sgm_eps)
 
-        type(scalar_field), &
-            dimension(sys_size), &
-            intent(INOUT) :: flux_vf, flux_src_vf, flux_gsrc_vf
+        end if
 
-        integer, intent(IN) :: norm_dir
-        type(bounds_info), intent(IN) :: ix, iy, iz
+        do i = 1, num_fluids
+            rho_K = rho_K + alpha_rho_K(i)
+            gamma_K = gamma_K + alpha_K(i)*gammas(i)
+            pi_inf_K = pi_inf_K + alpha_K(i)*pi_infs(i)
+        end do
 
-        integer :: i, j, k, l !< Generic loop iterators
+        if(any(Re_size > 0)) then
 
-        ! Populating the buffers of the left and right Riemann problem
-        ! states variables, based on the choice of boundary conditions
-        call s_populate_riemann_states_variables_buffers( &
-            qL_prim_rsx_vf_flat, qL_prim_rsy_vf_flat, qL_prim_rsz_vf_flat, dqL_prim_dx_vf, &
-            dqL_prim_dy_vf, &
-            dqL_prim_dz_vf, &
-            qL_prim_vf, &
-            qR_prim_rsx_vf_flat, qR_prim_rsy_vf_flat, qR_prim_rsz_vf_flat, dqR_prim_dx_vf, &
-            dqR_prim_dy_vf, &
-            dqR_prim_dz_vf, &
-            qR_prim_vf, &
-            norm_dir, ix, iy, iz)
+            do i = 1, 2
+                Re_K(i) = dflt_real 
+                
+                if (Re_size(i) > 0) Re_K(i) = 0d0
 
-        ! Reshaping inputted data based on dimensional splitting direction
-        call s_initialize_riemann_solver( &
-                                         q_prim_vf, &
-                                         flux_vf, flux_src_vf, &
-                                         flux_gsrc_vf, &
-                                         norm_dir, ix, iy, iz)
-
-        ! Computing exact flux and source flux for Euler system of equations
-        do l = is3%beg, is3%end
-            do k = is2%beg, is2%end
-                do j = is1%beg, is1%end
-
-                    call s_compute_constant_states(j, k, l)
-
-                    ! Check for pressure positivity condition
-                    if ((G4_L*c_L + G4_R*c_R) < (vel_R(dir_idx(1)) - vel_L(dir_idx(1)))) then
-                        print '(A)', 'Vacuum is generated by Riemann data. Exiting...'
-                        call s_mpi_abort()
-                    end if
-
-                    call s_compute_star_region()
-
-                    call s_compute_intercell_solution()
-
-                    do i = 1, cont_idx%end
-                        flux_rs_vf(i)%sf(j, k, l) = alpha_rho_IC(i)*vel_IC(dir_idx(1))
-                    end do
-
-                    do i = 1, num_dims
-                        flux_rs_vf(cont_idx%end + dir_idx(i))%sf(j, k, l) = &
-                            rho_IC*vel_IC(dir_idx(1))*vel_IC(dir_idx(i)) + dir_flg(dir_idx(i))*pres_IC
-                    end do
-
-                    flux_rs_vf(E_idx)%sf(j, k, l) = vel_IC(dir_idx(1))*(E_IC + pres_IC)
-
-                    do i = 1, adv_idx%end - E_idx
-                        flux_rs_vf(E_idx + i)%sf(j, k, l) = alpha_IC(i)*vel_IC(dir_idx(1))
-                    end do
-
-                    do i = 1, num_dims
-                        vel_src_rs_vf(dir_idx(i))%sf(j, k, l) = vel_IC(dir_idx(i))
-                    end do
+                do j = 1, Re_size(i)
+                    Re_K(i) = alpha_K(Re_idx(i, j))/Res(i,j) &
+                              + Re_K(i)
                 end do
+
+                Re_K(i) = 1d0/max(Re_K(i), sgm_eps)
+
             end do
-        end do
+        end if
 
 
+    end subroutine s_convert_species_to_mixture_variables_riemann_acc ! ----------------
 
-        ! Reshaping outputted data based on dimensional splitting direction
-        call s_finalize_riemann_solver(flux_vf, flux_src_vf, &
-                                       flux_gsrc_vf, &
-                                       norm_dir, ix, iy, iz)
 
-    end subroutine s_exact_riemann_solver ! --------------------------------
-
-    !>  The procedure assigns and computes the left and right
-        !!      states of the Riemann problem
-        !! @param j  First coordinate index
-        !! @param k Second coordinate index
         !! @param l  Third coordinate index
-    subroutine s_compute_constant_states(j, k, l) ! --------------------------
-
-        integer, intent(IN) :: j, k, l
-
-        integer :: i !< Generic loop iterator
-
-        ! Left and Right Riemann States
-        do i = 1, cont_idx%end
-            alpha_rho_L(i) = qL_prim_rs_vf(i)%sf(j, k, l)
-            alpha_rho_R(i) = qR_prim_rs_vf(i)%sf(j + 1, k, l)
-        end do
-
-        do i = 1, num_dims
-            vel_L(i) = qL_prim_rs_vf(cont_idx%end + i)%sf(j, k, l)
-            vel_R(i) = qR_prim_rs_vf(cont_idx%end + i)%sf(j + 1, k, l)
-        end do
-
-        pres_L = qL_prim_rs_vf(E_idx)%sf(j, k, l)
-        pres_R = qR_prim_rs_vf(E_idx)%sf(j + 1, k, l)
-
-        call s_convert_species_to_mixture_variables_acc( &
-                                            rho_L, gamma_L, &
-                                            pi_inf_L, alpha_L, alpha_rho_L, Re_L, &
-                                            j, k, l)
-        call s_convert_species_to_mixture_variables_acc( &
-                                            rho_R, gamma_R, &
-                                            pi_inf_R, alpha_R, alpha_rho_R, Re_R, &
-                                            j + 1, k, l)
-
-        E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*sum(vel_L**2d0)
-        E_R = gamma_R*pres_R + pi_inf_R + 5d-1*rho_R*sum(vel_R**2d0)
-
-        H_L = (E_L + pres_L)/rho_L
-        H_R = (E_R + pres_R)/rho_R
-
-        call s_compute_mixture_sound_speeds(qL_prim_rs_vf, qR_prim_rs_vf,j, k, l)
-
-        do i = 1, 2
-            if (Re_size(i) > 0) then
-                Re_avg_rs_vf(i)%sf(j, k, l) = 2d0/(1d0/Re_L(i) + 1d0/Re_R(i))
-            end if
-        end do
-
-        ! Compute gamma-related constants
-        G1_L = 1d0/(2d0*(gamma_L + 1d0))
-        G1_R = 1d0/(2d0*(gamma_R + 1d0))
-        G2_L = (1d0 + 2d0*gamma_L)/(2d0*(gamma_L + 1d0))
-        G2_R = (1d0 + 2d0*gamma_R)/(2d0*(gamma_R + 1d0))
-        G3_L = 2d0*(gamma_L + 1d0)
-        G3_R = 2d0*(gamma_R + 1d0)
-        G4_L = 2d0*gamma_L
-        G4_R = 2d0*gamma_R
-        G5_L = 2d0/((1d0/gamma_L) + 2d0)
-        G5_R = 2d0/((1d0/gamma_R) + 2d0)
-        G6_L = 1d0/(1d0 + 2d0*gamma_L)
-        G6_R = 1d0/(1d0 + 2d0*gamma_R)
-        G7_L = 1d0/(2d0*gamma_L)
-        G7_R = 1d0/(2d0*gamma_R)
-        G8_L = 1d0/gamma_L
-        G8_R = 1d0/gamma_R
-
-        ! Surface tension pressure contribution
-        dpres_L = 0d0
-        dpres_R = 0d0
-
-        dpres_L = 5d-1
-        dpres_R = -5d-1
-
-    end subroutine s_compute_constant_states ! -----------------------------
-
-    !> Compute mixture sound speed
-        !! @param j  First coordinate index
-        !! @param k Second coordinate index
-        !! @param l  Third coordinate index
-    subroutine s_compute_mixture_sound_speeds(qL_prim_rs_vf, qR_prim_rs_vf,j, k, l) ! ---------------------
-!$acc routine seq
-        type(scalar_field), dimension(sys_size), intent(IN) :: qL_prim_rs_vf, qR_prim_rs_vf
-        integer, intent(IN) :: j, k, l
-
-        real(kind(0d0)) :: blkmod1, blkmod2 !< Fluid bulk modulus for alternate sound speed
-
-        integer :: i !< Generic loop iterator
-
-        if (alt_soundspeed) then
-
-
-            blkmod1 = ((gammas(1) + 1d0)*pres_L + &
-                       pi_infs(1))/gammas(1)
-            blkmod2 = ((gammas(2) + 1d0)*pres_L + &
-                       pi_infs(2))/gammas(2)
-            c_L = 1d0/(rho_L*(alpha_L(1)/blkmod1 + alpha_L(2)/blkmod2))
-
-            blkmod1 = ((gammas(1) + 1d0)*pres_R + &
-                       pi_infs(1))/gammas(1)
-            blkmod2 = ((gammas(2) + 1d0)*pres_R + &
-                       pi_infs(2))/gammas(2)
-            c_R = 1d0/(rho_R*(alpha_R(1)/blkmod1 + alpha_R(2)/blkmod2))
-
-        elseif (model_eqns == 3) then
-            c_L = 0d0
-            c_R = 0d0
-            do i = 1, num_fluids
-                c_L = c_L + qL_prim_rs_vf(i + advxb - 1)%sf(j, k, l)*(1d0/gammas(i) + 1d0)* &
-                      (qL_prim_rs_vf(E_idx)%sf(j, k, l) + pi_infs(i)/(gammas(i) + 1d0))
-                c_R = c_R + qR_prim_rs_vf(i + advxb - 1)%sf(j + 1, k, l)*(1d0/gammas(i) + 1d0)* &
-                      (qR_prim_rs_vf(E_idx)%sf(j + 1, k, l) + pi_infs(i)/(gammas(i) + 1d0))
-            end do
-            c_L = c_L/rho_L
-            c_R = c_R/rho_R
-        elseif ((model_eqns == 4) .or. (model_eqns == 2 .and. bubbles)) then
-            ! Sound speed for bubble mmixture to order O(\alpha)
-
-            if (mpp_lim .and. (num_fluids > 1)) then
-                c_L = (1d0/gamma_L + 1d0)* &
-                      (pres_L + pi_inf_L)/rho_L
-                c_R = (1d0/gamma_R + 1d0)* &
-                      (pres_R + pi_inf_R)/rho_R
-            else
-                c_L = &
-                    (1d0/gamma_L + 1d0)* &
-                    (pres_L + pi_inf_L)/ &
-                    (rho_L*(1d0 - alpha_L(num_fluids)))
-                c_R = &
-                    (1d0/gamma_R + 1d0)* &
-                    (pres_R + pi_inf_R)/ &
-                    (rho_R*(1d0 - alpha_R(num_fluids)))
-            end if
-        else
-
-            c_L = ((H_L - 5d-1*sum(vel_L**2d0))/gamma_L)
-            c_R = ((H_R - 5d-1*sum(vel_R**2d0))/gamma_R)
-        end if
-
-        if (mixture_err .and. c_L < 0d0) then
-            c_L = 100.d0*sgm_eps
-        else
-            c_L = sqrt(c_L)
-        end if
-        if (mixture_err .and. c_R < 0d0) then
-            c_R = 100.d0*sgm_eps
-        else
-            c_R = sqrt(c_R)
-        end if
-
-    end subroutine s_compute_mixture_sound_speeds ! ------------------------
-
-    !>  The purpose of this subroutine is to compute the solution
-        !!      for pressure and velocity in the star region when using
-        !!      the exact Riemann solver
-    subroutine s_compute_star_region() ! -----------------------------------
-
-        real(kind(0d0)) :: change, f_L, dfdp_L, f_R, dfdp_R, pres_old, &
-                           pres_start, pres_tol, vel_diff
-
-        integer :: iter
-
-        pres_tol = 1d-10
-        change = -1d0*dflt_real
-
-        ! Compute starting guess value for pressure
-        call s_guess_pressure(pres_start)
-
-        pres_old = pres_start
-        vel_diff = vel_R(dir_idx(1)) - vel_L(dir_idx(1))
-
-        iter = 0
-
-        ! Solve iteratively for pressure in the star region
-        do while (change > pres_tol)
-            call s_pressure_function(f_L, dfdp_L, pres_old, 1)
-            call s_pressure_function(f_R, dfdp_R, pres_old, 2)
-            pres_S = pres_old - (f_L + f_R + vel_diff)/(dfdp_L + dfdp_R)
-            if (iter > 10000) then
-                print '(A)', 'Too many iterations in pressure'
-                call s_mpi_abort()
-            end if
-            change = 2d0*abs((pres_S - pres_old)/(pres_S + pres_old))
-            pres_old = pres_S
-            iter = iter + 1
-        end do
-
-        ! Compute velocity in star region
-        vel_S = 5d-1*(vel_L(dir_idx(1)) + vel_R(dir_idx(1)) + f_R - f_L)
-
-    end subroutine s_compute_star_region ! ----------------------------------
-
-    !>  The purpose of this subroutine is to evaluate the pressure
-        !!      functions f_K in the exact Riemann solver
-        !!  @param f_K    Pressure function
-        !!  @param dfdp_K Mixture pressure derivative
-        !!  @param pres   Pressure
-        !!  @param side   Wave side
-    subroutine s_pressure_function(f_K, dfdp_K, pres, side) ! -
-
-        real(kind(0d0)), intent(IN) :: pres
-        integer, intent(IN) :: side
-        real(kind(0d0)), intent(OUT) :: f_K, dfdp_K
-        real(kind(0d0)) :: gam_L, pinf_L, gam_R, pinf_R, c_SL, c_SR
-
-        if (side == 1) then
-            gam_L = (gamma_L + 1d0)/gamma_L
-            pinf_L = pi_inf_L/(gamma_L + 1d0)
-            if (pres + dpres_L <= pres_L) then
-                ! Rarefaction wave
-                c_SL = c_L*((pres + dpres_L + pinf_L)/(pres_L + pinf_L))**G1_L
-                f_K = G4_L*(c_SL/c_L - 1d0)*c_L
-                dfdp_K = c_SL/(gam_L*(dpres_L + pres + pinf_L))
-            elseif (pres + dpres_L > pres_L) then
-                ! Shock wave
-                f_K = (c_L/gam_L*((pres + dpres_L)/pres_L - 1d0)*(pres_L/(pres_L + pinf_L)))/ &
-                      sqrt(G2_L*((pres + dpres_L)/pres_L - 1d0)*(pres_L/(pres_L + pinf_L)) + 1d0)
-                dfdp_K = 2d0*c_L/gam_L/(pres_L + pinf_L)/ &
-                         sqrt(2d0*(gam_L + 1d0)*(pres + dpres_L - pres_L)/gam_L/(pres_L + pinf_L) + 4d0) - &
-                         2d0*c_L*(pres + dpres_L - pres_L)*(gam_L + 1d0)/gam_L**2d0/(pres_L + pinf_L)**2d0/ &
-                         sqrt(2d0*(gam_L + 1d0)*(pres + dpres_L - pres_L)/gam_L/(pres_L + pinf_L) + 4d0)**3d0
-            else
-                print '(A)', 'Error in evaluating left pressure function. Exiting...'
-                call s_mpi_abort()
-            end if
-        elseif (side == 2) then
-            gam_R = (gamma_R + 1d0)/gamma_R
-            pinf_R = pi_inf_R/(gamma_R + 1d0)
-            if (pres + dpres_R <= pres_R) then
-                ! Rarefaction wave
-                c_SR = c_R*((pres + dpres_R + pinf_R)/(pres_R + pinf_R))**G1_R
-                f_K = G4_R*(c_SR/c_R - 1d0)*c_R
-                dfdp_K = c_SR/(gam_R*(dpres_R + pres + pinf_R))
-            elseif (pres + dpres_R > pres_R) then
-                ! Shock wave
-                f_K = (c_R/gam_R*((pres + dpres_R)/pres_R - 1d0)*(pres_R/(pres_R + pinf_R)))/ &
-                      sqrt(G2_R*((pres + dpres_R)/pres_R - 1d0)*(pres_R/(pres_R + pinf_R)) + 1d0)
-                dfdp_K = 2d0*c_R/gam_R/(pres_R + pinf_R)/ &
-                         sqrt(2d0*(gam_R + 1d0)*(pres + dpres_R - pres_R)/gam_R/(pres_R + pinf_R) + 4d0) - &
-                         2d0*c_R*(pres + dpres_R - pres_R)*(gam_R + 1d0)/gam_R**2d0/(pres_R + pinf_R)**2d0/ &
-                         sqrt(2d0*(gam_R + 1d0)*(pres + dpres_R - pres_R)/gam_R/(pres_R + pinf_R) + 4d0)**3d0
-            else
-                print '(A)', 'Error in evaluating right pressure function. Exiting...'
-                call s_mpi_abort()
-            end if
-        end if
-
-    end subroutine s_pressure_function ! ------------------------------------
-
-    !>  The purpose of this subroutine is to provide a guess value
-        !!      for pressure in the star region. The choice is made
-        !!      according to adaptive Riemann solver using the PVRS, TRRS.
-        !!      and TSRS approximate Riemann solvers.
-        !!  @param pres_start Initial and output pressure
-    subroutine s_guess_pressure(pres_start) ! -------------------------------
-
-        real(kind(0d0)), intent(INOUT) :: pres_start
-
-        real(kind(0d0)) :: CUP, pres_max, pres_min, pres_PV, &
-                           Q_max, Q_user, pres_TS, pres_TR
-        real(kind(0d0)) :: pinf_L, pinf_R, A, B
-
-        Q_user = 2d0
-
-        ! Compute guess pressure from PVRS Riemann solver
-        CUP = 25d-2*(rho_L + rho_R)*(c_L + c_R)
-        pres_PV = 5d-1*(pres_L + pres_R) + 5d-1*(vel_L(dir_idx(1)) - vel_R(dir_idx(1)))*CUP
-        pres_PV = max(0d0, pres_PV)
-        pres_min = min(pres_L, pres_R)
-        pres_max = max(pres_L, pres_R)
-        Q_max = pres_max/pres_min
-
-        if ((Q_max <= Q_user) .and. (pres_min <= pres_PV) .and. (pres_PV <= pres_max)) then
-
-            ! Select PVRS Riemann solver
-            pres_start = pres_PV
-
-            if (pres_start /= pres_start) then
-                print '(A)', 'NaN guess for pressure using PVRS'
-                call s_mpi_abort()
-            end if
-
-        elseif (pres_PV < pres_min) then
-
-            ! Select TRRS Riemann solver
-            pinf_L = pi_inf_L/(gamma_L + 1d0)
-            pinf_R = pi_inf_R/(gamma_R + 1d0)
-            pres_TR = ((((-G4_R*c_R*(((pres_PV + dpres_R + pinf_R)/(pres_R + pinf_R))**G1_R - 1d0) - &
-                          (vel_R(dir_idx(1)) - vel_L(dir_idx(1))))/c_L/G4_L) + 1d0)**G3_L)* &
-                      (pres_L + pinf_L) - (dpres_L + pinf_L)
-            pres_start = max(0d0, pres_TR)
-
-            if (pres_start /= pres_start) then
-                print '(A)', 'NaN guess for pressure using TRRS'
-                call s_mpi_abort()
-            end if
-
-        else
-            ! Select TSRS Riemann solver with pres_PV as estimate
-            A = sqrt(G2_L*((pres_PV + dpres_L - pres_L)/(pres_L + pinf_L)) + 1d0)
-            B = sqrt(G2_R*((pres_PV + dpres_R - pres_R)/(pres_R + pinf_R)) + 1d0)
-            pres_TS = (c_L*gamma_L/(gamma_L + 1d0)/A*((pres_L - dpres_L)/(pres_L + pinf_L)) + &
-                       c_R*gamma_R/(gamma_R + 1d0)/B*((pres_R - dpres_R)/(pres_R + pinf_R)) - &
-                       (vel_R(dir_idx(1)) - vel_L(dir_idx(1))))/ &
-                      (c_L*gamma_L/(gamma_L + 1d0)/A/(pres_L + pinf_L) + &
-                       c_R*gamma_R/(gamma_R + 1d0)/B/(pres_R + pinf_R))
-            pres_start = max(0d0, pres_TS)
-
-            if (pres_start /= pres_start) then
-                print '(A)', 'NaN guess for pressure using TSRS'
-                call s_mpi_abort()
-            end if
-
-        end if
-
-    end subroutine s_guess_pressure ! --------------------------------------
-
-    !> Computes the averaged intrercell variables for the Riemann solver
-    subroutine s_compute_intercell_solution() ! --------------------
-
-        integer :: i
-
-        real(kind(0d0)) :: c_IC
-        real(kind(0d0)) :: s_HL, S_TL, c_SL, pres_SL, s_L
-        real(kind(0d0)) :: s_HR, S_TR, c_SR, pres_SR, s_R
-
-        if (0d0 <= vel_S) then
-            ! IC lies to the left of the contact discontinuity
-            if (pres_S + dpres_L <= pres_L) then
-                ! Left rarefaction
-                s_HL = vel_L(dir_idx(1)) - c_L
-
-                if (0d0 <= s_HL) then
-                    ! IC is left data state
-                    do i = 1, cont_idx%end
-                        alpha_rho_IC(i) = alpha_rho_L(i)
-                    end do
-                    rho_IC = rho_L
-
-                    do i = 1, num_dims
-                        vel_IC(i) = vel_L(i)
-                    end do
-
-                    pres_IC = pres_L
-                    E_IC = E_L
-
-                    do i = 1, num_fluids
-                        alpha_IC(i) = alpha_L(i)
-                    end do
-
-                else
-                    c_SL = c_L*((pres_S + dpres_L + pi_inf_L/(gamma_L + 1d0))/(pres_L + pi_inf_L/(gamma_L + 1d0)))**G1_L
-                    S_TL = vel_S - c_SL
-
-                    if (0d0 > S_TL) then
-                        ! IC is star left state
-                        do i = 1, cont_idx%end
-                            alpha_rho_IC(i) = alpha_rho_L(i)*((pres_S + dpres_L + pi_inf_L/(gamma_L + 1d0))/ &
-                                                              (pres_L + pi_inf_L/(gamma_L + 1d0)))**(gamma_L/(gamma_L + 1d0))
-                        end do
-                        rho_IC = rho_L*((pres_S + dpres_L + pi_inf_L/(gamma_L + 1d0))/ &
-                                        (pres_L + pi_inf_L/(gamma_L + 1d0)))**(gamma_L/(gamma_L + 1d0))
-
-                        vel_IC(dir_idx(1)) = vel_S
-                        do i = 2, num_dims
-                            vel_IC(dir_idx(i)) = vel_L(dir_idx(i))
-                        end do
-
-                        pres_IC = pres_S + dpres_L
-                        E_IC = gamma_L*pres_IC + pi_inf_L + 5d-1*rho_IC*sum(vel_IC**2d0)
-
-                        do i = 1, num_fluids
-                            alpha_IC(i) = alpha_L(i)
-                        end do
-
-                    else
-                        ! IC is inside left rarefaction
-                        vel_IC(dir_idx(1)) = G5_L*(c_L + G7_L*vel_L(dir_idx(1)) + 0d0)
-                        c_IC = G5_L*(c_L + G7_L*(vel_L(dir_idx(1)) - 0d0))
-
-                        do i = 1, cont_idx%end
-                            alpha_rho_IC(i) = alpha_rho_L(i)*(c_IC/c_L)**G4_L
-                        end do
-                        rho_IC = rho_L*(c_IC/c_L)**G4_L
-
-                        do i = 2, num_dims
-                            vel_IC(dir_idx(i)) = vel_L(dir_idx(i))
-                        end do
-
-                        pres_IC = (pres_L + pi_inf_L/(gamma_L + 1d0))*(c_IC/c_L)**G3_L - (pi_inf_L/(gamma_L + 1d0))
-                        E_IC = gamma_L*pres_IC + pi_inf_L + 5d-1*rho_IC*sum(vel_IC**2d0)
-
-                        do i = 1, num_fluids
-                            alpha_IC(i) = alpha_L(i)
-                        end do
-
-                    end if
-                end if
-            else
-                ! Left shock
-                pres_SL = (pres_S + dpres_L + pi_inf_L/(gamma_L + 1d0))/(pres_L + pi_inf_L/(gamma_L + 1d0))
-                s_L = vel_L(dir_idx(1)) - c_L*sqrt(G2_L*(pres_S + dpres_L - pres_L)/(pres_L + pi_inf_L/(gamma_L + 1d0)) + 1d0)
-
-                if (0d0 <= s_L) then
-                    ! IC is left data state
-                    do i = 1, cont_idx%end
-                        alpha_rho_IC(i) = alpha_rho_L(i)
-                    end do
-                    rho_IC = rho_L
-
-                    do i = 1, num_dims
-                        vel_IC(i) = vel_L(i)
-                    end do
-
-                    pres_IC = pres_L
-                    E_IC = E_L
-
-                    do i = 1, num_fluids
-                        alpha_IC(i) = alpha_L(i)
-                    end do
-
-                else
-                    ! IC is star left state
-                    do i = 1, cont_idx%end
-                        alpha_rho_IC(i) = alpha_rho_L(i)*(pres_SL + G6_L)/(pres_SL*G6_L + 1d0)
-                    end do
-                    rho_IC = rho_L*(pres_SL + G6_L)/(pres_SL*G6_L + 1d0)
-
-                    vel_IC(dir_idx(1)) = vel_S
-                    do i = 2, num_dims
-                        vel_IC(dir_idx(i)) = vel_L(dir_idx(i))
-                    end do
-
-                    pres_IC = pres_S + dpres_L
-                    E_IC = gamma_L*pres_IC + pi_inf_L + 5d-1*rho_IC*sum(vel_IC**2d0)
-
-                    do i = 1, num_fluids
-                        alpha_IC(i) = alpha_L(i)
-                    end do
-
-                end if
-            end if
-        else
-            ! IC is to the right of the contact discontinuity
-            if (pres_S + dpres_R > pres_R) then
-                ! Right shock
-                pres_SR = (pres_S + dpres_R + pi_inf_R/(gamma_R + 1d0))/(pres_R + pi_inf_R/(gamma_R + 1d0))
-                s_R = vel_R(dir_idx(1)) + c_R*sqrt(G2_R*(pres_S + dpres_R - pres_R)/(pres_R + pi_inf_R/(gamma_R + 1d0)) + 1d0)
-
-                if (0d0 >= s_R) then
-                    ! IC is right data state
-                    do i = 1, cont_idx%end
-                        alpha_rho_IC(i) = alpha_rho_R(i)
-                    end do
-                    rho_IC = rho_R
-
-                    do i = 1, num_dims
-                        vel_IC(i) = vel_R(i)
-                    end do
-
-                    pres_IC = pres_R
-                    E_IC = E_R
-
-                    do i = 1, num_fluids
-                        alpha_IC(i) = alpha_R(i)
-                    end do
-
-                else
-                    ! IC is star right state
-                    do i = 1, cont_idx%end
-                        alpha_rho_IC(i) = alpha_rho_R(i)*(pres_SR + G6_R)/(pres_SR*G6_R + 1d0)
-                    end do
-                    rho_IC = rho_R*(pres_SR + G6_R)/(pres_SR*G6_R + 1d0)
-
-                    vel_IC(dir_idx(1)) = vel_S
-                    do i = 2, num_dims
-                        vel_IC(dir_idx(i)) = vel_R(dir_idx(i))
-                    end do
-
-                    pres_IC = pres_S + dpres_R
-                    E_IC = gamma_R*pres_IC + pi_inf_R + 5d-1*rho_IC*sum(vel_IC**2d0)
-
-                    do i = 1, num_fluids
-                        alpha_IC(i) = alpha_R(i)
-                    end do
-
-                end if
-            else
-                ! Right rarefaction
-                s_HR = vel_R(dir_idx(1)) + c_R
-
-                if (0d0 >= s_HR) then
-                    ! IC is right data state
-                    do i = 1, cont_idx%end
-                        alpha_rho_IC(i) = alpha_rho_R(i)
-                    end do
-                    rho_IC = rho_R
-
-                    do i = 1, num_dims
-                        vel_IC(i) = vel_R(i)
-                    end do
-
-                    pres_IC = pres_R
-                    E_IC = E_R
-
-                    do i = 1, num_fluids
-                        alpha_IC(i) = alpha_R(i)
-                    end do
-
-                else
-                    c_SR = c_R*((pres_S + dpres_R + pi_inf_R/(gamma_R + 1d0))/(pres_R + pi_inf_R/(gamma_R + 1d0)))**G1_R
-                    S_TR = vel_S + c_SR
-
-                    if (0d0 <= S_TR) then
-                        ! IC is star right state
-                        do i = 1, cont_idx%end
-                            alpha_rho_IC(i) = alpha_rho_R(i)*((pres_S + dpres_R + pi_inf_R/(gamma_R + 1d0))/ &
-                                                              (pres_R + pi_inf_R/(gamma_R + 1d0)))**(gamma_R/(gamma_R + 1d0))
-                        end do
-                        rho_IC = rho_R*((pres_S + dpres_R + pi_inf_R/(gamma_R + 1d0))/(pres_R + &
-                                                                                       pi_inf_R/(gamma_R + 1d0)))**(gamma_R/(gamma_R + 1d0))
-
-                        vel_IC(dir_idx(1)) = vel_S
-                        do i = 2, num_dims
-                            vel_IC(dir_idx(i)) = vel_R(dir_idx(i))
-                        end do
-
-                        pres_IC = pres_S + dpres_R
-                        E_IC = gamma_R*pres_IC + pi_inf_R + 5d-1*rho_IC*sum(vel_IC**2d0)
-
-                        do i = 1, num_fluids
-                            alpha_IC(i) = alpha_R(i)
-                        end do
-
-                    else
-                        ! IC is inside right rarefaction
-                        vel_IC(dir_idx(1)) = G5_R*(-1d0*c_R + G7_R*vel_R(dir_idx(1)) + 0d0)
-                        c_IC = G5_R*(c_R - G7_R*(vel_R(dir_idx(1)) - 0d0))
-
-                        do i = 1, cont_idx%end
-                            alpha_rho_IC(i) = alpha_rho_R(i)*(c_IC/c_R)**G4_R
-                        end do
-                        rho_IC = rho_R*(c_IC/c_R)**G4_R
-
-                        do i = 2, num_dims
-                            vel_IC(dir_idx(i)) = vel_R(dir_idx(i))
-                        end do
-
-                        pres_IC = (pres_R + pi_inf_R/(gamma_R + 1d0))*(c_IC/c_R)**G3_R - (pi_inf_R/(gamma_R + 1d0))
-                        E_IC = gamma_R*pres_IC + pi_inf_R + 5d-1*rho_IC*sum(vel_IC**2d0)
-
-                        do i = 1, num_fluids
-                            alpha_IC(i) = alpha_R(i)
-                        end do
-
-                    end if
-                end if
-            end if
-        end if
-
-    end subroutine s_compute_intercell_solution ! --------------------------
-
-    !>  The procedure computes the Roe average density, velocity,
-        !!      enthalpy, volume fractions, specific heat ratio function,
-        !!      speed of sound, shear and volume Reynolds numbers, Weber
-        !!      numbers and curvatures, at the cell-boundaries, from the
-        !!      left and right states of the Riemann problem.
-        !! @param j  First coordinate index
-        !! @param k Second coordinate index
-        !! @param l  Third coordinate index
-    subroutine s_compute_roe_average_state(qL_prim_rs_vf, qR_prim_rs_vf,j, k, l) ! ---------------
-!$acc routine seq
-        type(scalar_field), dimension(sys_size), intent(IN) :: qL_prim_rs_vf, qR_prim_rs_vf
-        integer, intent(IN) :: j, k, l
-
-        integer :: i
-
-        ! Left and Right Riemann Problem States ============================
-
-
-        call s_convert_species_to_mixture_variables_acc( &
-                                            rho_L, gamma_L, &
-                                            pi_inf_L, alpha_L, alpha_rho_L, Re_L, &
-                                            j, k, l)
-        call s_convert_species_to_mixture_variables_acc( &
-                                            rho_R, gamma_R, &
-                                            pi_inf_R, alpha_R, alpha_rho_R, Re_R, &
-                                            j + 1, k, l)
-
-        E_L = gamma_L*pres_L + pi_inf_L + 5d-1*rho_L*sum(vel_L**2d0)
-        E_R = gamma_R*pres_R + pi_inf_R + 5d-1*rho_R*sum(vel_R**2d0)
-
-        H_L = (E_L + pres_L)/rho_L
-        H_R = (E_R + pres_R)/rho_R
-
-        call s_compute_mixture_sound_speeds(qL_prim_rs_vf, qR_prim_rs_vf,j, k, l)
-
-        ! ==================================================================
-
-        ! Roe Average Riemann Problem State ================================
-        rho_avg = sqrt(rho_L*rho_R)
-
-        vel_avg = (sqrt(rho_L)*vel_L + sqrt(rho_R)*vel_R)/ &
-                  (sqrt(rho_L) + sqrt(rho_R))
-
-        H_avg = (sqrt(rho_L)*H_L + sqrt(rho_R)*H_R)/ &
-                (sqrt(rho_L) + sqrt(rho_R))
-
-        gamma_avg = (sqrt(rho_L)*gamma_L + sqrt(rho_R)*gamma_R)/ &
-                    (sqrt(rho_L) + sqrt(rho_R))
-
-        if (mixture_err) then
-            if ((H_avg - 5d-1*sum(vel_avg**2d0)) < 0d0) then
-                c_avg = 1d-16
-            else
-                c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
-            end if
-        else
-            c_avg = sqrt((H_avg - 5d-1*sum(vel_avg**2d0))/gamma_avg)
-        end if
-
-
-        do i = 1, 2
-            if (Re_size(i) > 0) then
-                Re_avg_rs_vf(i)%sf(j, k, l) = 2d0/(1d0/Re_L(i) + 1d0/Re_R(i))
-            end if
-        end do
-
-        ! ==================================================================
-
-    end subroutine s_compute_roe_average_state ! ---------------------------
-
-    !>  This procedure calculates the arithmetic average density,
-        !!      velocity, enthalpy, volume fractions, specIFic heat ratio
-        !!      function, sound speed, shear and volume Reynolds numbers,
-        !!      Weber numbers and the curvatures, at the cell-boundaries,
-        !!      from the left and right states of the Riemann problem.
-        !!  @param j  First coordinate index
-        !!  @param k Second coordinate index
-        !!  @param l  Third coordinate index
-    subroutine s_compute_arithmetic_average_state(qL_prim_rs_vf, qR_prim_rs_vf, j, k, l) ! --------
-!$acc routine seq
-        type(scalar_field), dimension(sys_size), intent(IN) :: qL_prim_rs_vf, qR_prim_rs_vf
-
-        integer, intent(IN) :: j, k, l
-
-        integer :: i, q !< Generic loop iterator
-
-        !ensemble-averaged bubble variables
-        real(kind(0d0)) :: PbwR3Lbar, Pbwr3Rbar
-        real(kind(0d0)) :: R3Lbar, R3Rbar
-        real(kind(0d0)) :: R3V2Lbar, R3V2Rbar
-
-        ! Left and Right Riemann Problem States ============================
-
-
-
-        call s_convert_species_to_mixture_variables_acc( &
-                                            rho_L, gamma_L, &
-                                            pi_inf_L, alpha_L, alpha_rho_L, Re_L, &
-                                            j, k, l)
-        call s_convert_species_to_mixture_variables_acc( &
-                                            rho_R, gamma_R, &
-                                            pi_inf_R, alpha_R, alpha_rho_R, Re_R, &
-                                            j + 1, k, l)
-
-
-
-        ! Compute left/right states for bubble number density
-        if (bubbles) then
-            do i = 1, num_fluids
-                alpha_L(i) = qL_prim_rs_vf(E_idx + i)%sf(j, k, l)
-                alpha_R(i) = qR_prim_rs_vf(E_idx + i)%sf(j + 1, k, l)
-            end do!
-
-            do i = 1, nb
-                R0_L(i) = qL_prim_rs_vf(bub_idx%rs(i))%sf(j, k, l)
-                R0_R(i) = qR_prim_rs_vf(bub_idx%rs(i))%sf(j + 1, k, l)
-
-                V0_L(i) = qL_prim_rs_vf(bub_idx%vs(i))%sf(j, k, l)
-                V0_R(i) = qR_prim_rs_vf(bub_idx%vs(i))%sf(j + 1, k, l)
-                if (.not. polytropic) then
-                    P0_L(i) = qL_prim_rs_vf(bub_idx%ps(i))%sf(j, k, l)
-                    P0_R(i) = qR_prim_rs_vf(bub_idx%ps(i))%sf(j + 1, k, l)
-                end if
-            end do
-
-            call s_comp_n_from_prim(alpha_L(num_fluids), R0_L, nbub_L)
-            call s_comp_n_from_prim(alpha_R(num_fluids), R0_R, nbub_R)
-
-
-
-            do i = 1, nb
-                if (.not. qbmm) then
-                    if (polytropic) then
-                        pbw_L(i) = f_cpbw_KM(R0(i), R0_L(i), V0_L(i), 0d0)
-                        pbw_R(i) = f_cpbw_KM(R0(i), R0_R(i), V0_R(i), 0d0)
-                    else
-                        pbw_L(i) = f_cpbw_KM(R0(i), R0_L(i), V0_L(i), P0_L(i))
-                        pbw_R(i) = f_cpbw_KM(R0(i), R0_R(i), V0_R(i), P0_R(i))
-                    end if
-                end if
-            end do
-
-            if (qbmm) then
-                PbwR3Lbar = mom_sp(4)%sf(j, k, l)
-                PbwR3Rbar = mom_sp(4)%sf(j + 1, k, l)
-
-                R3Lbar = mom_sp(1)%sf(j, k, l)
-                R3Rbar = mom_sp(1)%sf(j + 1, k, l)
-
-                R3V2Lbar = mom_sp(3)%sf(j, k, l)
-                R3V2Rbar = mom_sp(3)%sf(j + 1, k, l)
-            else
-                call s_quad(pbw_L*(R0_L**3.d0), PbwR3Lbar)
-                call s_quad(pbw_R*(R0_R**3.d0), PbwR3Rbar)
-
-                call s_quad(R0_L**3.d0, R3Lbar)
-                call s_quad(R0_R**3.d0, R3Rbar)
-
-                call s_quad((R0_L**3.d0)*(V0_L**2.d0), R3V2Lbar)
-                call s_quad((R0_R**3.d0)*(V0_R**2.d0), R3V2Rbar)
-            end if
-
-            !ptilde = \alf( pl - \bar{ pbw R^3)/\bar{R^3} - rho \bar{R^3 \Rdot^2}/\bar{R^3} )
-            if (alpha_L(num_fluids) < small_alf .or. R3Lbar < small_alf) then
-                ptilde_L = alpha_L(num_fluids)*pres_L
-            else
-                ptilde_L = alpha_L(num_fluids)*(pres_L - PbwR3Lbar/R3Lbar - &
-                                                rho_L*R3V2Lbar/R3Lbar)
-            end if
-
-            if (alpha_R(num_fluids) < small_alf .or. R3Rbar < small_alf) then
-                ptilde_R = alpha_R(num_fluids)*pres_R
-            else
-                ptilde_R = alpha_R(num_fluids)*(pres_R - PbwR3Rbar/R3Rbar - &
-                                                rho_R*R3V2Rbar/R3Rbar)
-            end if
-
-            if ((ptilde_L .ne. ptilde_L) .or. (ptilde_R .ne. ptilde_R)) then
-                print *, 'Ptilde NaN at ', j, k, l, x_cb(j)
-                print *, nbub_L, alpha_L, pres_L, PbwR3Lbar, R3Lbar, rho_L, R3V2Lbar, R3Lbar
-                print *, nbub_R, alpha_R, pres_R, PbwR3Rbar, R3Rbar, rho_R, R3V2Rbar, R3Rbar
-                call s_mpi_abort()
-            end if
-
-            ptil(j, k, l) = 0.5d0*(ptilde_L + ptilde_R)
-        end if
-
-        call s_compute_mixture_sound_speeds(qL_prim_rs_vf, qR_prim_rs_vf,j, k, l)
-
-        ! ==================================================================
-
-        ! Arithmetic Average Riemann Problem State =========================
-
-
-        do i = 1, 2
-            if (Re_size(i) > 0) then
-                Re_avg_rs_vf(i)%sf(j, k, l) = 2d0/(1d0/Re_L(i) + 1d0/Re_R(i))
-            end if
-        end do
-
-        !
-    end subroutine s_compute_arithmetic_average_state ! --------------------
-
-    !>  The direct estimation of the left, right and middle wave
-        !!      speeds, proposed by Batten et al. (1997) that results in
-        !!      the exact resolution of isolated shock and contact waves.
-        !!  @param j  First coordinate index
-        !!  @param k Second coordinate index
-        !!  @param l  Third coordinate index
-    subroutine s_compute_direct_wave_speeds(j, k, l) ! -----------------------
-!$acc routine seq
-        integer, intent(IN) :: j, k, l
-
-        real(kind(0d0)) :: denom
-
-        integer :: i !< Generic loop iterator
-
-
-        s_L = min(vel_L(dir_idx(1)) - c_L, vel_R(dir_idx(1)) - c_R)
-        s_R = max(vel_R(dir_idx(1)) + c_R, vel_L(dir_idx(1)) + c_L)
-
-        s_S = (pres_R - pres_L + rho_L*vel_L(dir_idx(1))* &
-               (s_L - vel_L(dir_idx(1))) - &
-               rho_R*vel_R(dir_idx(1))* &
-               (s_R - vel_R(dir_idx(1)))) &
-              /(rho_L*(s_L - vel_L(dir_idx(1))) - &
-                rho_R*(s_R - vel_R(dir_idx(1))))
-        denom = rho_L*(s_L - vel_L(dir_idx(1))) - rho_R*(s_R - vel_R(dir_idx(1)))
-
-
-    end subroutine s_compute_direct_wave_speeds ! --------------------------
-
-    !>  Estimation of the left, right and star region wave speeds
-        !!      by the approximation of the pressures and velocity in the
-        !!      star regions, see Toro (1999). The pressures and velocity
-        !!      are approximated by using the primitive variables Riemann
-        !!      solver (PVRS) and the wave speeds are then estimated from
-        !!      those approximations using the exact wave relations.
-        !!  @param j  First coordinate index
-        !!  @param k Second coordinate index
-        !!  @param l  Third coordinate index
-    subroutine s_compute_pressure_velocity_wave_speeds(j, k, l) ! ------------
-!$acc routine seq
-        integer, intent(IN) :: j, k, l
-
-        ! Left and right pressures in the star region
-        real(kind(0d0)) :: pres_SL, pres_SR
-
-
-        ! Left and right shock Mach numbers
-        real(kind(0d0)) :: Ms_L, Ms_R
-
-        integer :: i !< Generic loop iterator
-
-
-        pres_SL = 5d-1*(pres_L + pres_R + rho_avg*c_avg* &
-                        (vel_L(dir_idx(1)) - &
-                         vel_R(dir_idx(1))))
-        pres_SR = pres_SL
-
-        Ms_L = max(1d0, sqrt(1d0 + ((5d-1 + gamma_L)/(1d0 + gamma_L))* &
-                             (pres_SL/pres_L - 1d0)*pres_L/ &
-                             ((pres_L + pi_inf_L/(1d0 + gamma_L)))))
-        Ms_R = max(1d0, sqrt(1d0 + ((5d-1 + gamma_R)/(1d0 + gamma_R))* &
-                             (pres_SR/pres_R - 1d0)*pres_R/ &
-                             ((pres_R + pi_inf_R/(1d0 + gamma_R)))))
-
-        s_L = vel_L(dir_idx(1)) - c_L*Ms_L
-        s_R = vel_R(dir_idx(1)) + c_R*Ms_R
-
-        s_S = 5d-1*((vel_L(dir_idx(1)) + vel_R(dir_idx(1))) + &
-                    (pres_L - pres_R)/ &
-                    (rho_avg*c_avg))
-
-    end subroutine s_compute_pressure_velocity_wave_speeds ! ---------------
-
+ 
     !>  The computation of parameters, the allocation of memory,
         !!      the association of pointers and/or the execution of any
         !!      other procedures that are necessary to setup the module.
@@ -3474,7 +2764,7 @@ contains
         ! Allocating the variables that will be utilized to formulate the
         ! left, right, and average states of the Riemann problem, as well
         ! the Riemann problem solution
-        integer :: i
+        integer :: i, j
 
 
         allocate(gammas(1:num_fluids))
@@ -3519,6 +2809,19 @@ contains
             
         end if
 
+        if(any(Re_size > 0)) then
+            allocate(Res(1:2,1:maxval(Re_size)))
+        end if
+
+        if(any(Re_size > 0)) then
+            do i = 1, 2
+                do j = 1, Re_size(i)
+                    Res(i, j) = fluid_pp(Re_idx(i,j))%Re(i)
+                end do
+            end do
+!$acc update device(Res, Re_idx, Re_size)
+        end if
+
 
         allocate (qL_prim_rsx_vf(1:sys_size), qR_prim_rsx_vf(1:sys_size))
         allocate (qL_prim_rsy_vf(1:sys_size), qR_prim_rsy_vf(1:sys_size))
@@ -3538,13 +2841,9 @@ contains
         if (any(Re_size > 0)) allocate (Re_avg_rsy_vf(1:2))
         if (any(Re_size > 0)) allocate (Re_avg_rsz_vf(1:2))
 
-        allocate (alpha_rho_L(1:cont_idx%end), vel_L(1:num_dims))
-        allocate (alpha_rho_R(1:cont_idx%end), vel_R(1:num_dims))
 
         allocate (vel_avg(1:num_dims))
 
-        allocate (alpha_L(1:num_fluids))
-        allocate (alpha_R(1:num_fluids))
 
 
 
@@ -3560,9 +2859,8 @@ contains
             s_riemann_solver => s_hll_riemann_solver
         elseif (riemann_solver == 2) then
             s_riemann_solver => s_hllc_riemann_solver
-        else
-            s_riemann_solver => s_exact_riemann_solver
         end if
+
 
 
 
@@ -3581,21 +2879,7 @@ contains
 
         ! Associating the procedural pointers to the procedures that will be
         ! utilized to compute the average state and estimate the wave speeds
-        if (riemann_solver /= 3) then
 
-            if (avg_state == 1) then
-                s_compute_average_state => s_compute_roe_average_state
-            else
-                s_compute_average_state => s_compute_arithmetic_average_state
-            end if
-
-            if (wave_speeds == 1) then
-                s_compute_wave_speeds => s_compute_direct_wave_speeds
-            else
-                s_compute_wave_speeds => s_compute_pressure_velocity_wave_speeds
-            end if
-
-        end if
 
         ! Associating procedural pointer to the subroutine that will be
         ! utilized to compute the viscous source flux
@@ -3711,6 +2995,7 @@ contains
                                              is2%beg:is2%end, &
                                              is3%beg:is3%end, 1:2))
         end if
+
 
 
 
@@ -5447,12 +4732,8 @@ contains
 
         integer :: i
 
-        deallocate (alpha_rho_L, vel_L)
-        deallocate (alpha_rho_R, vel_R)
 
         deallocate (vel_avg)
-
-        deallocate (alpha_L, alpha_R)
 
 
         if (riemann_solver == 3) then

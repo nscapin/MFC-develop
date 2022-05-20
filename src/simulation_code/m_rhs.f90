@@ -176,11 +176,11 @@ module m_rhs
     real(kind(0d0)), allocatable, dimension(:, :, :, :) :: dqL_rsx_vf_flat, dqL_rsy_vf_flat, dqL_rsz_vf_flat, dqR_rsx_vf_flat, dqR_rsy_vf_flat, dqR_rsz_vf_flat
 
 
-    real(kind(0d0)) :: momxb, momxe
-    real(kind(0d0)) :: contxb, contxe
-    real(kind(0d0)) :: advxb, advxe
+    integer :: momxb, momxe
+    integer :: contxb, contxe
+    integer :: advxb, advxe
 
-    real(kind(0d0)) :: bubxb, bubxe
+    integer :: bubxb, bubxe
     real(kind(0d0)),allocatable, dimension(:) :: gammas, pi_infs
 !$acc declare create(gammas, pi_infs)
 
@@ -198,7 +198,7 @@ module m_rhs
 
 
         real(kind(0d0)), allocatable, dimension(:, :, :) :: nbub !< Bubble number density
-        real(kind(0d0)), allocatable, dimension(:) :: rs, vs, ps, ms        
+        integer, allocatable, dimension(:) :: rs, vs, ps, ms        
 !$acc declare create(nbub, rs, vs, ps, ms)
 
 
@@ -547,6 +547,11 @@ contains
               ix%beg:ix%end, iz%beg:iz%end, 1:sys_size))
             allocate(qR_rsy_vf_flat(iy%beg:iy%end, &
               ix%beg:ix%end, iz%beg:iz%end, 1:sys_size))
+          else 
+              allocate(qL_rsy_vf_flat(ix%beg:ix%end, &
+              iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
+              allocate(qR_rsy_vf_flat(ix%beg:ix%end, &
+                  iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))       
           end if
 
           if(p > 0) then
@@ -554,6 +559,12 @@ contains
                 iy%beg:iy%end, ix%beg:ix%end, 1:sys_size))
             allocate(qR_rsz_vf_flat( iz%beg:iz%end, &
                 iy%beg:iy%end, ix%beg:ix%end, 1:sys_size))
+          else 
+              allocate(qL_rsz_vf_flat(ix%beg:ix%end, &
+              iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
+              allocate(qR_rsz_vf_flat(ix%beg:ix%end, &
+                  iy%beg:iy%end, iz%beg:iz%end, 1:sys_size))
+
           end if
 
         ! Allocation of dq_prim_ds_qp ======================================
@@ -694,6 +705,12 @@ contains
                   ix%beg:ix%end, iz%beg:iz%end, mom_idx%beg:mom_idx%end))
                 allocate(dqR_rsy_vf_flat(iy%beg:iy%end, &
                   ix%beg:ix%end, iz%beg:iz%end, mom_idx%beg:mom_idx%end))
+              else 
+                allocate(dqL_rsy_vf_flat(ix%beg:ix%end, &
+                  iy%beg:iy%end, iz%beg:iz%end, mom_idx%beg:mom_idx%end))
+                allocate(dqR_rsy_vf_flat(ix%beg:ix%end, &
+                  iy%beg:iy%end, iz%beg:iz%end, mom_idx%beg:mom_idx%end))
+
               end if
 
               if(p > 0) then
@@ -701,6 +718,12 @@ contains
                     iy%beg:iy%end, ix%beg:ix%end, mom_idx%beg:mom_idx%end))
                 allocate(dqR_rsz_vf_flat( iz%beg:iz%end, &
                     iy%beg:iy%end, ix%beg:ix%end, mom_idx%beg:mom_idx%end))
+              else
+                allocate(dqL_rsz_vf_flat(ix%beg:ix%end, &
+                  iy%beg:iy%end, iz%beg:iz%end, mom_idx%beg:mom_idx%end))
+                allocate(dqR_rsz_vf_flat(ix%beg:ix%end, &
+                  iy%beg:iy%end, iz%beg:iz%end, mom_idx%beg:mom_idx%end))
+
               end if
             end if
         end if
@@ -882,8 +905,6 @@ contains
             s_riemann_solver => s_hll_riemann_solver
         elseif (riemann_solver == 2) then
             s_riemann_solver => s_hllc_riemann_solver
-        else
-            s_riemann_solver => s_exact_riemann_solver
         end if
 
         ! Associating the procedural pointer to the appropriate subroutine
@@ -5622,6 +5643,8 @@ contains
 
             
         end if
+
+
 
         if(n > 0) then
             if(p > 0) then
