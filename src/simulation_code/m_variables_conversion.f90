@@ -153,7 +153,6 @@ contains
     subroutine s_convert_mixture_to_mixture_variables(qK_vf, rho_K, &
                                                       gamma_K, pi_inf_K, &
                                                       Re_K, i, j, k)
-!$acc routine seq
 
         type(scalar_field), dimension(sys_size), intent(IN) :: qK_vf
 

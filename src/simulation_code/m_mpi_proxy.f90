@@ -779,7 +779,7 @@ contains
             proc_coords(1) = proc_coords(1) + 1
         end if
 
-        print *, bc_x%beg
+        print *, bc_x%beg, bc_y%beg
 
         ! Boundary condition at the end
         if (proc_coords(1) < num_procs_x - 1 .or. bc_x%end == -1) then

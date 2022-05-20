@@ -197,7 +197,7 @@ program p_main
     allocate(proc_time(0:num_procs - 1))
 
 
-!$acc update device(dt, dx, dy, dz, x_cc, y_cc, z_cc)
+!$acc update device(dt, dx, dy, dz, x_cc, y_cc, z_cc, x_cb, y_cb, z_cb)
 !$acc update device(sys_size, buff_size)
 !$acc update device(m, n, p)
     do i = 1, sys_size
@@ -237,7 +237,7 @@ program p_main
 
         ! Time-stepping loop controls
 
-        if (mytime >= finaltime) then
+        if (t_step == t_step_stop) then
 
             call s_mpi_barrier()
 
@@ -272,7 +272,6 @@ program p_main
 
             exit
         else
-            if ((mytime + dt) >= finaltime) dt = finaltime - mytime
             t_step = t_step + 1
         end if
 
