@@ -175,8 +175,6 @@ program p_main
     ! Populating the buffers of the grid variables using the boundary conditions
     call s_populate_grid_variables_buffers()
 
-    call s_populate_variables_buffers(q_cons_ts(1)%vf)
-
     ! Computation of parameters, allocation of memory, association of pointers,
     ! and/or execution of any other tasks that are needed to properly configure
     ! the modules. The preparations below DO DEPEND on the grid being complete.
@@ -196,13 +194,13 @@ program p_main
 
     allocate(proc_time(0:num_procs - 1))
 
-
-!$acc update device(dt, dx, dy, dz, x_cc, y_cc, z_cc, x_cb, y_cb, z_cb)
+    !$acc update device(dt, dx, dy, dz, x_cc, y_cc, z_cc, x_cb, y_cb, z_cb)
 !$acc update device(sys_size, buff_size)
 !$acc update device(m, n, p)
     do i = 1, sys_size
 !$acc update device(q_cons_ts(1)%vf(i)%sf)
     end do
+
 
     
     ! Setting the time-step iterator to the first time-step
