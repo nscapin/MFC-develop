@@ -20,6 +20,8 @@ program p_main
     ! Dependencies =============================================================
     use m_derived_types        !< Definitions of the derived types
 
+    use m_fftw 
+
     use m_global_parameters    !< Definitions of the global parameters
 
     use m_mpi_proxy            !< Message passing interface (MPI) module proxy
@@ -128,6 +130,7 @@ program p_main
     
     call s_initialize_mpi_proxy_module()
     call s_initialize_variables_conversion_module()
+    IF (grid_geometry == 1) call s_initialize_fftw_module()
     call s_initialize_start_up_module()
     call s_initialize_riemann_solvers_module()
 
@@ -175,8 +178,6 @@ program p_main
     ! Populating the buffers of the grid variables using the boundary conditions
     call s_populate_grid_variables_buffers()
 
-    call s_populate_variables_buffers(q_cons_ts(1)%vf)
-
     ! Computation of parameters, allocation of memory, association of pointers,
     ! and/or execution of any other tasks that are needed to properly configure
     ! the modules. The preparations below DO DEPEND on the grid being complete.
@@ -196,13 +197,13 @@ program p_main
 
     allocate(proc_time(0:num_procs - 1))
 
-
-!$acc update device(dt, dx, dy, dz, x_cc, y_cc, z_cc, x_cb, y_cb, z_cb)
+    !$acc update device(dt, dx, dy, dz, x_cc, y_cc, z_cc, x_cb, y_cb, z_cb)
 !$acc update device(sys_size, buff_size)
 !$acc update device(m, n, p)
     do i = 1, sys_size
 !$acc update device(q_cons_ts(1)%vf(i)%sf)
     end do
+
 
     
     ! Setting the time-step iterator to the first time-step
@@ -308,6 +309,7 @@ program p_main
     call s_finalize_weno_module()
     call s_finalize_start_up_module()
     call s_finalize_variables_conversion_module()
+    IF(grid_geometry == 1)  call s_finalize_fftw_module
     call s_finalize_mpi_proxy_module()
     call s_finalize_global_parameters_module()
 

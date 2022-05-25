@@ -40,7 +40,7 @@ module m_global_parameters
     integer                    :: t_step_old            !< Existing IC/grid folder
     real(kind(0d0)), PARAMETER :: small_alf = 1d-7 !< Small alf tolerance
     ! ==========================================================================
-!$acc declare create(small_alf, dflt_real, dflt_int, sgm_eps)
+!$acc declare create(small_alf, dflt_real, dflt_int, sgm_eps, fourier_rings)
     ! Computational Domain Parameters ==========================================
 
     integer :: proc_rank !< Rank of the local processor

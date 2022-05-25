@@ -3647,6 +3647,7 @@ contains
                             avg_vel(2) = 5d-1*(velL_vf(2)%sf(j, k, l) &
                                                + velR_vf(2)%sf(j + 1, k, l))
 
+!$acc loop seq
                             do i = 1, 2
                                 dvel_avg_dy(i) = &
                                     5d-1*(dvelL_dy_vf(i)%sf(j, k, l) &
@@ -3663,6 +3664,7 @@ contains
                             tau_Re(1, 2) = (dvel_avg_dy(1) + dvel_avg_dx(2))/ &
                                            Re_avg_rsx_vf_flat(j, k, l, 1)
 
+!$acc loop seq
                             do i = 1, 2
 
                                 flux_src_vf(contxe + i)%sf(j, k, l) = &
@@ -3719,6 +3721,7 @@ contains
                     do k = isy%beg, isy%end
                         do j = isx%beg, isx%end
 
+!$acc loop seq
                             do i = 1, 3, 2
                                 dvel_avg_dz(i) = &
                                     5d-1*(dvelL_dz_vf(i)%sf(j, k, l) &
@@ -3734,6 +3737,7 @@ contains
                             tau_Re(1, 3) = (dvel_avg_dz(1)/y_cc(k) + dvel_avg_dx(3))/ &
                                            Re_avg_rsx_vf_flat(j, k, l, 1)
 
+!$acc loop seq
                             do i = 1, 3, 2
 
                                 flux_src_vf(contxe + i)%sf(j, k, l) = &
@@ -3875,6 +3879,7 @@ contains
                             avg_vel(3) = 5d-1*(velL_vf(3)%sf(j, k, l) &
                                                + velR_vf(3)%sf(j, k + 1, l))
 
+!$acc loop seq 
                             do i = 2, 3
                                 dvel_avg_dz(i) = &
                                     5d-1*(dvelL_dz_vf(i)%sf(j, k, l) &
@@ -3891,6 +3896,7 @@ contains
                                             y_cb(k) + dvel_avg_dy(3))/ &
                                            Re_avg_rsy_vf_flat(k, j, l, 1)
 
+!$acc loop seq
                             do i = 2, 3
 
                                 flux_src_vf(contxe + i)%sf(j, k, l) = &
@@ -3945,11 +3951,13 @@ contains
                     do k = isy%beg, isy%end
                         do j = isx%beg, isx%end
 
+!$acc loop seq
                             do i = 2, 3
                                 avg_vel(i) = 5d-1*(velL_vf(i)%sf(j, k, l) &
                                                    + velR_vf(i)%sf(j, k, l + 1))
                             end do
 
+!$acc loop seq
                             do i = 1, 3, 2
                                 dvel_avg_dx(i) = &
                                     5d-1*(dvelL_dx_vf(i)%sf(j, k, l) &
@@ -3962,6 +3970,7 @@ contains
                                           + dvelR_dy_vf(i)%sf(j, k, l + 1))
                             end do
 
+!$acc loop seq
                             do i = 1, 3
                                 dvel_avg_dz(i) = &
                                     5d-1*(dvelL_dz_vf(i)%sf(j, k, l) &
@@ -3984,6 +3993,7 @@ contains
                                            (3d0*Re_avg_rsz_vf_flat(l, k, j, 1))/ &
                                            y_cc(k)
 
+!$acc loop seq
                             do i = 1, 3
 
                                 flux_src_vf(contxe + i)%sf(j, k, l) = &

@@ -486,7 +486,7 @@ contains
 
 
         
-!$acc update device(small_alf, dflt_real, dflt_int)
+!$acc update device(small_alf, dflt_real, dflt_int, fourier_rings)
 !$acc update device(pi, dt, sys_size, pref, rhoref, gamma_idx, pi_inf_idx, E_idx, alf_idx, mpp_lim, bubbles, alt_soundspeed, avg_state, num_fluids, model_eqns, num_dims, mixture_err, nb, weight, grid_geometry, cyl_coord, mapped_weno, mp_weno, weno_eps)
 !$acc update device(nb, R0ref, Ca, Web, Re_inv, weight, R0, V0, bubbles, polytropic, polydisperse, qbmm, nmom, nnode, nmomsp, nmomtot, R0_type, ptil, bubble_model, thermal, poly_sigma, sgm_eps)
 
