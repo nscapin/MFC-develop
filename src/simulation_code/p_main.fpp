@@ -130,7 +130,7 @@ program p_main
     
     call s_initialize_mpi_proxy_module()
     call s_initialize_variables_conversion_module()
-    IF (grid_geometry == 1) call s_initialize_fftw_module()
+    IF (grid_geometry == 3) call s_initialize_fftw_module()
     call s_initialize_start_up_module()
     call s_initialize_riemann_solvers_module()
 
@@ -309,7 +309,7 @@ program p_main
     call s_finalize_weno_module()
     call s_finalize_start_up_module()
     call s_finalize_variables_conversion_module()
-    IF(grid_geometry == 1)  call s_finalize_fftw_module
+    IF(grid_geometry == 3)  call s_finalize_fftw_module
     call s_finalize_mpi_proxy_module()
     call s_finalize_global_parameters_module()
 

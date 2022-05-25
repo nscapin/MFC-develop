@@ -230,7 +230,7 @@ contains
         !print *, q_cons_ts(1)%vf(adv_idx%end)%sf(102,0,0)
         !print *, q_cons_ts(1)%vf(mom_idx%beg)%sf(102,0,0)
 
-        IF (grid_geometry == 1) call s_apply_fourier_filter(q_cons_ts(1)%vf)
+        IF (grid_geometry == 3) call s_apply_fourier_filter(q_cons_ts(1)%vf)
         
         if (model_eqns == 3) call s_pressure_relaxation_procedure(q_cons_ts(1)%vf)
 
