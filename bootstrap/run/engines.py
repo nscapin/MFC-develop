@@ -165,8 +165,6 @@ printf "$TABLE_FORMAT_LINE" "Total-time:"  "$(expr $t_stop - $t_start)s"  "Exit 
 printf "$TABLE_FORMAT_LINE" "End-time:"    "$(date +%T)"                  "End-date:"  "$(date +%T)"
 printf "$TABLE_FOOTER"
 
-printf "\\nI'll see you on the dark side of the moon...\\n\\n"
-
 exit $code
 """
 
@@ -189,7 +187,7 @@ exit $code
                 return None
 
         # It may me a calculation. Try and parse it
-        for var_candidate in re.split(r"[\*,\+,\-,\/,\(,\),\,]", expr):
+        for var_candidate in re.split(r"[\*,\ ,\+,\-,\/,\\,\%,\,,\.,\^,\',\",\[,\],\(,\),\=]", expr):
             evaluated = self.evaluate_variable(var_candidate)
 
             if evaluated is not None and not common.isspace(evaluated):                
@@ -226,6 +224,8 @@ exit $code
                 # If not specified, then remove the line it appears on
                 s = re.sub(f"^.*\{match}.*$\n", "", s, flags=re.MULTILINE)
 
+                rich.print(f"[bold yellow]Warning:[/bold yellow] [magenta]{match[1:-1]}[/magenta] was not specified. Thus, any line it figures on will be discarded.")
+
         return s
 
     def create_batch_file(self, system: queues.QueueSystem, target_name: str):
@@ -242,7 +242,7 @@ exit $code
 
 ENGINES = [ SerialEngine(), ParallelEngine() ]
 
-def get_engine(slug: str) -> Engine:
+def get_engine(slug: str) -> Engine:    
     engine: Engine = None
     for candidate in ENGINES:
         candidate: Engine
