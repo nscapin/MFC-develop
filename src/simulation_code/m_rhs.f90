@@ -184,6 +184,8 @@ module m_rhs
     real(kind(0d0)),allocatable, dimension(:) :: gammas, pi_infs
 !$acc declare create(gammas, pi_infs)
 
+    real(kind(0d0)), allocatable, dimension(:, :) :: Res
+!$acc declare create(Res)
 
     character(50) :: file_path !< Local file path for saving debug files
 
@@ -858,6 +860,19 @@ contains
             pi_infs(i) = fluid_pp(i)%pi_inf
         end do
 !$acc update device(gammas, pi_infs)
+
+        if(any(Re_size > 0)) then
+            allocate(Res(1:2,1:maxval(Re_size)))
+        end if
+
+        if(any(Re_size > 0)) then
+            do i = 1, 2
+                do j = 1, Re_size(i)
+                    Res(i, j) = fluid_pp(Re_idx(i,j))%Re(i)
+                end do
+            end do
+!$acc update device(Res, Re_idx, Re_size)
+        end if
 
 
         momxb = mom_idx%beg
@@ -1745,7 +1760,7 @@ contains
                                         rhs_vf(j)%sf(q, k, l) -  &
                                         (Kterm(q, k, l)/2d0/y_cc(k))* &
                                         (flux_src_n(2)%vf(j)%sf(q, k, l) &
-                                         - flux_src_n(2)%vf(j)%sf(q, k - 1, l))
+                                         + flux_src_n(2)%vf(j)%sf(q, k - 1, l))
                                 end do
                               end do
                             end do
@@ -1772,7 +1787,7 @@ contains
                                         rhs_vf(j)%sf(q, k, l) +  &
                                         (Kterm(q, k, l)/2d0/y_cc(k))* &
                                         (flux_src_n(2)%vf(j)%sf(q, k, l) &
-                                         - flux_src_n(2)%vf(j)%sf(q, k - 1, l))
+                                         + flux_src_n(2)%vf(j)%sf(q, k - 1, l))
                                 end do
                               end do
                             end do
@@ -2109,7 +2124,7 @@ contains
                             rhs_vf(j)%sf(q, k, l) = &
                                 rhs_vf(j)%sf(q, k, l) - 5d-1/y_cc(k) * &
                                 (flux_gsrc_n(2)%vf(j)%sf(q, k - 1, l) &
-                                 - flux_gsrc_n(2)%vf(j)%sf(q, k, l))
+                                 + flux_gsrc_n(2)%vf(j)%sf(q, k, l))
                           end do
                         end do
                       end do
@@ -2185,7 +2200,7 @@ contains
                                             rhs_vf(i)%sf(j, k, l) = &
                                                 rhs_vf(i)%sf(j, k, l) - 5d-1/y_cc(k)* &
                                                 (flux_src_n(2)%vf(i)%sf(j,  k - 1, l) &
-                                                 - flux_src_n(2)%vf(i)%sf(j, k, l))
+                                                 + flux_src_n(2)%vf(i)%sf(j, k, l))
                                         end do
                                     end do
                                 end do
@@ -2214,7 +2229,7 @@ contains
                                             rhs_vf(i)%sf(j, k, l) = &
                                                 rhs_vf(i)%sf(j, k, l) - 5d-1/y_cc(k)* &
                                                 (flux_src_n(2)%vf(i)%sf(j, k - 1, l) &
-                                                 - flux_src_n(2)%vf(i)%sf(j, k, l))
+                                                 + flux_src_n(2)%vf(i)%sf(j, k, l))
                                         end do
                                     end do
                                 end do
@@ -2248,6 +2263,7 @@ contains
                           do l = 0, m
                           rhs_vf(j)%sf(l, q, k) = &
                               rhs_vf(j)%sf(l, q, k) + 1d0/dz(k)/y_cc(q)* &
+                              q_prim_qp%vf(contxe + id)%sf(l, q, k)* &
                               (flux_n(3)%vf(j)%sf(l, q, k - 1) &
                                - flux_n(3)%vf(j)%sf(l, q, k))
                         end do
@@ -3679,7 +3695,7 @@ contains
         type(scalar_field), dimension(sys_size), intent(IN) :: q_prim_vf
         type(scalar_field), dimension(num_dims), intent(IN) :: grad_x_vf, grad_y_vf, grad_z_vf
 
-        real(kind(0d0)) :: rho_visc, gamma_visc, pi_inf_visc  !< Mixture variables
+        real(kind(0d0)) :: rho_visc, gamma_visc, pi_inf_visc, alpha_visc_sum  !< Mixture variables
         real(kind(0d0)), dimension(2) :: Re_visc
         real(kind(0d0)), dimension(num_fluids) :: alpha_visc, alpha_rho_visc
 
@@ -3719,10 +3735,72 @@ contains
                         end do
 
                         if(bubbles) then
-                            call s_convert_species_to_mixture_variables_bubbles_acc(rho_visc, gamma_visc, pi_inf_visc, alpha_visc, alpha_rho_visc, j, k, l)
+                            rho_visc = 0d0
+                            gamma_visc = 0d0
+                            pi_inf_visc = 0d0
+
+                            if(mpp_lim .and. (model_eqns == 2) .and. (num_fluids > 2)) then
+!$acc loop seq
+                                do i = 1, num_fluids
+                                    rho_visc = rho_visc + alpha_rho_visc(i)
+                                    gamma_visc = gamma_visc + alpha_visc(i)*gammas(i)
+                                    pi_inf_visc = pi_inf_visc + alpha_visc(i)*pi_infs(i)
+                                end do
+                            else if((model_eqns == 2) .and. (num_fluids > 2)) then
+!$acc loop seq
+                                do i = 1, num_fluids - 1
+                                    rho_visc = rho_visc + alpha_rho_visc(i)
+                                    gamma_visc = gamma_visc + alpha_visc(i)*gammas(i)
+                                    pi_inf_visc = pi_inf_visc + alpha_visc(i)*pi_infs(i)
+                                end do 
+                            else           
+                                rho_visc = alpha_rho_visc(1)
+                                gamma_visc = gammas(1)
+                                pi_inf_visc = pi_infs(1)
+                            end if                        
                         else
-                            call s_convert_species_to_mixture_variables_acc(rho_visc, gamma_visc, pi_inf_visc, alpha_visc, alpha_rho_visc, Re_visc, j, k, l)
-                        end if    
+                            rho_visc = 0d0
+                            gamma_visc = 0d0
+                            pi_inf_visc = 0d0
+
+                            alpha_visc_sum = 0d0
+
+                            if (mpp_lim) then
+!$acc loop seq
+                                do i = 1, num_fluids
+                                    alpha_rho_visc(i) = max(0d0, alpha_rho_visc(i))
+                                    alpha_visc(i) = min(max(0d0, alpha_visc(i)), 1d0)
+                                    alpha_visc_sum = alpha_visc_sum + alpha_visc(i)
+                                end do
+
+                                alpha_visc = alpha_visc/max(alpha_visc_sum,sgm_eps)
+
+                            end if
+
+!$acc loop seq
+                            do i = 1, num_fluids
+                                rho_visc = rho_visc + alpha_rho_visc(i)
+                                gamma_visc = gamma_visc + alpha_visc(i)*gammas(i)
+                                pi_inf_visc = pi_inf_visc + alpha_visc(i)*pi_infs(i)
+                            end do
+
+                            if(any(Re_size > 0)) then
+!$acc loop seq
+                                do i = 1, 2
+                                    Re_visc(i) = dflt_real 
+                                    
+                                    if (Re_size(i) > 0) Re_visc(i) = 0d0
+!$acc loop seq
+                                    do j = 1, Re_size(i)
+                                        Re_visc(i) = alpha_visc(Re_idx(i, j))/Res(i,j) &
+                                                  + Re_visc(i)
+                                    end do
+
+                                    Re_visc(i) = 1d0/max(Re_visc(i), sgm_eps)
+
+                                end do
+                            end if                        
+                        end if   
 
                         
                         tau_Re(2, 1) = (grad_y_vf(1)%sf(j, k, l) + &
@@ -3761,9 +3839,71 @@ contains
                         end do
 
                         if(bubbles) then
-                            call s_convert_species_to_mixture_variables_bubbles_acc(rho_visc, gamma_visc, pi_inf_visc, alpha_visc, alpha_rho_visc, j, k, l)
+                            rho_visc = 0d0
+                            gamma_visc = 0d0
+                            pi_inf_visc = 0d0
+
+                            if(mpp_lim .and. (model_eqns == 2) .and. (num_fluids > 2)) then
+!$acc loop seq
+                                do i = 1, num_fluids
+                                    rho_visc = rho_visc + alpha_rho_visc(i)
+                                    gamma_visc = gamma_visc + alpha_visc(i)*gammas(i)
+                                    pi_inf_visc = pi_inf_visc + alpha_visc(i)*pi_infs(i)
+                                end do
+                            else if((model_eqns == 2) .and. (num_fluids > 2)) then
+!$acc loop seq
+                                do i = 1, num_fluids - 1
+                                    rho_visc = rho_visc + alpha_rho_visc(i)
+                                    gamma_visc = gamma_visc + alpha_visc(i)*gammas(i)
+                                    pi_inf_visc = pi_inf_visc + alpha_visc(i)*pi_infs(i)
+                                end do 
+                            else           
+                                rho_visc = alpha_rho_visc(1)
+                                gamma_visc = gammas(1)
+                                pi_inf_visc = pi_infs(1)
+                            end if                        
                         else
-                            call s_convert_species_to_mixture_variables_acc(rho_visc, gamma_visc, pi_inf_visc, alpha_visc, alpha_rho_visc, Re_visc, j, k, l)
+                            rho_visc = 0d0
+                            gamma_visc = 0d0
+                            pi_inf_visc = 0d0
+
+                            alpha_visc_sum = 0d0
+
+                            if (mpp_lim) then
+!$acc loop seq
+                                do i = 1, num_fluids
+                                    alpha_rho_visc(i) = max(0d0, alpha_rho_visc(i))
+                                    alpha_visc(i) = min(max(0d0, alpha_visc(i)), 1d0)
+                                    alpha_visc_sum = alpha_visc_sum + alpha_visc(i)
+                                end do
+
+                                alpha_visc = alpha_visc/max(alpha_visc_sum,sgm_eps)
+
+                            end if
+
+!$acc loop seq
+                            do i = 1, num_fluids
+                                rho_visc = rho_visc + alpha_rho_visc(i)
+                                gamma_visc = gamma_visc + alpha_visc(i)*gammas(i)
+                                pi_inf_visc = pi_inf_visc + alpha_visc(i)*pi_infs(i)
+                            end do
+
+                            if(any(Re_size > 0)) then
+!$acc loop seq
+                                do i = 1, 2
+                                    Re_visc(i) = dflt_real 
+                                    
+                                    if (Re_size(i) > 0) Re_visc(i) = 0d0
+!$acc loop seq
+                                    do j = 1, Re_size(i)
+                                        Re_visc(i) = alpha_visc(Re_idx(i, j))/Res(i,j) &
+                                                  + Re_visc(i)
+                                    end do
+
+                                    Re_visc(i) = 1d0/max(Re_visc(i), sgm_eps)
+
+                                end do
+                            end if                        
                         end if 
 
                         tau_Re(2, 2) = (grad_x_vf(1)%sf(j, k, l) + &
@@ -3799,9 +3939,71 @@ contains
                         end do
 
                         if(bubbles) then
-                            call s_convert_species_to_mixture_variables_bubbles_acc(rho_visc, gamma_visc, pi_inf_visc, alpha_visc, alpha_rho_visc, j, k, l)
+                            rho_visc = 0d0
+                            gamma_visc = 0d0
+                            pi_inf_visc = 0d0
+
+                            if(mpp_lim .and. (model_eqns == 2) .and. (num_fluids > 2)) then
+!$acc loop seq
+                                do i = 1, num_fluids
+                                    rho_visc = rho_visc + alpha_rho_visc(i)
+                                    gamma_visc = gamma_visc + alpha_visc(i)*gammas(i)
+                                    pi_inf_visc = pi_inf_visc + alpha_visc(i)*pi_infs(i)
+                                end do
+                            else if((model_eqns == 2) .and. (num_fluids > 2)) then
+!$acc loop seq
+                                do i = 1, num_fluids - 1
+                                    rho_visc = rho_visc + alpha_rho_visc(i)
+                                    gamma_visc = gamma_visc + alpha_visc(i)*gammas(i)
+                                    pi_inf_visc = pi_inf_visc + alpha_visc(i)*pi_infs(i)
+                                end do 
+                            else           
+                                rho_visc = alpha_rho_visc(1)
+                                gamma_visc = gammas(1)
+                                pi_inf_visc = pi_infs(1)
+                            end if                        
                         else
-                            call s_convert_species_to_mixture_variables_acc(rho_visc, gamma_visc, pi_inf_visc, alpha_visc, alpha_rho_visc, Re_visc, j, k, l)
+                            rho_visc = 0d0
+                            gamma_visc = 0d0
+                            pi_inf_visc = 0d0
+
+                            alpha_visc_sum = 0d0
+
+                            if (mpp_lim) then
+!$acc loop seq
+                                do i = 1, num_fluids
+                                    alpha_rho_visc(i) = max(0d0, alpha_rho_visc(i))
+                                    alpha_visc(i) = min(max(0d0, alpha_visc(i)), 1d0)
+                                    alpha_visc_sum = alpha_visc_sum + alpha_visc(i)
+                                end do
+
+                                alpha_visc = alpha_visc/max(alpha_visc_sum,sgm_eps)
+
+                            end if
+
+!$acc loop seq
+                            do i = 1, num_fluids
+                                rho_visc = rho_visc + alpha_rho_visc(i)
+                                gamma_visc = gamma_visc + alpha_visc(i)*gammas(i)
+                                pi_inf_visc = pi_inf_visc + alpha_visc(i)*pi_infs(i)
+                            end do
+
+                            if(any(Re_size > 0)) then
+!$acc loop seq
+                                do i = 1, 2
+                                    Re_visc(i) = dflt_real 
+                                    
+                                    if (Re_size(i) > 0) Re_visc(i) = 0d0
+!$acc loop seq
+                                    do j = 1, Re_size(i)
+                                        Re_visc(i) = alpha_visc(Re_idx(i, j))/Res(i,j) &
+                                                  + Re_visc(i)
+                                    end do
+
+                                    Re_visc(i) = 1d0/max(Re_visc(i), sgm_eps)
+
+                                end do
+                            end if                        
                         end if
 
                         tau_Re(2, 2) = -(2d0/3d0)*grad_z_vf(3)%sf(j, k, l)/y_cc(k)/ &
@@ -3841,9 +4043,71 @@ contains
                         end do
 
                         if(bubbles) then
-                            call s_convert_species_to_mixture_variables_bubbles_acc(rho_visc, gamma_visc, pi_inf_visc, alpha_visc, alpha_rho_visc, j, k, l)
+                            rho_visc = 0d0
+                            gamma_visc = 0d0
+                            pi_inf_visc = 0d0
+
+                            if(mpp_lim .and. (model_eqns == 2) .and. (num_fluids > 2)) then
+!$acc loop seq
+                                do i = 1, num_fluids
+                                    rho_visc = rho_visc + alpha_rho_visc(i)
+                                    gamma_visc = gamma_visc + alpha_visc(i)*gammas(i)
+                                    pi_inf_visc = pi_inf_visc + alpha_visc(i)*pi_infs(i)
+                                end do
+                            else if((model_eqns == 2) .and. (num_fluids > 2)) then
+!$acc loop seq
+                                do i = 1, num_fluids - 1
+                                    rho_visc = rho_visc + alpha_rho_visc(i)
+                                    gamma_visc = gamma_visc + alpha_visc(i)*gammas(i)
+                                    pi_inf_visc = pi_inf_visc + alpha_visc(i)*pi_infs(i)
+                                end do 
+                            else           
+                                rho_visc = alpha_rho_visc(1)
+                                gamma_visc = gammas(1)
+                                pi_inf_visc = pi_infs(1)
+                            end if                        
                         else
-                            call s_convert_species_to_mixture_variables_acc(rho_visc, gamma_visc, pi_inf_visc, alpha_visc, alpha_rho_visc, Re_visc, j, k, l)
+                            rho_visc = 0d0
+                            gamma_visc = 0d0
+                            pi_inf_visc = 0d0
+
+                            alpha_visc_sum = 0d0
+
+                            if (mpp_lim) then
+!$acc loop seq
+                                do i = 1, num_fluids
+                                    alpha_rho_visc(i) = max(0d0, alpha_rho_visc(i))
+                                    alpha_visc(i) = min(max(0d0, alpha_visc(i)), 1d0)
+                                    alpha_visc_sum = alpha_visc_sum + alpha_visc(i)
+                                end do
+
+                                alpha_visc = alpha_visc/max(alpha_visc_sum,sgm_eps)
+
+                            end if
+
+!$acc loop seq
+                            do i = 1, num_fluids
+                                rho_visc = rho_visc + alpha_rho_visc(i)
+                                gamma_visc = gamma_visc + alpha_visc(i)*gammas(i)
+                                pi_inf_visc = pi_inf_visc + alpha_visc(i)*pi_infs(i)
+                            end do
+
+                            if(any(Re_size > 0)) then
+!$acc loop seq
+                                do i = 1, 2
+                                    Re_visc(i) = dflt_real 
+                                    
+                                    if (Re_size(i) > 0) Re_visc(i) = 0d0
+!$acc loop seq
+                                    do j = 1, Re_size(i)
+                                        Re_visc(i) = alpha_visc(Re_idx(i, j))/Res(i,j) &
+                                                  + Re_visc(i)
+                                    end do
+
+                                    Re_visc(i) = 1d0/max(Re_visc(i), sgm_eps)
+
+                                end do
+                            end if                        
                         end if
 
                         tau_Re(2, 2) = grad_z_vf(3)%sf(j, k, l)/y_cc(k)/ &
