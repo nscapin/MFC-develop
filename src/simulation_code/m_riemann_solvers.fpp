@@ -2255,17 +2255,12 @@ contains
                     end do
                 !$acc end parallel loop
                 else
-        !$acc parallel loop collapse(3) gang vector default(present) private(vel_L, vel_R, Re_L, Re_R, alpha_L, alpha_R, alpha_rho_L, alpha_rho_R)        
+        !$acc parallel loop collapse(3) gang vector default(present) private(vel_L, vel_R, Re_L, Re_R)        
                     do l = is3%beg, is3%end
                         do k = is2%beg, is2%end
                             do j = is1%beg, is1%end
                                 idx1 = 1; if (dir_idx(1).eq.2) idx1 = 2; if (dir_idx(1).eq.3) idx1 = 3
 
-                                 !$acc loop seq
-                                do i = 1, num_fluids
-                                    alpha_rho_L(i) = qL_prim_rs${XYZ}$_vf_flat(j, k, l, i)
-                                    alpha_rho_R(i) = qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, i)
-                                end do
 
                                 vel_L_rms = 0d0; vel_R_rms = 0d0
         !$acc loop seq
@@ -2280,12 +2275,6 @@ contains
                                 pres_L = qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx)
                                 pres_R = qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx)
 
-
-                                !$acc loop seq
-                                do i = 1, num_fluids
-                                    alpha_L(i) = qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx + i)
-                                    alpha_R(i) = qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx + i)
-                                end do
                                 
                                 rho_L = 0d0
                                 gamma_L = 0d0
@@ -2301,32 +2290,38 @@ contains
                                 if (mpp_lim) then
                                     !$acc loop seq
                                     do i = 1, num_fluids
-                                        alpha_rho_L(i) = max(0d0, alpha_rho_L(i))
-                                        alpha_L(i) = min(max(0d0, alpha_L(i)), 1d0)
-                                        alpha_L_sum = alpha_L_sum + alpha_L(i)
+                                        qL_prim_rs${XYZ}$_vf_flat(j, k, l,  i) = max(0d0, qL_prim_rs${XYZ}$_vf_flat(j, k, l, i))
+                                        qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx + i) = min(max(0d0, qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx + i)), 1d0)
+                                        alpha_L_sum = alpha_L_sum + qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx + i)
                                     end do
-
-                                    alpha_L = alpha_L/max(alpha_L_sum,sgm_eps)
 
                                     !$acc loop seq
                                     do i = 1, num_fluids
-                                        alpha_rho_R(i) = max(0d0, alpha_rho_R(i))
-                                        alpha_R(i) = min(max(0d0, alpha_R(i)), 1d0)
-                                        alpha_R_sum = alpha_R_sum + alpha_R(i)
+                                       qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx + i) = qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx + i)/max(alpha_L_sum,sgm_eps)
                                     end do
 
-                                    alpha_R = alpha_R/max(alpha_R_sum,sgm_eps)
+                                    !$acc loop seq
+                                    do i = 1, num_fluids
+                                        qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, i) = max(0d0, qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, i))
+                                        qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx + i) = min(max(0d0,qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx + i)), 1d0)
+                                        alpha_R_sum = alpha_R_sum + qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx + i)
+                                    end do
+
+                                    !$acc loop seq
+                                    do i = 1, num_fluids
+                                       qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx + i) = qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx + i)/max(alpha_R_sum,sgm_eps)
+                                    end do
                                 end if
 
                                 !$acc loop seq
                                 do i = 1, num_fluids
-                                    rho_L = rho_L + alpha_rho_L(i)
-                                    gamma_L = gamma_L + alpha_L(i)*gammas(i)
-                                    pi_inf_L = pi_inf_L + alpha_L(i)*pi_infs(i)
+                                    rho_L = rho_L + qL_prim_rs${XYZ}$_vf_flat(j, k, l, i)
+                                    gamma_L = gamma_L + qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx + i)*gammas(i)
+                                    pi_inf_L = pi_inf_L + qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx + i)*pi_infs(i)
 
-                                    rho_R = rho_R + alpha_rho_R(i)
-                                    gamma_R = gamma_R + alpha_R(i)*gammas(i)
-                                    pi_inf_R = pi_inf_R + alpha_R(i)*pi_infs(i)
+                                    rho_R = rho_R + qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, i)
+                                    gamma_R = gamma_R + qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx + i)*gammas(i)
+                                    pi_inf_R = pi_inf_R + qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx + i)*pi_infs(i)
                                 end do
 
                                 if(any(Re_size > 0)) then                                    
@@ -2338,7 +2333,7 @@ contains
                                         
                                         !$acc loop seq
                                         do q = 1, Re_size(i)
-                                            Re_L(i) = alpha_L(Re_idx(i, q))/Res(i,q) &
+                                            Re_L(i) = qL_prim_rs${XYZ}$_vf_flat(j, k, l, E_idx + Re_idx(i, q))/Res(i,q) &
                                                       + Re_L(i)
                                         end do
 
@@ -2354,7 +2349,7 @@ contains
 
                                         !$acc loop seq
                                         do q = 1, Re_size(i)
-                                            Re_R(i) = alpha_R(Re_idx(i, q))/Res(i,q) &
+                                            Re_R(i) = qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, E_idx + Re_idx(i, q))/Res(i,q) &
                                                       + Re_R(i)
                                         end do
 
