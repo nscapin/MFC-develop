@@ -155,8 +155,8 @@ This should have no impact on your local installation(s) of these packages.
 + **Fetch MFC:**
 
 ```console
-$ git clone https://github.com/MFlowCode/MFC
-$ cd MFC
+$ git clone https://github.com/MFlowCode/MFC-develop
+$ cd MFC-develop
 ```
 
 + **(Optional) Configure MFC defaults in [mfc.user.yaml](mfc.user.yaml):**
