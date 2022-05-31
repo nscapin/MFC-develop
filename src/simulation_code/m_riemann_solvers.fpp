@@ -2313,7 +2313,6 @@ contains
                                     end do
                                 end if
 
-
                                 !$acc loop seq
                                 do i = 1, num_fluids
                                     rho_L = rho_L + qL_prim_rs${XYZ}$_vf_flat(j, k, l, i)
