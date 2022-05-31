@@ -2318,6 +2318,7 @@ contains
                                     alpha_R = alpha_R/max(alpha_R_sum,sgm_eps)
                                 end if
 
+
                                 !$acc loop seq
                                 do i = 1, num_fluids
                                     rho_L = rho_L + alpha_rho_L(i)
