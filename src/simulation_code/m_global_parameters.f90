@@ -18,6 +18,8 @@ module m_global_parameters
 
     use m_derived_types        !< Definitions of the derived types
 
+    use openacc
+
     ! ==========================================================================
 
     implicit none
@@ -28,17 +30,17 @@ module m_global_parameters
     integer, parameter :: path_len = 400   !< Maximum path length
     integer, parameter :: name_len = 50    !< Maximum name length
     character, parameter :: dflt_char = ' '   !< Default string value
-    real(kind(0d0)), parameter :: dflt_real = -1d6  !< Default real value
-    integer, parameter :: dflt_int = -100  !< Default integer value
+    real(kind(0d0)) :: dflt_real = -1d6  !< Default real value
+    integer :: dflt_int = -100  !< Default integer value
     real(kind(0d0)), parameter :: sgm_eps = 1d-16 !< Segmentation tolerance
     integer, parameter :: fourier_rings = 5     !< Fourier filter ring limit
     character(LEN=path_len)  :: case_dir              !< Case folder location
     logical                    :: run_time_info         !< Run-time output flag
     logical                    :: debug                 !< Debug mode print statements
     integer                    :: t_step_old            !< Existing IC/grid folder
-    real(kind(0d0)), parameter :: small_alf = 1d-7 !< Small alf tolerance
+    real(kind(0d0)), PARAMETER :: small_alf = 1d-7 !< Small alf tolerance
     ! ==========================================================================
-
+!$acc declare create(small_alf, dflt_real, dflt_int, sgm_eps)
     ! Computational Domain Parameters ==========================================
 
     integer :: proc_rank !< Rank of the local processor
@@ -108,6 +110,7 @@ module m_global_parameters
     logical         :: null_weights   !< Null undesired WENO weights
     logical         :: mixture_err    !< Mixture properties correction
     logical         :: hypoelasticity !< hypoelasticity modeling
+    logical         :: cu_tensor   
 
     integer         :: cpu_start, cpu_end, cpu_rate
 
@@ -249,11 +252,12 @@ module m_global_parameters
     integer         :: nmomtot !< Total number of carried moments moments/transport equations
     integer         :: R0_type
 
-!$acc declare create(nb,weight,bubbles)
+!$acc declare create(nb, R0ref, Ca, Web, Re_inv, weight, R0, V0, bubbles, polytropic, polydisperse, qbmm, nmom, nnode, nmomsp, nmomtot, R0_type, ptil, bubble_model, thermal, poly_sigma)
 
     type(scalar_field), allocatable, dimension(:) :: mom_sp
     type(scalar_field), allocatable, dimension(:, :, :) :: mom_3d
     !> @}
+!$acc declare create(mom_sp, mom_3d)
 
     !> @name Physical bubble parameters (see Ando 2010, Preston 2007)
     !> @{
@@ -264,24 +268,31 @@ module m_global_parameters
     real(kind(0d0)) :: gamma_m, gamma_n, mu_n
     real(kind(0d0)) :: gam
     !> @}
-
+!$acc declare create(R_n, R_v, phi_vn, phi_nv, Pe_c, Tw, pv, M_n, M_v, k_n, k_v, pb0, mass_n0, mass_v0, Pe_T, Re_trans_T, Re_trans_c, Im_trans_T, Im_trans_c, omegaN , mul0, ss, gamma_v, mu_v, gamma_m, gamma_n, mu_n, gam)
     !> @name Acoustic monopole parameters
     !> @{
     logical         :: monopole !< Monopole switch
     type(mono_parameters), dimension(num_probes_max) :: mono !< Monopole parameters
     integer         :: num_mono !< Number of monopoles
     !> @}
+!$acc declare create(monopole, mono, num_mono)
+
 
     real(kind(0d0)) :: mytime       !< Current simulation time
     real(kind(0d0)) :: finaltime    !< Final simulation time
 
+
     logical :: weno_flat, riemann_flat, cu_mpi
+
+    LOGICAL cu_mpi
 
     ! ======================================================================
 
     ! Mathematical and Physical Constants ======================================
     ! REAL(KIND(0d0)), PARAMETER :: pi = 3.141592653589793d0 !< Pi
-    real(kind(0d0)), parameter :: pi = 3.14159265358979311599796 !< Pi
+    real(kind(0d0)), PARAMETER :: pi = 3.141592653589793d0 !< Pi
+    !$acc declare create(pi)
+
     ! ==========================================================================
 
 contains
@@ -382,6 +393,8 @@ contains
         monopole = .false.
         num_mono = 1
 
+        cu_tensor = .false.
+
         do j = 1, num_probes_max
             do i = 1, 3
                 mono(j)%loc(i) = dflt_real
@@ -443,7 +456,7 @@ contains
         ! Determining the degree of the WENO polynomials
         weno_polyn = (weno_order - 1)/2
 !$acc update device(weno_polyn)
-
+!$acc update device(nb)
 
 
         ! Initializing the number of fluids for which viscous effects will
@@ -522,7 +535,6 @@ contains
                     allocate (weight(nb), R0(nb), V0(nb))
                     allocate (bub_idx%rs(nb), bub_idx%vs(nb))
                     allocate (bub_idx%ps(nb), bub_idx%ms(nb))
-!$acc enter data create(bub_idx%rs(nb), bub_idx%vs(nb), bub_idx%ps(nb), bub_idx%ms(nb))
 
                     if (num_fluids == 1) then
                         gam = 1.d0/fluid_pp(num_fluids + 1)%gamma + 1.d0
@@ -532,7 +544,6 @@ contains
 
                     if (qbmm) then
                         allocate (bub_idx%moms(nb, nmom))
-!$acc enter data create(bub_idx%moms(nb,nmom))
                         do i = 1, nb
                             do j = 1, nmom
                                 bub_idx%moms(i, j) = bub_idx%beg + (j - 1) + (i - 1)*nmom
@@ -558,7 +569,6 @@ contains
                         end do
                     end if
 
-!$acc update device(bub_idx%rs, bub_idx%vs, bub_idx%ps, bub_idx%ms) 
 
                     if (nb == 1) then
                         weight(:) = 1d0
@@ -628,7 +638,6 @@ contains
                     allocate (bub_idx%rs(nb), bub_idx%vs(nb))
                     allocate (bub_idx%ps(nb), bub_idx%ms(nb))
                     allocate (weight(nb), R0(nb), V0(nb))
-!$acc enter data create(bub_idx%rs(nb), bub_idx%rs(nb), bub_idx%ps(nb), bub_idx%ms(nb))
 
                     do i = 1, nb
                         if (polytropic) then
@@ -645,7 +654,6 @@ contains
                             bub_idx%ms(i) = bub_idx%ps(i) + 1
                         end if
                     end do
-!$acc update device(bub_idx%rs, bub_idx%vs, bub_idx%ps, bub_idx%ms) 
                     if (nb == 1) then
                         weight(:) = 1d0
                         R0(:) = 1d0
@@ -724,17 +732,9 @@ contains
             buff_size = weno_polyn + 2
         end if
 
-        startx = -buff_size
-        starty = 0
-        startz = 0
-        if(n > 0) then
-            starty = -buff_size
-        end if
-        if(p > 0) then
-            startz = -buff_size
-        end if
 
-!$acc update device(startx, starty, startz)
+
+
 
         ! Configuring Coordinate Direction Indexes =========================
         if (bubbles) then
@@ -750,6 +750,19 @@ contains
             fd_number = max(1, fd_order/2)
             buff_size = buff_size + fd_number
         end if
+
+
+        startx = -buff_size
+        starty = 0
+        startz = 0
+        if(n > 0) then
+            starty = -buff_size
+        end if
+        if(p > 0) then
+            startz = -buff_size
+        end if
+
+!$acc update device(startx, starty, startz)
 
         if (cyl_coord .neqv. .true.) then ! Cartesian grid
             grid_geometry = 1
@@ -977,15 +990,20 @@ contains
         !! @param ntmp is the output number bubble density
     subroutine s_comp_n_from_cons(vftmp, nRtmp, ntmp)
 !$acc routine seq
-        real(kind(0.d0)), intent(IN) :: vftmp
-        real(kind(0.d0)), dimension(nb), intent(IN) :: nRtmp
-        real(kind(0.d0)), intent(OUT) :: ntmp
-        real(kind(0.d0)) :: nR3
+
+        real(kind(0d0)), intent(IN) :: vftmp
+        real(kind(0d0)), dimension(:), intent(IN) :: nRtmp
+        real(kind(0d0)), intent(OUT) :: ntmp
+        real(kind(0d0)) :: nR3
         integer :: i
 
-        call s_quad(nRtmp**3d0, nR3)
+        nR3 = 0d0
+        do i = 1, nb
+            nR3 = nR3 + weight(i)*(nRtmp(i)**3d0)
+        end do
 
-        if (nR3 < 0d0) then
+
+        !if (nR3 < 0d0) then
             ! DO i = 1,nb
             ! IF (nRtmp(i) < small_alf) THEN
             ! nRtmp(i) = small_alf
@@ -993,14 +1011,14 @@ contains
             ! END DO
             ! nR3 = 1.d-12
             !print *, vftmp, nR3, nRtmp(:)
-            stop 'nR3 is negative'
-        end if
-        if (vftmp < 0d0) then
+         !   stop 'nR3 is negative'
+        !end if
+        !if (vftmp < 0d0) then
             ! vftmp = small_alf
             ! ntmp = DSQRT( (4.d0*pi/3.d0)*nR3/1.d-12 )
             !print *, vftmp, nR3, nRtmp(:)
-            stop 'vf negative'
-        end if
+         !   stop 'vf negative'
+        !end if
 
         ntmp = DSQRT((4.d0*pi/3.d0)*nR3/vftmp)
 
@@ -1013,12 +1031,26 @@ contains
         !! @param ntmp is the output number bubble density
     subroutine s_comp_n_from_prim(vftmp, Rtmp, ntmp)
 !$acc routine seq
+
         real(kind(0.d0)), intent(IN) :: vftmp
-        real(kind(0.d0)), dimension(nb), intent(IN) :: Rtmp
+        real(kind(0.d0)), dimension(:), intent(IN) :: Rtmp
         real(kind(0.d0)), intent(OUT) :: ntmp
         real(kind(0.d0)) :: R3
+        integer :: i
 
-        call s_quad(Rtmp**3d0, R3)
+        R3 = 0d0
+        do i = 1, nb
+            R3 = R3 + weight(i)*(Rtmp(i)**3d0)
+        end do
+
+        IF ( R3 < 0d0 ) THEN
+            !PRINT*, vftmp, R3, Rtmp(:)
+            STOP 'R3 is negative'
+        END IF
+        IF (vftmp < 0d0) THEN
+            !PRINT*, vftmp, R3, Rtmp(:)
+            STOP 'vf negative'
+        END IF
 
         ntmp = (3.d0/(4.d0*pi))*vftmp/R3
 
@@ -1029,10 +1061,16 @@ contains
         !! @param mom is the computed moment
     subroutine s_quad(func, mom)
 !$acc routine seq
-        real(kind(0.d0)), dimension(nb), intent(IN) :: func
-        real(kind(0.d0)), intent(OUT) :: mom
 
-        mom = dot_product(weight, func)
+        real(kind(0.d0)), dimension(:), intent(IN) :: func
+        real(kind(0.d0)), intent(OUT) :: mom
+        integer :: i
+
+        mom = 0d0
+        do i = 1, nb
+            mom = mom + weight(i)*func(i)
+        end do
+
 
     end subroutine s_quad
 

@@ -8,7 +8,7 @@
 !> @brief The module contains the subroutines used to calculate the right-
 !!              hand-side (RHS) in the quasi-conservative, shock- and interface-
 !!              capturing finite-volume framework for the multicomponent Navier-
-!!              Stokes equations supplemented by appropriate advection equations
+!!       f       Stokes equations supplemented by appropriate advection equations
 !!              used to capture the material interfaces. The system of equations
 !!              is closed by the stiffened gas equation of state, as well as any
 !!              required mixture relationships. Capillarity effects are included
@@ -146,8 +146,9 @@ module m_rhs
     real(kind(0d0)), allocatable, dimension(:, :, :) :: bub_adv_src
     real(kind(0d0)), allocatable, dimension(:, :, :, :) :: bub_r_src, bub_v_src, bub_p_src, bub_m_src
     real(kind(0d0)), allocatable, dimension(:, :, :, :, :) :: bub_mom_src
-    ! REAL(KIND(0d0)), ALLOCATABLE, DIMENSION(:,:,:,:) :: mom_sp
-    ! REAL(KIND(0d0)), ALLOCATABLE, DIMENSION(:,:,:,:,:,:) :: mom_3d
+
+
+
 
     type(scalar_field) :: divu !< matrix for div(u)
     !> @}
@@ -198,6 +199,9 @@ module m_rhs
 !$acc   blkmod1, blkmod2, alpha1, alpha2, Kterm, divu, qL_rsx_vf_flat, qL_rsy_vf_flat, qL_rsz_vf_flat, qR_rsx_vf_flat, qR_rsy_vf_flat, qR_rsz_vf_flat)
 
 
+        real(kind(0d0)), allocatable, dimension(:, :, :) :: nbub !< Bubble number density
+        real(kind(0d0)), allocatable, dimension(:) :: rs, vs, ps, ms        
+!$acc declare create(nbub, rs, vs, ps, ms)
 
 
 contains
@@ -262,6 +266,11 @@ contains
             end do
         end if
 
+        do l = adv_idx%end + 1, sys_size
+          allocate(q_prim_qp%vf(l)%sf(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end))
+!$acc enter data create(q_prim_qp%vf(l)%sf(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end))
+        end do
+
         do l = 1, cont_idx%end
             q_prim_qp%vf(l)%sf => &
                 q_cons_qp%vf(l)%sf
@@ -311,11 +320,12 @@ contains
         allocate (myflux_vf(1:num_dims))
         allocate (myflux_src_vf(1:num_dims))
 
-
-        allocate (alf_sum%sf( &
-                  ix%beg:ix%end, &
-                  iy%beg:iy%end, &
-                  iz%beg:iz%end))
+        if(mpp_lim .and. bubbles) then
+          allocate (alf_sum%sf( &
+                    ix%beg:ix%end, &
+                    iy%beg:iy%end, &
+                    iz%beg:iz%end))
+        end if
 
         do i = 1, num_dims
             allocate (qL_cons_n(i)%vf(1:sys_size))
@@ -331,201 +341,197 @@ contains
 !$acc enter data create(myflux_vf(i)%vf(1:sys_size))
 !$acc enter data create(myflux_src_vf(i)%vf(1:sys_size))
 
-            do l = 1, sys_size
-                allocate (myflux_vf(i)%vf(l)%sf( &
-                          ix%beg:ix%end, &
-                          iy%beg:iy%end, &
-                          iz%beg:iz%end))
-                allocate (myflux_src_vf(i)%vf(l)%sf( &
-                          ix%beg:ix%end, &
-                          iy%beg:iy%end, &
-                          iz%beg:iz%end))
-!$acc enter data create(myflux_vf(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-!$acc enter data create(myflux_src_vf(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-            end do
+!!!!! Comment out qL_cons and qL_prim since we have flattened 
 
-            if (i == 1) then
+!            do l = 1, sys_size
+!                allocate (myflux_vf(i)%vf(l)%sf( &
+!                          ix%beg:ix%end, &
+!                          iy%beg:iy%end, &
+!                          iz%beg:iz%end))
+!                allocate (myflux_src_vf(i)%vf(l)%sf( &
+!                          ix%beg:ix%end, &
+!                          iy%beg:iy%end, &
+!                          iz%beg:iz%end))
+!!$acc enter data create(myflux_vf(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+!!$acc enter data create(myflux_src_vf(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+!            end do
 
-                do l = 1, cont_idx%end
-                    allocate (qL_cons_n(i)%vf(l)%sf( &
-                              ix%beg:ix%end, &
-                              iy%beg:iy%end, &
-                              iz%beg:iz%end))
-                    allocate (qR_cons_n(i)%vf(l)%sf( &
-                              ix%beg:ix%end, &
-                              iy%beg:iy%end, &
-                              iz%beg:iz%end))
-!$acc enter data create(qL_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-!$acc enter data create(qR_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-                end do
+!           if (i == 1) then
 
-                if (weno_vars == 1) then
-                    do l = mom_idx%beg, E_idx
-                        allocate (qL_cons_n(i)%vf(l)%sf( &
-                                  ix%beg:ix%end, &
-                                  iy%beg:iy%end, &
-                                  iz%beg:iz%end))
-                        allocate (qR_cons_n(i)%vf(l)%sf( &
-                                  ix%beg:ix%end, &
-                                  iy%beg:iy%end, &
-                                  iz%beg:iz%end))
-!$acc enter data create(qL_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-!$acc enter data create(qR_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-                    end do
-                end if
+!                do l = 1, cont_idx%end
+!                    allocate (qL_cons_n(i)%vf(l)%sf( &
+!                              ix%beg:ix%end, &
+!                              iy%beg:iy%end, &
+!                              iz%beg:iz%end))
+!                    allocate (qR_cons_n(i)%vf(l)%sf( &
+!                              ix%beg:ix%end, &
+!                              iy%beg:iy%end, &
+!                              iz%beg:iz%end))
+!!$acc enter data create(qL_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+!!$acc enter data create(qR_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+ !               end do
 
-                do l = mom_idx%beg, E_idx
-                    allocate (qL_prim_n(i)%vf(l)%sf( &
-                              ix%beg:ix%end, &
-                              iy%beg:iy%end, &
-                              iz%beg:iz%end))
-                    allocate (qR_prim_n(i)%vf(l)%sf( &
-                              ix%beg:ix%end, &
-                              iy%beg:iy%end, &
-                              iz%beg:iz%end))
-!$acc enter data create(qL_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-!$acc enter data create(qR_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-                end do
+ !               if (weno_vars == 1) then
+ !                   do l = mom_idx%beg, E_idx
+ !                       allocate (qL_cons_n(i)%vf(l)%sf( &
+ !                                 ix%beg:ix%end, &
+ !                                 iy%beg:iy%end, &
+ !                                 iz%beg:iz%end))
+ !                       allocate (qR_cons_n(i)%vf(l)%sf( &
+ !                                 ix%beg:ix%end, &
+ !                                 iy%beg:iy%end, &
+ !                                 iz%beg:iz%end))
+!!$acc enter data create(qL_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+!!$acc enter data create(qR_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+ !                   end do
+ !               end if
 
-                if (model_eqns == 3) then
-                    do l = internalEnergies_idx%beg, internalEnergies_idx%end
-                        allocate (qL_prim_n(i)%vf(l)%sf( &
-                                  ix%beg:ix%end, &
-                                  iy%beg:iy%end, &
-                                  iz%beg:iz%end))
-                        allocate (qR_prim_n(i)%vf(l)%sf( &
-                                  ix%beg:ix%end, &
-                                  iy%beg:iy%end, &
-                                  iz%beg:iz%end))
-!$acc enter data create(qL_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-!$acc enter data create(qR_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-                    end do
-                end if
-                !TODO: check that this should indeed be to adv_idx%end (was to sys_size)
-!                do l = adv_idx%beg, sys_size
-                do l = adv_idx%beg, adv_idx%end
-                    allocate (qL_cons_n(i)%vf(l)%sf( &
-                              ix%beg:ix%end, &
-                              iy%beg:iy%end, &
-                              iz%beg:iz%end))
-                    allocate (qR_cons_n(i)%vf(l)%sf( &
-                              ix%beg:ix%end, &
-                              iy%beg:iy%end, &
-                              iz%beg:iz%end))
-!$acc enter data create(qL_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-!$acc enter data create(qR_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-                end do
+ !               do l = mom_idx%beg, E_idx
+ !                   allocate (qL_prim_n(i)%vf(l)%sf( &
+ !                             ix%beg:ix%end, &
+ !                             iy%beg:iy%end, &
+ !                             iz%beg:iz%end))
+ !                   allocate (qR_prim_n(i)%vf(l)%sf( &
+ !                             ix%beg:ix%end, &
+ !                             iy%beg:iy%end, &
+ !                             iz%beg:iz%end))
+!!$acc enter data create(qL_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+!!$acc enter data create(qR_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+ !               end do
 
-                if (bubbles) then
-                    do l = bub_idx%beg, bub_idx%end
-                        allocate (qL_prim_n(i)%vf(l)%sf( &
-                                  ix%beg:ix%end, &
-                                  iy%beg:iy%end, &
-                                  iz%beg:iz%end))
-                        allocate (qR_prim_n(i)%vf(l)%sf( &
-                                  ix%beg:ix%end, &
-                                  iy%beg:iy%end, &
-                                  iz%beg:iz%end))
-!$acc enter data create(qL_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-!$acc enter data create(qR_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-                    end do
-                end if
+ !               if (model_eqns == 3) then
+ !                   do l = internalEnergies_idx%beg, internalEnergies_idx%end
+ !                       allocate (qL_prim_n(i)%vf(l)%sf( &
+ !                                 ix%beg:ix%end, &
+ !                                 iy%beg:iy%end, &
+ !                                 iz%beg:iz%end))
+ !                       allocate (qR_prim_n(i)%vf(l)%sf( &
+ !                                 ix%beg:ix%end, &
+ !                                 iy%beg:iy%end, &
+ !                                 iz%beg:iz%end))
+!!$acc enter data create(qL_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+!!$acc enter data create(qR_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+ !                   end do
+ !               end if
 
-                if (hypoelasticity) then
-                    do l = stress_idx%beg, stress_idx%end
-                        allocate (qL_prim_n(i)%vf(l)%sf( &
-                                  ix%beg:ix%end, &
-                                  iy%beg:iy%end, &
-                                  iz%beg:iz%end))
-                        allocate (qR_prim_n(i)%vf(l)%sf( &
-                                  ix%beg:ix%end, &
-                                  iy%beg:iy%end, &
-                                  iz%beg:iz%end))
-!$acc enter data create(qL_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-!$acc enter data create(qR_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-                    end do
-                end if
- 
-            else
-                ! i /= 1
-                do l = 1, sys_size
-                    qL_cons_n(i)%vf(l)%sf => &
-                        qL_cons_n(1)%vf(l)%sf
-                    qR_cons_n(i)%vf(l)%sf => &
-                        qR_cons_n(1)%vf(l)%sf
-                    qL_prim_n(i)%vf(l)%sf => &
-                        qL_prim_n(1)%vf(l)%sf
-                    qR_prim_n(i)%vf(l)%sf => &
-                        qR_prim_n(1)%vf(l)%sf
-!$acc enter data attach(qL_cons_n(i)%vf(l)%sf,qR_cons_n(i)%vf(l)%sf,qL_prim_n(i)%vf(l)%sf,qR_prim_n(i)%vf(l)%sf)
+ !              do l = adv_idx%beg, sys_size
+ !                   allocate (qL_cons_n(i)%vf(l)%sf( &
+ !                             ix%beg:ix%end, &
+ !                             iy%beg:iy%end, &
+ !                             iz%beg:iz%end))
+ !                   allocate (qR_cons_n(i)%vf(l)%sf( &
+ !                             ix%beg:ix%end, &
+ !                             iy%beg:iy%end, &
+ !                             iz%beg:iz%end))
+!!$acc enter data create(qL_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+!!$acc enter data create(qR_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+ !               end do
+
+ !               if (hypoelasticity) then
+ !                   do l = stress_idx%beg, stress_idx%end
+ !                       allocate (qL_prim_n(i)%vf(l)%sf( &
+ !                                 ix%beg:ix%end, &
+ !                                 iy%beg:iy%end, &
+ !                                 iz%beg:iz%end))
+ !                       allocate (qR_prim_n(i)%vf(l)%sf( &
+ !                                 ix%beg:ix%end, &
+ !                                 iy%beg:iy%end, &
+ !                                 iz%beg:iz%end))
+
+ !               if (bubbles) then
+ !                   do l = bub_idx%beg, bub_idx%end
+ !                       allocate (qL_prim_n(i)%vf(l)%sf( &
+ !                                 ix%beg:ix%end, &
+ !                                 iy%beg:iy%end, &
+ !                                 iz%beg:iz%end))
+ !                       allocate (qR_prim_n(i)%vf(l)%sf( &
+ !                                 ix%beg:ix%end, &
+ !                                 iy%beg:iy%end, &
+ !                                 iz%beg:iz%end))
+!!$acc enter data create(qL_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+!!$acc enter data create(qR_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+ !                   end do
+ !               end if
+ !           else
+ !               ! i /= 1
+ !               do l = 1, sys_size
+ !                   qL_cons_n(i)%vf(l)%sf => &
+ !                       qL_cons_n(1)%vf(l)%sf
+ !                   qR_cons_n(i)%vf(l)%sf => &
+ !                       qR_cons_n(1)%vf(l)%sf
+ !                   qL_prim_n(i)%vf(l)%sf => &
+ !                       qL_prim_n(1)%vf(l)%sf
+ !                   qR_prim_n(i)%vf(l)%sf => &
+ !                       qR_prim_n(1)%vf(l)%sf
+!!$acc enter data attach(qL_cons_n(i)%vf(l)%sf,qR_cons_n(i)%vf(l)%sf,qL_prim_n(i)%vf(l)%sf,qR_prim_n(i)%vf(l)%sf)
 ! #ifdef _OPENACC
 ! call acc_attach(qL_cons_n(i)%vf(l)%sf)
 ! #endif
 
-                end do
+  !              end do
 
-                if (any(Re_size > 0)) then
-                    if (weno_vars == 1) then
-                        do l = 1, mom_idx%end
-                            allocate (qL_cons_n(i)%vf(l)%sf( &
-                                      ix%beg:ix%end, &
-                                      iy%beg:iy%end, &
-                                      iz%beg:iz%end))
-                            allocate (qR_cons_n(i)%vf(l)%sf( &
-                                      ix%beg:ix%end, &
-                                      iy%beg:iy%end, &
-                                      iz%beg:iz%end))
-!$acc enter data create(qL_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-!$acc enter data create(qR_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-                        end do
-                    else
-                        do l = mom_idx%beg, mom_idx%end
-                            allocate (qL_prim_n(i)%vf(l)%sf( &
-                                      ix%beg:ix%end, &
-                                      iy%beg:iy%end, &
-                                      iz%beg:iz%end))
-                            allocate (qR_prim_n(i)%vf(l)%sf( &
-                                      ix%beg:ix%end, &
-                                      iy%beg:iy%end, &
-                                      iz%beg:iz%end))
-!$acc enter data create(qL_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-!$acc enter data create(qR_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-                        end do
-                        if (model_eqns == 3) then
-                            do l = internalEnergies_idx%beg, internalEnergies_idx%end
-                                allocate (qL_prim_n(i)%vf(l)%sf( &
-                                          ix%beg:ix%end, &
-                                          iy%beg:iy%end, &
-                                          iz%beg:iz%end))
-                                allocate (qR_prim_n(i)%vf(l)%sf( &
-                                          ix%beg:ix%end, &
-                                          iy%beg:iy%end, &
-                                          iz%beg:iz%end))
-!$acc enter data create(qL_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-!$acc enter data create(qR_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
-                            end do
-                        end if
-                    end if
-                end if
-            end if
+   !             if (any(Re_size > 0)) then
+   !                 if (weno_vars == 1) then
+   !                     do l = 1, mom_idx%end
+   !                         allocate (qL_cons_n(i)%vf(l)%sf( &
+   !                                   ix%beg:ix%end, &
+   !                                   iy%beg:iy%end, &
+   !                                   iz%beg:iz%end))
+   !                         allocate (qR_cons_n(i)%vf(l)%sf( &
+   !                                   ix%beg:ix%end, &
+   !                                   iy%beg:iy%end, &
+   !                                   iz%beg:iz%end))
+!!$acc enter data create(qL_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+!!$acc enter data create(qR_cons_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+ !                       end do
+ !                   else
+ !                       do l = mom_idx%beg, mom_idx%end
+ !                           allocate (qL_prim_n(i)%vf(l)%sf( &
+ !                                     ix%beg:ix%end, &
+ !                                     iy%beg:iy%end, &
+ !                                     iz%beg:iz%end))
+ !                           allocate (qR_prim_n(i)%vf(l)%sf( &
+ !                                     ix%beg:ix%end, &
+ !                                     iy%beg:iy%end, &
+ !                                     iz%beg:iz%end))
+!!$acc enter data create(qL_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+!!$acc enter data create(qR_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+ !                       end do
+ !                       if (model_eqns == 3) then
+ !                           do l = internalEnergies_idx%beg, internalEnergies_idx%end
+ !                               allocate (qL_prim_n(i)%vf(l)%sf( &
+ !                                         ix%beg:ix%end, &
+ !                                         iy%beg:iy%end, &
+ !                                         iz%beg:iz%end))
+ !                               allocate (qR_prim_n(i)%vf(l)%sf( &
+ !                                         ix%beg:ix%end, &
+ !                                         iy%beg:iy%end, &
+ !                                         iz%beg:iz%end))
+!!$acc enter data create(qL_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+!!$acc enter data create(qR_prim_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+ !                           end do
+ !                       end if
+ !                   end if
+ !               end if
+ !           end if
 
-            if (DEBUG) print*, 'pointing prim to cons!'
-            do l = 1, cont_idx%end
-                qL_prim_n(i)%vf(l)%sf => &
-                    qL_cons_n(i)%vf(l)%sf
-                qR_prim_n(i)%vf(l)%sf => &
-                    qR_cons_n(i)%vf(l)%sf
-!$acc enter data attach(qL_prim_n(i)%vf(l)%sf,qR_prim_n(i)%vf(l)%sf)
-            end do
+            !if (DEBUG) print*, 'pointing prim to cons!'
+    !        do l = 1, cont_idx%end
+    !            qL_prim_n(i)%vf(l)%sf => &
+    !                qL_cons_n(i)%vf(l)%sf
+    !            qR_prim_n(i)%vf(l)%sf => &
+    !                qR_cons_n(i)%vf(l)%sf
+!!$acc enter data attach(qL_prim_n(i)%vf(l)%sf,qR_prim_n(i)%vf(l)%sf)
+ !           end do
 
 
-            do l = adv_idx%beg, adv_idx%end
-                qL_prim_n(i)%vf(l)%sf => &
-                    qL_cons_n(i)%vf(l)%sf
-                qR_prim_n(i)%vf(l)%sf => &
-                    qR_cons_n(i)%vf(l)%sf
-!$acc enter data attach(qL_prim_n(i)%vf(l)%sf,qR_prim_n(i)%vf(l)%sf)
-            end do
+    !        do l = adv_idx%beg, adv_idx%end
+    !            qL_prim_n(i)%vf(l)%sf => &
+    !                qL_cons_n(i)%vf(l)%sf
+    !            qR_prim_n(i)%vf(l)%sf => &
+    !                qR_cons_n(i)%vf(l)%sf
+!!$acc enter data attach(qL_prim_n(i)%vf(l)%sf,qR_prim_n(i)%vf(l)%sf)
+ !           end do
 
 
         end do
@@ -769,7 +775,7 @@ contains
                     do l = adv_idx%beg + 1, adv_idx%end
                         flux_src_n(i)%vf(l)%sf => &
                             flux_src_n(i)%vf(adv_idx%beg)%sf
-!$acc enter data create(flux_src_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
+!$acc enter data attach(flux_src_n(i)%vf(l)%sf(ix%beg:ix%end,iy%beg:iy%end,iz%beg:iz%end))
                     end do
                     !END IF
                 end if
@@ -826,13 +832,40 @@ contains
         bubxe = bub_idx%end
         strxb = stress_idx%beg
         strxe = stress_idx%end
-!$acc update device(momxb, momxe, advxb, advxe, contxb, contxe, bubxb, bubxe, sys_size, buff_size, E_idx, alf_idx,strxb,strxe)
+
+        if(bubbles) then
+            allocate(rs(1:nb))
+            allocate(vs(1:nb))
+            if(.not. polytropic) then
+                allocate(ps(1:nb))
+                allocate(ms(1:nb))
+            end if
+            
+            do l = 1, nb
+                rs(l) = bub_idx%rs(l)
+                vs(l) = bub_idx%vs(l)
+                if(.not. polytropic) then
+                    ps(l) = bub_idx%ps(l)
+                    ms(l) = bub_idx%ms(l)
+                end if
+            end do
+
+!$acc update device(rs, vs)
+            if(.not. polytropic) then
+!$acc update device(ps, ms)
+            end if 
+            
+        end if
+
+!$acc update device(momxb, momxe, advxb, advxe, contxb, contxe, bubxb, bubxe, sys_size, buff_size, E_idx, alf_idx, strxb, strxe)
+        
+
         ! Associating procedural pointer to the subroutine that will be
         ! utilized to calculate the solution of a given Riemann problem
         if (riemann_solver == 1) then
-            s_riemann_solver => s_hll_riemann_solver_acc
+            s_riemann_solver => s_hll_riemann_solver
         elseif (riemann_solver == 2) then
-            s_riemann_solver => s_hllc_riemann_solver_acc
+            s_riemann_solver => s_hllc_riemann_solver
         else
             s_riemann_solver => s_exact_riemann_solver
         end if
@@ -869,6 +902,10 @@ contains
                 end do
             end do
 
+        if(bubbles) then
+            allocate(nbub(0:m, 0:n, 0:p))
+        end if
+
     end subroutine s_initialize_rhs_module ! -------------------------------
 
 
@@ -892,14 +929,28 @@ contains
         real(kind(0d0)) :: gamma_K, pi_inf_K
 
         real(kind(0d0)) :: top, bottom  !< Numerator and denominator when evaluating flux limiter function
+        real(kind(0d0)), dimension(3) :: myalpha_rho, myalpha
 
 
+        real(kind(0d0)) ::  tmp1, tmp2, tmp3, tmp4, &
+                           c_gas, c_liquid, &
+                           Cpbw, Cpinf, Cpinf_dot, &
+                           myH, myHdot, rddot, alf_gas
 
- 
+        real(kind(0d0))   :: pb, mv, vflux, pldot, pbdot
 
+        real(kind(0d0)) :: n_tait, B_tait
 
+        real(kind(0d0)), dimension(nb)  :: Rtmp, Vtmp
+        real(kind(0d0))   :: myR, myV, alf, myP, myRho, R2Vav
+        integer :: ndirs
+
+        real(kind(0d0)) :: mytime, sound
+        real(kind(0d0)) :: s2, const_sos
 
         integer :: i, j, k, l, r, q,  ii, id !< Generic loop iterators
+
+
 
 
 
@@ -912,6 +963,7 @@ contains
         ! ==================================================================
 
 !$acc update device(ix, iy, iz)
+
 
 
         ! Association/Population of Working Variables ======================
@@ -934,10 +986,28 @@ contains
 
         ! Converting Conservative to Primitive Variables ==================
 
+        if (mpp_lim .and. bubbles) then
+!$acc parallel loop collapse(3) gang vector default(present)
+          do l = iz%beg, iz%end
+            do k = iy%beg, iy%end
+             do j = ix%beg, ix%end    
+                         alf_sum%sf(j, k, l) = 0d0
+!$acc loop seq           
+                         do i = advxb, advxe - 1
+                                alf_sum%sf(j, k, l) = alf_sum%sf(j, k, l) + q_cons_qp%vf(i)%sf(j, k, l)
+                         end do
+!$acc loop seq
+                        do i = advxb, advxe - 1
+                                q_cons_qp%vf(i)%sf(j, k, l) = q_cons_qp%vf(i)%sf(j, k, l)*(1.d0 - q_cons_qp%vf(alf_idx)%sf(j, k, l)) &
+                                         /alf_sum%sf(j, k, l)
+                        end do
+                end do
+              end do
+            end do
+
+        end if
 
 
-        !convert conservative variables to primitive
-        !   (except first and last, \alpha \rho and \alpha)
         call nvtxStartRange("RHS-CONVERT")
         call s_convert_conservative_to_primitive_variables( &
             q_cons_qp%vf, &
@@ -945,12 +1015,13 @@ contains
             gm_alpha_qp%vf, &
             ix, iy, iz)
         call nvtxEndRange
-
-
-
+       
 
         if (t_step == t_step_stop) return
         ! ==================================================================
+
+        if (qbmm) call s_mom_inv(q_prim_qp%vf, mom_sp, mom_3d, ix, iy, iz)
+
 
         ! Dimensional Splitting Loop =======================================
         do id = 1, num_dims
@@ -971,21 +1042,14 @@ contains
 
             !call nvtxStartRange("RHS-WENO")
             call s_reconstruct_cell_boundary_values_alt( &
-               q_prim_qp%vf(iv%beg:iv%end), &
+               q_prim_qp%vf(1:sys_size), &
                 qL_rsx_vf_flat, qL_rsy_vf_flat, qL_rsz_vf_flat, &
                 qR_rsx_vf_flat, qR_rsy_vf_flat, qR_rsz_vf_flat, &
                 id)
             call nvtxEndRange
-!           do j = 1, sys_size
-!!$acc update host( qL_rsz_vf_flat, qR_rsz_vf_flat)
-!            end do
-
-
-
 
     
-
-            ! Configuring Coordinate Direction Indexes ======================
+             ! Configuring Coordinate Direction Indexes ======================
             if (id == 1) then
                 ix%beg = -1; iy%beg = 0; iz%beg = 0
             elseif (id == 2) then
@@ -1013,12 +1077,13 @@ contains
                                   flux_gsrc_n(id)%vf, &
                                   id, ix, iy, iz)
             call nvtxEndRange
-!            iv%beg = 1; iv%end = adv_idx%end
-            iv%beg = 1; iv%end = sys_size
 
-            ! ===============================================================
+!            iv%beg = 1; iv%end = sys_size
 
- 
+
+                ! ===============================================================
+
+
              if (alt_soundspeed) then
 !$acc parallel loop collapse(3) gang vector default(present)
                 do l = 0, p
@@ -1046,6 +1111,17 @@ contains
  
             call nvtxStartRange("RHS_Flux_Add")
             if (id == 1) then
+
+                if (bc_x%beg <= -5) then
+                    call s_cbc(q_prim_qp%vf, flux_n(id)%vf, &
+                               flux_src_n(id)%vf, id, -1, ix, iy, iz)
+                end if
+
+                if (bc_x%end <= -5) then
+                    call s_cbc(q_prim_qp%vf, flux_n(id)%vf, &
+                               flux_src_n(id)%vf, id, 1, ix, iy, iz)
+                end if
+
 !$acc parallel loop collapse(4) gang vector default(present)
                 do j = 1, sys_size
                   do q = 0, p
@@ -1057,7 +1133,8 @@ contains
                           end do 
                         end do
                     end do
-                end do  
+                end do 
+
 
                 if (riemann_solver == 1) then
 !$acc parallel loop collapse(4) gang vector default(present)
@@ -1068,8 +1145,8 @@ contains
                           rhs_vf(j)%sf(k, l, q) = &
                               rhs_vf(j)%sf(k, l, q) + 1d0/dx(k)* &
                               q_prim_qp%vf(contxe + id)%sf(k, l, q)* &
-                              (flux_src_n(1)%vf(j)%sf(k, l, q) &
-                               - flux_src_n(1)%vf(j)%sf(k - 1, l, q))
+                              (flux_src_n(1)%vf(j)%sf(k - 1, l, q) &
+                               - flux_src_n(1)%vf(j)%sf(k , l, q))
                         end do
                       end do 
                     end do
@@ -1123,11 +1200,383 @@ contains
                   end if
                 end if
 
+ 
+                if (bubbles) then
+                    if (qbmm) then
+                        ! advection source
+
+                        ! bubble sources
+                        
+!$acc parallel loop collapse(3) gang vector default(present)
+                        do l = 0, p
+                            do q = 0, n
+                                do i =  0, m 
+
+                                    rhs_vf(alf_idx)%sf(i, q, l) = rhs_vf(alf_idx)%sf(i, q, l) + mom_sp(2)%sf(i, q, l)
+                                    j = bubxb
+!$acc loop seq
+                                    do k = 1, nb
+                                        rhs_vf(j)%sf(i, q, l) = & 
+                                            rhs_vf(j)%sf(i, q, l) + mom_3d(0, 0, k)%sf(i, q, l)
+                                        rhs_vf(j + 1)%sf(i, q, l) = & 
+                                            rhs_vf(j + 1)%sf(i, q, l) + mom_3d(1, 0, k)%sf(i, q, l)
+                                        rhs_vf(j + 2)%sf(i, q, l) = & 
+                                            rhs_vf(j + 2)%sf(i, q, l) + mom_3d(0, 1, k)%sf(i, q, l)
+                                        rhs_vf(j + 3)%sf(i, q, l) = & 
+                                            rhs_vf(j + 3)%sf(i, q, l) + mom_3d(2, 0, k)%sf(i, q, l)
+                                        rhs_vf(j + 4)%sf(i, q, l) = & 
+                                            rhs_vf(j + 4)%sf(i, q, l) + mom_3d(1, 1, k)%sf(i, q, l)
+                                        rhs_vf(j + 5)%sf(i, q, l) = & 
+                                            rhs_vf(j + 5)%sf(i, q, l) + mom_3d(0, 2, k)%sf(i, q, l)
+                                        j = j + 6
+                                    end do
+                                end do
+                            end do
+                        end do
+                    else
+
+!$acc parallel loop collapse(3) gang vector default(present)
+                          do l = 0, p
+                              do k = 0, n
+                                  do j = 0, m
+                                      divu%sf(j, k, l) = 0d0
+                                      divu%sf(j, k, l) = &
+                                          5d-1/dx(j)*(q_prim_qp%vf(contxe + id)%sf(j + 1, k, l) - &
+                                          q_prim_qp%vf(contxe + id)%sf(j - 1, k, l))
+                                      
+                                  end do
+                              end do
+                          end do
+
+                          
+!$acc parallel loop collapse(3) gang vector default(present) private(Rtmp, Vtmp)
+                          do l = 0, p
+                              do k = 0, n
+                                  do j = 0, m
+                                    bub_adv_src(j, k, l) = 0d0
+
+!$acc loop seq
+                                    do q = 1, nb
+                                        bub_r_src(j, k, l, q) = 0d0
+                                        bub_v_src(j, k, l, q) = 0d0
+                                        bub_p_src(j, k, l, q) = 0d0
+                                        bub_m_src(j, k, l, q) = 0d0
+                                    end do
+                                 end do
+                              end do
+                          end do    
+
+                        ndirs = 1; if (n > 0) ndirs = 2; if (p > 0) ndirs = 3
+                        if (id == ndirs) then
+                            
+!$acc parallel loop collapse(3) gang vector default(present) private(Rtmp, Vtmp)
+                          do l = 0, p
+                              do k = 0, n
+                                  do j = 0, m
+
+
+!$acc loop seq                                    
+                                    do q = 1, nb
+                                        Rtmp(q) = q_prim_qp%vf(rs(q))%sf(j, k, l)
+                                        Vtmp(q) = q_prim_qp%vf(vs(q))%sf(j, k, l)
+                                    end do
+
+                                    call s_comp_n_from_prim(q_prim_qp%vf(alf_idx)%sf(j, k, l), &
+                                                            Rtmp, nbub(j, k, l))
+
+                                    call s_quad((Rtmp**2.d0)*Vtmp, R2Vav)
+
+                                    bub_adv_src(j, k, l) = 4.d0*pi*nbub(j, k, l)*R2Vav
+                                      
+                                  end do
+                              end do
+                          end do
+
+
+!$acc parallel loop collapse(3) gang vector default(present) private(myalpha_rho, myalpha)
+                            do l = 0, p
+                                do k = 0, n
+                                    do j = 0, m
+!$acc loop seq  
+                                        do q = 1, nb
+
+                                            bub_r_src( j, k, l, q) = q_cons_qp%vf(vs(q))%sf(j, k, l)
+
+!$acc loop seq
+                                            do ii = 1, num_fluids
+                                                myalpha_rho(ii) = q_cons_qp%vf(ii)%sf(j, k, l)
+                                                myalpha(ii) = q_cons_qp%vf(advxb + ii - 1)%sf(j, k, l)
+                                            end do 
+
+                                            myRho = 0d0
+                                            n_tait = 0d0
+                                            B_tait = 0d0
+
+                                            if(mpp_lim .and. (num_fluids > 2)) then
+!$acc loop seq
+                                                do ii = 1, num_fluids
+                                                    myRho = myRho + myalpha_rho(ii)
+                                                    n_tait = n_tait + myalpha(ii)*gammas(ii)
+                                                    B_tait = B_tait + myalpha(ii)*pi_infs(ii)
+                                                end do
+                                            else if(num_fluids > 2) then
+!$acc loop seq
+                                                do ii = 1, num_fluids - 1
+                                                    myRho = myRho + myalpha_rho(ii)
+                                                    n_tait = n_tait+ myalpha(ii)*gammas(ii)
+                                                    B_tait = B_tait + myalpha(ii)*pi_infs(ii)
+                                                end do
+                                            else
+                                                myRho = myalpha_rho(1)
+                                                n_tait = gammas(1)
+                                                B_tait = pi_infs(1)
+                                            end if
+
+                                            n_tait = 1.d0/n_tait + 1.d0 !make this the usual little 'gamma'
+
+                                            myRho = q_prim_qp%vf(1)%sf(j, k, l)
+                                            myP = q_prim_qp%vf(E_idx)%sf(j, k, l)
+                                            alf = q_prim_qp%vf(alf_idx)%sf(j, k, l)
+                                            myR = q_prim_qp%vf(rs(q))%sf(j, k, l)
+                                            myV = q_prim_qp%vf(vs(q))%sf(j, k, l)
+
+                                            if (.not. polytropic) then
+                                                pb = q_prim_qp%vf(ps(q))%sf(j, k, l)
+                                                mv = q_prim_qp%vf(ms(q))%sf(j, k, l)
+                                                call s_bwproperty(pb, q)
+                                                vflux = f_vflux(myR, myV, mv, q)
+                                                pbdot = f_bpres_dot(vflux, myR, myV, pb, mv, q)
+
+                                                bub_p_src( j, k, l, q) = nbub(j, k, l)*pbdot
+                                                bub_m_src( j, k, l, q) = nbub(j, k, l)*vflux*4.d0*pi*(myR**2.d0)
+                                            else
+                                                pb = 0d0; mv = 0d0; vflux = 0d0; pbdot = 0d0
+                                            end if
+
+                                            if (bubble_model == 1) then
+                                                ! Gilmore bubbles
+                                                Cpinf = myP - pref
+                                                Cpbw = f_cpbw(R0(q), myR, myV, pb)
+                                                myH = f_H(Cpbw, Cpinf, n_tait, B_tait)
+                                                c_gas = f_cgas(Cpinf, n_tait, B_tait, myH)
+                                                Cpinf_dot = f_cpinfdot(myRho, myP, alf, n_tait, B_tait, bub_adv_src(j, k, l), divu%sf(j, k, l))
+                                                myHdot = f_Hdot(Cpbw, Cpinf, Cpinf_dot, n_tait, B_tait, myR, myV, R0(q), pbdot)
+                                                rddot = f_rddot(Cpbw, myR, myV, myH, myHdot, c_gas, n_tait, B_tait)
+                                            else if (bubble_model == 2) then
+                                                ! Keller-Miksis bubbles
+                                                Cpinf = myP
+                                                Cpbw = f_cpbw_KM(R0(q), myR, myV, pb)
+                                                ! c_gas = dsqrt( n_tait*(Cpbw+B_tait) / myRho)
+                                                c_liquid = DSQRT(n_tait*(myP + B_tait)/(myRho*(1.d0 - alf)))
+                                                rddot = f_rddot_KM(pbdot, Cpinf, Cpbw, myRho, myR, myV, R0(q), c_liquid)
+                                            else if (bubble_model == 3) then
+                                                ! Rayleigh-Plesset bubbles
+                                                Cpbw = f_cpbw_KM(R0(q), myR, myV, pb)
+                                                rddot = f_rddot_RP(myP, myRho, myR, myV, R0(q), Cpbw)
+                                            end if
+
+                                            bub_v_src( j, k, l, q) = nbub(j, k, l)*rddot
+
+                                            if (alf < 1.d-11) then
+                                                bub_adv_src(j, k, l) = 0d0
+                                                bub_r_src( j, k, l, q) = 0d0
+                                                bub_v_src( j, k, l, q) = 0d0
+                                                if (.not. polytropic) then
+                                                    bub_p_src( j, k, l, q) = 0d0
+                                                    bub_m_src( j, k, l, q) = 0d0
+                                                end if
+                                            end if
+                                        end do
+                                    end do
+                                end do
+                            end do
+                        end if
+
+
+!$acc parallel loop collapse(3) gang vector default(present)
+                        do l = 0, p
+                            do q = 0, n
+                                do i =  0, m 
+                                    rhs_vf(alf_idx)%sf(i, q, l) = rhs_vf(alf_idx)%sf(i, q, l) + bub_adv_src(i, q, l)
+                                    if (num_fluids > 1) rhs_vf(advxb)%sf(i, q, l) = &
+                                        rhs_vf(advxb)%sf(i, q, l) - bub_adv_src(i, q, l)
+!$acc loop seq
+                                    do k = 1, nb
+                                        rhs_vf(rs(k))%sf(i, q, l) = rhs_vf(rs(k))%sf(i, q, l) + bub_r_src(i, q, l, k)
+                                        rhs_vf(vs(k))%sf(i, q, l) = rhs_vf(vs(k))%sf(i, q, l) + bub_v_src(i, q, l, k)
+                                        if (polytropic .neqv. .true.) then
+                                            rhs_vf(ps(k))%sf(i, q, l) = rhs_vf(ps(k))%sf(i, q, l) + bub_p_src(i, q, l, k)
+                                            rhs_vf(ms(k))%sf(i, q, l) = rhs_vf(ms(k))%sf(i, q, l) + bub_m_src(i, q, l, k)
+                                        end if
+                                    end do
+                                end do
+                            end do
+                        end do
+                    end if
+                end if
+
+
+                if (monopole) then
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do l = 0, p
+                        do k = 0, n
+                            do j =  0, m
+                                mono_mass_src(j, k, l) = 0d0; mono_mom_src(1, j, k, l) = 0d0; mono_e_src(j, k, l) = 0d0; 
+                                if(n > 0) then
+                                    mono_mom_src(2, j, k, l) = 0d0
+                                end if
+                                if(p > 0) then
+                                    mono_mom_src(3, j, k, l) = 0d0
+                                end if
+                            end do
+                        end do
+                    end do
+
+
+
+                    ndirs = 1; if (n > 0) ndirs = 2; if (p > 0) ndirs = 3
+                    if (id == ndirs) then
+
+!$acc parallel loop collapse(3) gang vector default(present) private(myalpha_rho, myalpha)
+                        do l = 0, p
+                            do k = 0, n
+                                do j =  0, m
+!$acc loop seq                                    
+                                    do q = 1, num_mono
+
+                                        mytime = t_step*dt
+                                        if ((mytime >= mono(q)%delay) .or. (mono(q)%delay == dflt_real)) then
+
+
+!$acc loop seq
+                                            do ii = 1, num_fluids
+                                                myalpha_rho(ii) = q_cons_qp%vf(ii)%sf(j, k, l)
+                                                myalpha(ii) = q_cons_qp%vf(advxb + ii - 1)%sf(j, k, l)
+                                            end do 
+
+                                            myRho = 0d0
+                                            n_tait = 0d0
+                                            B_tait = 0d0
+
+                                            if(bubbles) then
+                                                if(mpp_lim .and. (num_fluids > 2)) then
+    !$acc loop seq
+                                                    do ii = 1, num_fluids
+                                                        myRho = myRho + myalpha_rho(ii)
+                                                        n_tait = n_tait + myalpha(ii)*gammas(ii)
+                                                        B_tait = B_tait + myalpha(ii)*pi_infs(ii)
+                                                    end do
+                                                else if(num_fluids > 2) then
+    !$acc loop seq
+                                                    do ii = 1, num_fluids - 1
+                                                        myRho = myRho + myalpha_rho(ii)
+                                                        n_tait = n_tait+ myalpha(ii)*gammas(ii)
+                                                        B_tait = B_tait + myalpha(ii)*pi_infs(ii)
+                                                    end do
+                                                else
+                                                    myRho = myalpha_rho(1)
+                                                    n_tait = gammas(1)
+                                                    B_tait = pi_infs(1)
+                                                end if
+                                            else
+    !$acc loop seq
+                                                    do ii = 1, num_fluids
+                                                        myRho = myRho + myalpha_rho(ii)
+                                                        n_tait = n_tait + myalpha(ii)*gammas(ii)
+                                                        B_tait = B_tait + myalpha(ii)*pi_infs(ii)
+                                                    end do
+                                            end if
+                                            n_tait = 1.d0/n_tait + 1.d0 !make this the usual little 'gamma'
+
+                                            sound = n_tait*(q_prim_qp%vf(E_idx)%sf(j, k, l) + ((n_tait - 1d0)/n_tait)*B_tait)/myRho
+                                            sound = dsqrt(sound)
+
+                                            const_sos = dsqrt(n_tait)
+
+                                            s2 = f_g(mytime, sound, const_sos, q) * &
+                                                f_delta(j, k, l, mono(q)%loc, mono(q)%length, q)
+
+                                            !s2 = 1d0
+
+                                            mono_mass_src(j, k, l) = mono_mass_src(j, k, l) + s2/sound
+                                            if (n == 0) then
+
+                                                ! 1D
+                                                if (mono(q)%dir < -0.1d0) then
+                                                    !left-going wave
+                                                    mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) - s2
+                                                else
+                                                    !right-going wave
+                                                    mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) + s2
+                                                end if
+                                            else if (p == 0) then
+                                                ! IF ( (j==1) .AND. (k==1) .AND. proc_rank == 0) &
+                                                !    PRINT*, '====== Monopole magnitude: ', f_g(mytime,sound,const_sos,mono(q))
+
+                                                if (mono(q)%dir .ne. dflt_real) then
+                                                    ! 2d
+                                                    !mono_mom_src(1,j,k,l) = s2
+                                                    !mono_mom_src(2,j,k,l) = s2
+                                                    mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) + s2*cos(mono(q)%dir)
+                                                    mono_mom_src(2, j, k, l) = mono_mom_src(2, j, k, l) + s2*sin(mono(q)%dir)
+                                                end if
+                                            else
+                                                ! 3D
+                                                if (mono(q)%dir .ne. dflt_real) then
+                                                    mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) + s2*cos(mono(q)%dir)
+                                                    mono_mom_src(2, j, k, l) = mono_mom_src(2, j, k, l) + s2*sin(mono(q)%dir)
+                                                end if
+                                            end if
+
+                                            if (model_eqns .ne. 4) then
+                                                mono_E_src(j, k, l) = mono_E_src(j, k, l) + s2*sound/(n_tait - 1.d0)
+                                            end if
+
+                                        end if
+                                    end do
+                                end do 
+                            end do 
+                        end do
+                        
+                    end if
+
+
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do l = 0, p
+                        do k = 0, n
+                            do j =  0, m
+!$acc loop seq
+                                do q = contxb, contxe
+                                    rhs_vf(q)%sf(j, k, l) = rhs_vf(q)%sf(j, k, l) + mono_mass_src(j, k, l)
+                                end do
+!$acc loop seq
+                                do q = momxb, momxe
+                                    rhs_vf(q)%sf(j, k, l) = rhs_vf(q)%sf(j, k, l) + mono_mom_src(q - contxe, j, k, l)
+                                end do
+                                rhs_vf(E_idx)%sf(j, k, l) = rhs_vf(E_idx)%sf(j, k, l) + mono_e_src(j, k, l)
+                            end do
+                        end do
+                    end do
+                end if
+
+
+  
 
 
             elseif (id == 2) then
             ! RHS Contribution in y-direction ===============================
                 ! Applying the Riemann fluxes
+
+                if (bc_y%beg <= -5 .and. bc_y%beg /= -13) then
+                    call s_cbc(q_prim_qp%vf, flux_n(id)%vf, &
+                               flux_src_n(id)%vf, id, -1, ix, iy, iz)
+                end if
+
+                if (bc_y%end <= -5 ) then
+                    call s_cbc(q_prim_qp%vf, flux_n(id)%vf, &
+                               flux_src_n(id)%vf, id, 1, ix, iy, iz)
+                end if
+
 !$acc parallel loop collapse(4) gang vector default(present)                
                 do j = 1, sys_size
                   do l = 0, p
@@ -1152,8 +1601,8 @@ contains
                         rhs_vf(j)%sf(q, k, l) = &
                               rhs_vf(j)%sf(q, k, l) + 1d0/dy(k)* &
                               q_prim_qp%vf(contxe + id)%sf(q, k, l)* &
-                              (flux_src_n(2)%vf(j)%sf(q, k, l) &
-                               - flux_src_n(2)%vf(j)%sf(q, k - 1, l))
+                              (flux_src_n(2)%vf(j)%sf(q, k-1, l) &
+                               - flux_src_n(2)%vf(j)%sf(q, k , l))
                         end do
                       end do
                     end do
@@ -1174,7 +1623,21 @@ contains
                                      - flux_src_n(2)%vf(j)%sf(q, k - 1, l))
                             end do
                           end do
-                        end do                    
+                        end do
+                        if(cyl_coord) then
+!$acc parallel loop collapse(3) gang vector default(present)
+                            do l = 0,p
+                              do k = 0, n
+                                do q = 0, m
+                                    rhs_vf(j)%sf(q, k, l) = &
+                                        rhs_vf(j)%sf(q, k, l) -  &
+                                        (Kterm(q, k, l)/2d0/y_cc(k))* &
+                                        (flux_src_n(2)%vf(j)%sf(q, k, l) &
+                                         - flux_src_n(2)%vf(j)%sf(q, k - 1, l))
+                                end do
+                              end do
+                            end do
+                        end if                   
                       else if ((j == advxb) .and. (bubbles .neqv. .true.)) then
 !$acc parallel loop collapse(3) gang vector default(present)
                         do l = 0, p
@@ -1188,6 +1651,20 @@ contains
                             end do
                           end do
                         end do
+                        if(cyl_coord) then
+!$acc parallel loop collapse(3) gang vector default(present)
+                            do l = 0,p
+                              do k = 0, n
+                                do q = 0, m
+                                    rhs_vf(j)%sf(q, k, l) = &
+                                        rhs_vf(j)%sf(q, k, l) +  &
+                                        (Kterm(q, k, l)/2d0/y_cc(k))* &
+                                        (flux_src_n(2)%vf(j)%sf(q, k, l) &
+                                         - flux_src_n(2)%vf(j)%sf(q, k - 1, l))
+                                end do
+                              end do
+                            end do
+                        end if                        
                       end if
                     end do
                   else
@@ -1207,10 +1684,340 @@ contains
                     end do
                   end if
                 end if
+
+                if(bubbles .AND. (.NOT. qbmm)) then
+
+!$acc parallel loop collapse(3) gang vector default(present)
+                      do l = 0, p
+                          do k = 0, n
+                              do j = 0, m
+                                  divu%sf(j, k, l) = divu%sf(j, k, l) + &
+                                      5d-1/dy(k)*(q_prim_qp%vf(contxe + id)%sf(j , k + 1, l) - &
+                                      q_prim_qp%vf(contxe + id)%sf(j , k - 1, l))
+                                  
+                              end do
+                          end do
+                      end do
+
+                    ndirs = 1; if (n > 0) ndirs = 2; if (p > 0) ndirs = 3
+                    if (id == ndirs) then
+                        
+!$acc parallel loop collapse(3) gang vector default(present) private(Rtmp, Vtmp)
+                      do l = 0, p
+                          do k = 0, n
+                              do j = 0, m
+
+!$acc loop seq                                    
+                                do q = 1, nb
+                                    Rtmp(q) = q_prim_qp%vf(rs(q))%sf(j, k, l)
+                                    Vtmp(q) = q_prim_qp%vf(vs(q))%sf(j, k, l)
+                                end do
+
+                                call s_comp_n_from_prim(q_prim_qp%vf(alf_idx)%sf(j, k, l), &
+                                                        Rtmp, nbub(j, k, l))
+
+                                call s_quad((Rtmp**2.d0)*Vtmp, R2Vav)
+
+                                bub_adv_src(j, k, l) = 4.d0*pi*nbub(j, k, l)*R2Vav
+                                  
+                              end do
+                          end do
+                      end do
+
+
+!$acc parallel loop collapse(3) gang vector default(present) private(myalpha_rho, myalpha)
+                        do l = 0, p
+                            do k = 0, n
+                                do j = 0, m
+!$acc loop seq  
+                                    do q = 1, nb
+
+                                        bub_r_src( j, k, l, q) = q_cons_qp%vf(vs(q))%sf(j, k, l)
+
+!$acc loop seq
+                                        do ii = 1, num_fluids
+                                            myalpha_rho(ii) = q_cons_qp%vf(ii)%sf(j, k, l)
+                                            myalpha(ii) = q_cons_qp%vf(advxb + ii - 1)%sf(j, k, l)
+                                        end do 
+
+                                        myRho = 0d0
+                                        n_tait = 0d0
+                                        B_tait = 0d0
+
+                                        if(mpp_lim .and. (num_fluids > 2)) then
+!$acc loop seq
+                                            do ii = 1, num_fluids
+                                                myRho = myRho + myalpha_rho(ii)
+                                                n_tait = n_tait + myalpha(ii)*gammas(ii)
+                                                B_tait = B_tait + myalpha(ii)*pi_infs(ii)
+                                            end do
+                                        else if(num_fluids > 2) then
+!$acc loop seq
+                                            do ii = 1, num_fluids - 1
+                                                myRho = myRho + myalpha_rho(ii)
+                                                n_tait = n_tait+ myalpha(ii)*gammas(ii)
+                                                B_tait = B_tait + myalpha(ii)*pi_infs(ii)
+                                            end do
+                                        else
+                                            myRho = myalpha_rho(1)
+                                            n_tait = gammas(1)
+                                            B_tait = pi_infs(1)
+                                        end if
+
+                                        n_tait = 1.d0/n_tait + 1.d0 !make this the usual little 'gamma'
+
+                                        myRho = q_prim_qp%vf(1)%sf(j, k, l)
+                                        myP = q_prim_qp%vf(E_idx)%sf(j, k, l)
+                                        alf = q_prim_qp%vf(alf_idx)%sf(j, k, l)
+                                        myR = q_prim_qp%vf(rs(q))%sf(j, k, l)
+                                        myV = q_prim_qp%vf(vs(q))%sf(j, k, l)
+
+                                        if (.not. polytropic) then
+                                            pb = q_prim_qp%vf(ps(q))%sf(j, k, l)
+                                            mv = q_prim_qp%vf(ms(q))%sf(j, k, l)
+                                            call s_bwproperty(pb, q)
+                                            vflux = f_vflux(myR, myV, mv, q)
+                                            pbdot = f_bpres_dot(vflux, myR, myV, pb, mv, q)
+
+                                            bub_p_src( j, k, l, q) = nbub(j, k, l)*pbdot
+                                            bub_m_src( j, k, l, q) = nbub(j, k, l)*vflux*4.d0*pi*(myR**2.d0)
+                                        else
+                                            pb = 0d0; mv = 0d0; vflux = 0d0; pbdot = 0d0
+                                        end if
+
+                                        if (bubble_model == 1) then
+                                            ! Gilmore bubbles
+                                            Cpinf = myP - pref
+                                            Cpbw = f_cpbw(R0(q), myR, myV, pb)
+                                            myH = f_H(Cpbw, Cpinf, n_tait, B_tait)
+                                            c_gas = f_cgas(Cpinf, n_tait, B_tait, myH)
+                                            Cpinf_dot = f_cpinfdot(myRho, myP, alf, n_tait, B_tait, bub_adv_src(j, k, l), divu%sf(j, k, l))
+                                            myHdot = f_Hdot(Cpbw, Cpinf, Cpinf_dot, n_tait, B_tait, myR, myV, R0(q), pbdot)
+                                            rddot = f_rddot(Cpbw, myR, myV, myH, myHdot, c_gas, n_tait, B_tait)
+                                        else if (bubble_model == 2) then
+                                            ! Keller-Miksis bubbles
+                                            Cpinf = myP
+                                            Cpbw = f_cpbw_KM(R0(q), myR, myV, pb)
+                                            ! c_gas = dsqrt( n_tait*(Cpbw+B_tait) / myRho)
+                                            c_liquid = DSQRT(n_tait*(myP + B_tait)/(myRho*(1.d0 - alf)))
+                                            rddot = f_rddot_KM(pbdot, Cpinf, Cpbw, myRho, myR, myV, R0(q), c_liquid)
+                                        else if (bubble_model == 3) then
+                                            ! Rayleigh-Plesset bubbles
+                                            Cpbw = f_cpbw_KM(R0(q), myR, myV, pb)
+                                            rddot = f_rddot_RP(myP, myRho, myR, myV, R0(q), Cpbw)
+                                        end if
+
+                                        bub_v_src( j, k, l, q) = nbub(j, k, l)*rddot
+
+                                        if (alf < 1.d-11) then
+                                            bub_adv_src(j, k, l) = 0d0
+                                            bub_r_src( j, k, l, q) = 0d0
+                                            bub_v_src( j, k, l, q) = 0d0
+                                            if (.not. polytropic) then
+                                                bub_p_src( j, k, l, q) = 0d0
+                                                bub_m_src( j, k, l, q) = 0d0
+                                            end if
+                                        end if
+                                    end do
+                                end do
+                            end do
+                        end do
+                    end if
+
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do l = 0, p
+                        do q = 0, n
+                            do i =  0, m 
+                                rhs_vf(alf_idx)%sf(i, q, l) = rhs_vf(alf_idx)%sf(i, q, l) + bub_adv_src(i, q, l)
+                                if (num_fluids > 1) rhs_vf(advxb)%sf(i, q, l) = &
+                                    rhs_vf(advxb)%sf(i, q, l) - bub_adv_src(i, q, l)
+!$acc loop seq
+                                do k = 1, nb
+                                    rhs_vf(rs(k))%sf(i, q, l) = rhs_vf(rs(k))%sf(i, q, l) + bub_r_src(i, q, l, k)
+                                    rhs_vf(vs(k))%sf(i, q, l) = rhs_vf(vs(k))%sf(i, q, l) + bub_v_src(i, q, l, k)
+                                    if (polytropic .neqv. .true.) then
+                                        rhs_vf(ps(k))%sf(i, q, l) = rhs_vf(ps(k))%sf(i, q, l) + bub_p_src(i, q, l, k)
+                                        rhs_vf(ms(k))%sf(i, q, l) = rhs_vf(ms(k))%sf(i, q, l) + bub_m_src(i, q, l, k)
+                                    end if
+                                end do
+                            end do
+                        end do
+                    end do
+                end if
+
+                if (monopole) then
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do l = 0, p
+                        do k = 0, n
+                            do j =  0, m
+                                mono_mass_src(j, k, l) = 0d0; mono_mom_src(1, j, k, l) = 0d0; mono_e_src(j, k, l) = 0d0; 
+                                if(n > 0) then
+                                    mono_mom_src(2, j, k, l) = 0d0
+                                end if
+                                if(p > 0) then
+                                    mono_mom_src(3, j, k, l) = 0d0
+                                end if
+                            end do
+                        end do
+                    end do
+
+
+
+                    ndirs = 1; if (n > 0) ndirs = 2; if (p > 0) ndirs = 3
+                    if (id == ndirs) then
+
+!$acc parallel loop collapse(3) gang vector default(present) private(myalpha_rho, myalpha)
+                        do l = 0, p
+                            do k = 0, n
+                                do j =  0, m
+!$acc loop seq                                    
+                                    do q = 1, num_mono
+
+                                        mytime = t_step*dt
+                                        if ((mytime >= mono(q)%delay) .or. (mono(q)%delay == dflt_real)) then
+
+
+!$acc loop seq
+                                            do ii = 1, num_fluids
+                                                myalpha_rho(ii) = q_cons_qp%vf(ii)%sf(j, k, l)
+                                                myalpha(ii) = q_cons_qp%vf(advxb + ii - 1)%sf(j, k, l)
+                                            end do 
+
+                                            myRho = 0d0
+                                            n_tait = 0d0
+                                            B_tait = 0d0
+
+                                            if(bubbles) then
+                                                if(mpp_lim .and. (num_fluids > 2)) then
+    !$acc loop seq
+                                                    do ii = 1, num_fluids
+                                                        myRho = myRho + myalpha_rho(ii)
+                                                        n_tait = n_tait + myalpha(ii)*gammas(ii)
+                                                        B_tait = B_tait + myalpha(ii)*pi_infs(ii)
+                                                    end do
+                                                else if(num_fluids > 2) then
+    !$acc loop seq
+                                                    do ii = 1, num_fluids - 1
+                                                        myRho = myRho + myalpha_rho(ii)
+                                                        n_tait = n_tait+ myalpha(ii)*gammas(ii)
+                                                        B_tait = B_tait + myalpha(ii)*pi_infs(ii)
+                                                    end do
+                                                else
+                                                    myRho = myalpha_rho(1)
+                                                    n_tait = gammas(1)
+                                                    B_tait = pi_infs(1)
+                                                end if
+                                            else
+    !$acc loop seq
+                                                    do ii = 1, num_fluids
+                                                        myRho = myRho + myalpha_rho(ii)
+                                                        n_tait = n_tait + myalpha(ii)*gammas(ii)
+                                                        B_tait = B_tait + myalpha(ii)*pi_infs(ii)
+                                                    end do
+                                            end if
+                                            n_tait = 1.d0/n_tait + 1.d0 !make this the usual little 'gamma'
+
+                                            sound = n_tait*(q_prim_qp%vf(E_idx)%sf(j, k, l) + ((n_tait - 1d0)/n_tait)*B_tait)/myRho
+                                            sound = dsqrt(sound)
+
+                                            const_sos = dsqrt(n_tait)
+
+                                            s2 = f_g(mytime, sound, const_sos, q) * &
+                                                f_delta(j, k, l, mono(q)%loc, mono(q)%length, q)
+
+                                            !s2 = 1d0
+
+                                            mono_mass_src(j, k, l) = mono_mass_src(j, k, l) + s2/sound
+                                            if (n == 0) then
+
+                                                ! 1D
+                                                if (mono(q)%dir < -0.1d0) then
+                                                    !left-going wave
+                                                    mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) - s2
+                                                else
+                                                    !right-going wave
+                                                    mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) + s2
+                                                end if
+                                            else if (p == 0) then
+                                                ! IF ( (j==1) .AND. (k==1) .AND. proc_rank == 0) &
+                                                !    PRINT*, '====== Monopole magnitude: ', f_g(mytime,sound,const_sos,mono(q))
+
+                                                if (mono(q)%dir .ne. dflt_real) then
+                                                    ! 2d
+                                                    !mono_mom_src(1,j,k,l) = s2
+                                                    !mono_mom_src(2,j,k,l) = s2
+                                                    mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) + s2*cos(mono(q)%dir)
+                                                    mono_mom_src(2, j, k, l) = mono_mom_src(2, j, k, l) + s2*sin(mono(q)%dir)
+                                                end if
+                                            else
+                                                ! 3D
+                                                if (mono(q)%dir .ne. dflt_real) then
+                                                    mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) + s2*cos(mono(q)%dir)
+                                                    mono_mom_src(2, j, k, l) = mono_mom_src(2, j, k, l) + s2*sin(mono(q)%dir)
+                                                end if
+                                            end if
+
+                                            if (model_eqns .ne. 4) then
+                                                mono_E_src(j, k, l) = mono_E_src(j, k, l) + s2*sound/(n_tait - 1.d0)
+                                            end if
+
+                                        end if
+                                    end do
+                                end do 
+                            end do 
+                        end do
+                        
+                    end if
+
+
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do l = 0, p
+                        do k = 0, n
+                            do j =  0, m
+!$acc loop seq
+                                do q = contxb, contxe
+                                    rhs_vf(q)%sf(j, k, l) = rhs_vf(q)%sf(j, k, l) + mono_mass_src(j, k, l)
+                                end do
+!$acc loop seq
+                                do q = momxb, momxe
+                                    rhs_vf(q)%sf(j, k, l) = rhs_vf(q)%sf(j, k, l) + mono_mom_src(q - contxe, j, k, l)
+                                end do
+                                rhs_vf(E_idx)%sf(j, k, l) = rhs_vf(E_idx)%sf(j, k, l) + mono_e_src(j, k, l)
+                            end do
+                        end do
+                    end do
+                end if
+
+                if(cyl_coord) then
+!$acc parallel loop collapse(4) gang vector default(present)                
+                    do j = 1, sys_size
+                      do l = 0, p
+                        do k = 0, n
+                          do q = 0, m
+                            rhs_vf(j)%sf(q, k, l) = &
+                                rhs_vf(j)%sf(q, k, l) - 5d-1/y_cc(k) * &
+                                (flux_gsrc_n(2)%vf(j)%sf(q, k - 1, l) &
+                                 - flux_gsrc_n(2)%vf(j)%sf(q, k, l))
+                          end do
+                        end do
+                      end do
+                    end do
+                end if
+                
             elseif (id == 3) then
             ! RHS Contribution in z-direction ===============================
 
                 ! Applying the Riemann fluxes
+
+                if (bc_z%beg <= -5) then
+                    call s_cbc(q_prim_qp%vf, flux_n(id)%vf, &
+                               flux_src_n(id)%vf, id, -1, ix, iy, iz)
+                end if
+
+                if (bc_z%end <= -5) then
+                    call s_cbc(q_prim_qp%vf, flux_n(id)%vf, &
+                               flux_src_n(id)%vf, id, 1, ix, iy, iz)
+                end if
 
 
                 if(grid_geometry == 3) then
@@ -1236,8 +2043,8 @@ contains
                             rhs_vf(j)%sf(l, q, k) = &
                                 rhs_vf(j)%sf(l, q, k) + 1d0/dz(k)/y_cc(q)* &
                                 q_prim_qp%vf(contxe + id)%sf(l, q, k)* &
-                                (flux_src_n(3)%vf(j)%sf(l, q, k) &
-                                 - flux_src_n(3)%vf(j)%sf(l, q, k - 1))
+                                (flux_src_n(3)%vf(j)%sf(l, q, k - 1) &
+                                 - flux_src_n(3)%vf(j)%sf(l, q, k))
                             end do
                         end do
                       end do 
@@ -1290,7 +2097,21 @@ contains
                         end do 
                       end do
                     end if
-                  end if                
+                  end if   
+
+!$acc parallel loop collapse(4) gang vector default(present) 
+                  do j = 1, sys_size
+                      do k = 0, p
+                        do q = 0, n
+                          do l = 0, m
+                          rhs_vf(j)%sf(l, q, k) = &
+                              rhs_vf(j)%sf(l, q, k) - 5d-1/y_cc(q)* &
+                              (flux_gsrc_n(3)%vf(j)%sf(l, q, k - 1) &
+                               - flux_gsrc_n(3)%vf(j)%sf(l, q, k))
+                        end do
+                      end do
+                    end do
+                  end do                               
 
                 else  
 !$acc parallel loop collapse(4) gang vector default(present) 
@@ -1316,8 +2137,8 @@ contains
                             rhs_vf(j)%sf(l, q, k) = &
                                 rhs_vf(j)%sf(l, q, k) + 1d0/dz(k)* &
                                 q_prim_qp%vf(contxe + id)%sf(l, q, k)* &
-                                (flux_src_n(3)%vf(j)%sf(l, q, k) &
-                                 - flux_src_n(3)%vf(j)%sf(l, q, k - 1))
+                                (flux_src_n(3)%vf(j)%sf(l, q, k - 1) &
+                                 - flux_src_n(3)%vf(j)%sf(l, q, k))
                             end do
                         end do
                       end do 
@@ -1372,6 +2193,311 @@ contains
                     end if
                   end if
                 end if 
+
+
+                if(bubbles .AND. (.NOT. qbmm)) then
+
+!$acc parallel loop collapse(3) gang vector default(present)
+                      do l = 0, p
+                          do k = 0, n
+                              do j = 0, m
+                                  divu%sf(j, k, l) = divu%sf(j, k, l) + &
+                                      5d-1/dz(l)*(q_prim_qp%vf(contxe + id)%sf(j , k , l + 1) - &
+                                      q_prim_qp%vf(contxe + id)%sf(j , k , l - 1))
+                                  
+                              end do
+                          end do
+                      end do
+
+                    ndirs = 1; if (n > 0) ndirs = 2; if (p > 0) ndirs = 3
+                    if (id == ndirs) then
+                        
+!$acc parallel loop collapse(3) gang vector default(present) private(Rtmp, Vtmp)
+                      do l = 0, p
+                          do k = 0, n
+                              do j = 0, m
+
+!$acc loop seq                                    
+                                do q = 1, nb
+                                    Rtmp(q) = q_prim_qp%vf(rs(q))%sf(j, k, l)
+                                    Vtmp(q) = q_prim_qp%vf(vs(q))%sf(j, k, l)
+                                end do
+
+                                call s_comp_n_from_prim(q_prim_qp%vf(alf_idx)%sf(j, k, l), &
+                                                        Rtmp, nbub(j, k, l))
+
+                                call s_quad((Rtmp**2.d0)*Vtmp, R2Vav)
+
+                                bub_adv_src(j, k, l) = 4.d0*pi*nbub(j, k, l)*R2Vav
+                                  
+                              end do
+                          end do
+                      end do
+
+
+!$acc parallel loop collapse(3) gang vector default(present) private(myalpha_rho, myalpha)
+                        do l = 0, p
+                            do k = 0, n
+                                do j = 0, m
+!$acc loop seq  
+                                    do q = 1, nb
+
+                                        bub_r_src( j, k, l, q) = q_cons_qp%vf(vs(q))%sf(j, k, l)
+
+!$acc loop seq
+                                        do ii = 1, num_fluids
+                                            myalpha_rho(ii) = q_cons_qp%vf(ii)%sf(j, k, l)
+                                            myalpha(ii) = q_cons_qp%vf(advxb + ii - 1)%sf(j, k, l)
+                                        end do 
+
+                                        myRho = 0d0
+                                        n_tait = 0d0
+                                        B_tait = 0d0
+
+                                        if(mpp_lim .and. (num_fluids > 2)) then
+!$acc loop seq
+                                            do ii = 1, num_fluids
+                                                myRho = myRho + myalpha_rho(ii)
+                                                n_tait = n_tait + myalpha(ii)*gammas(ii)
+                                                B_tait = B_tait + myalpha(ii)*pi_infs(ii)
+                                            end do
+                                        else if(num_fluids > 2) then
+!$acc loop seq
+                                            do ii = 1, num_fluids - 1
+                                                myRho = myRho + myalpha_rho(ii)
+                                                n_tait = n_tait+ myalpha(ii)*gammas(ii)
+                                                B_tait = B_tait + myalpha(ii)*pi_infs(ii)
+                                            end do
+                                        else
+                                            myRho = myalpha_rho(1)
+                                            n_tait = gammas(1)
+                                            B_tait = pi_infs(1)
+                                        end if
+
+                                        n_tait = 1.d0/n_tait + 1.d0 !make this the usual little 'gamma'
+
+                                        myRho = q_prim_qp%vf(1)%sf(j, k, l)
+                                        myP = q_prim_qp%vf(E_idx)%sf(j, k, l)
+                                        alf = q_prim_qp%vf(alf_idx)%sf(j, k, l)
+                                        myR = q_prim_qp%vf(rs(q))%sf(j, k, l)
+                                        myV = q_prim_qp%vf(vs(q))%sf(j, k, l)
+
+                                        if (.not. polytropic) then
+                                            pb = q_prim_qp%vf(ps(q))%sf(j, k, l)
+                                            mv = q_prim_qp%vf(ms(q))%sf(j, k, l)
+                                            call s_bwproperty(pb, q)
+                                            vflux = f_vflux(myR, myV, mv, q)
+                                            pbdot = f_bpres_dot(vflux, myR, myV, pb, mv, q)
+
+                                            bub_p_src( j, k, l, q) = nbub(j, k, l)*pbdot
+                                            bub_m_src( j, k, l, q) = nbub(j, k, l)*vflux*4.d0*pi*(myR**2.d0)
+                                        else
+                                            pb = 0d0; mv = 0d0; vflux = 0d0; pbdot = 0d0
+                                        end if
+
+                                        if (bubble_model == 1) then
+                                            ! Gilmore bubbles
+                                            Cpinf = myP - pref
+                                            Cpbw = f_cpbw(R0(q), myR, myV, pb)
+                                            myH = f_H(Cpbw, Cpinf, n_tait, B_tait)
+                                            c_gas = f_cgas(Cpinf, n_tait, B_tait, myH)
+                                            Cpinf_dot = f_cpinfdot(myRho, myP, alf, n_tait, B_tait, bub_adv_src(j, k, l), divu%sf(j, k, l))
+                                            myHdot = f_Hdot(Cpbw, Cpinf, Cpinf_dot, n_tait, B_tait, myR, myV, R0(q), pbdot)
+                                            rddot = f_rddot(Cpbw, myR, myV, myH, myHdot, c_gas, n_tait, B_tait)
+                                        else if (bubble_model == 2) then
+                                            ! Keller-Miksis bubbles
+                                            Cpinf = myP
+                                            Cpbw = f_cpbw_KM(R0(q), myR, myV, pb)
+                                            ! c_gas = dsqrt( n_tait*(Cpbw+B_tait) / myRho)
+                                            c_liquid = DSQRT(n_tait*(myP + B_tait)/(myRho*(1.d0 - alf)))
+                                            rddot = f_rddot_KM(pbdot, Cpinf, Cpbw, myRho, myR, myV, R0(q), c_liquid)
+                                        else if (bubble_model == 3) then
+                                            ! Rayleigh-Plesset bubbles
+                                            Cpbw = f_cpbw_KM(R0(q), myR, myV, pb)
+                                            rddot = f_rddot_RP(myP, myRho, myR, myV, R0(q), Cpbw)
+                                        end if
+
+                                        bub_v_src( j, k, l, q) = nbub(j, k, l)*rddot
+
+                                        if (alf < 1.d-11) then
+                                            bub_adv_src(j, k, l) = 0d0
+                                            bub_r_src( j, k, l, q) = 0d0
+                                            bub_v_src( j, k, l, q) = 0d0
+                                            if (.not. polytropic) then
+                                                bub_p_src( j, k, l, q) = 0d0
+                                                bub_m_src( j, k, l, q) = 0d0
+                                            end if
+                                        end if
+                                    end do
+                                end do
+                            end do
+                        end do
+                    end if
+
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do l = 0, p
+                        do q = 0, n
+                            do i =  0, m 
+                                rhs_vf(alf_idx)%sf(i, q, l) = rhs_vf(alf_idx)%sf(i, q, l) + bub_adv_src(i, q, l)
+                                if (num_fluids > 1) rhs_vf(advxb)%sf(i, q, l) = &
+                                    rhs_vf(advxb)%sf(i, q, l) - bub_adv_src(i, q, l)
+!$acc loop seq
+                                do k = 1, nb
+                                    rhs_vf(rs(k))%sf(i, q, l) = rhs_vf(rs(k))%sf(i, q, l) + bub_r_src(i, q, l, k)
+                                    rhs_vf(vs(k))%sf(i, q, l) = rhs_vf(vs(k))%sf(i, q, l) + bub_v_src(i, q, l, k)
+                                    if (polytropic .neqv. .true.) then
+                                        rhs_vf(ps(k))%sf(i, q, l) = rhs_vf(ps(k))%sf(i, q, l) + bub_p_src(i, q, l, k)
+                                        rhs_vf(ms(k))%sf(i, q, l) = rhs_vf(ms(k))%sf(i, q, l) + bub_m_src(i, q, l, k)
+                                    end if
+                                end do
+                            end do
+                        end do
+                    end do
+                end if
+
+                if (monopole) then
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do l = 0, p
+                        do k = 0, n
+                            do j =  0, m
+                                mono_mass_src(j, k, l) = 0d0; mono_mom_src(1, j, k, l) = 0d0; mono_e_src(j, k, l) = 0d0; 
+                                if(n > 0) then
+                                    mono_mom_src(2, j, k, l) = 0d0
+                                end if
+                                if(p > 0) then
+                                    mono_mom_src(3, j, k, l) = 0d0
+                                end if
+                            end do
+                        end do
+                    end do
+
+
+
+                    ndirs = 1; if (n > 0) ndirs = 2; if (p > 0) ndirs = 3
+                    if (id == ndirs) then
+
+!$acc parallel loop collapse(3) gang vector default(present) private(myalpha_rho, myalpha)
+                        do l = 0, p
+                            do k = 0, n
+                                do j =  0, m
+!$acc loop seq                                    
+                                    do q = 1, num_mono
+
+                                        mytime = t_step*dt
+                                        if ((mytime >= mono(q)%delay) .or. (mono(q)%delay == dflt_real)) then
+
+
+!$acc loop seq
+                                            do ii = 1, num_fluids
+                                                myalpha_rho(ii) = q_cons_qp%vf(ii)%sf(j, k, l)
+                                                myalpha(ii) = q_cons_qp%vf(advxb + ii - 1)%sf(j, k, l)
+                                            end do 
+
+                                            myRho = 0d0
+                                            n_tait = 0d0
+                                            B_tait = 0d0
+
+                                            if(bubbles) then
+                                                if(mpp_lim .and. (num_fluids > 2)) then
+    !$acc loop seq
+                                                    do ii = 1, num_fluids
+                                                        myRho = myRho + myalpha_rho(ii)
+                                                        n_tait = n_tait + myalpha(ii)*gammas(ii)
+                                                        B_tait = B_tait + myalpha(ii)*pi_infs(ii)
+                                                    end do
+                                                else if(num_fluids > 2) then
+    !$acc loop seq
+                                                    do ii = 1, num_fluids - 1
+                                                        myRho = myRho + myalpha_rho(ii)
+                                                        n_tait = n_tait+ myalpha(ii)*gammas(ii)
+                                                        B_tait = B_tait + myalpha(ii)*pi_infs(ii)
+                                                    end do
+                                                else
+                                                    myRho = myalpha_rho(1)
+                                                    n_tait = gammas(1)
+                                                    B_tait = pi_infs(1)
+                                                end if
+                                            else
+    !$acc loop seq
+                                                    do ii = 1, num_fluids
+                                                        myRho = myRho + myalpha_rho(ii)
+                                                        n_tait = n_tait + myalpha(ii)*gammas(ii)
+                                                        B_tait = B_tait + myalpha(ii)*pi_infs(ii)
+                                                    end do
+                                            end if
+                                            n_tait = 1.d0/n_tait + 1.d0 !make this the usual little 'gamma'
+
+                                            sound = n_tait*(q_prim_qp%vf(E_idx)%sf(j, k, l) + ((n_tait - 1d0)/n_tait)*B_tait)/myRho
+                                            sound = dsqrt(sound)
+
+                                            const_sos = dsqrt(n_tait)
+
+                                            s2 = f_g(mytime, sound, const_sos, q) * &
+                                                f_delta(j, k, l, mono(q)%loc, mono(q)%length, q)
+
+                                            !s2 = 1d0
+
+                                            mono_mass_src(j, k, l) = mono_mass_src(j, k, l) + s2/sound
+                                            if (n == 0) then
+
+                                                ! 1D
+                                                if (mono(q)%dir < -0.1d0) then
+                                                    !left-going wave
+                                                    mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) - s2
+                                                else
+                                                    !right-going wave
+                                                    mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) + s2
+                                                end if
+                                            else if (p == 0) then
+                                                ! IF ( (j==1) .AND. (k==1) .AND. proc_rank == 0) &
+                                                !    PRINT*, '====== Monopole magnitude: ', f_g(mytime,sound,const_sos,mono(q))
+
+                                                if (mono(q)%dir .ne. dflt_real) then
+                                                    ! 2d
+                                                    !mono_mom_src(1,j,k,l) = s2
+                                                    !mono_mom_src(2,j,k,l) = s2
+                                                    mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) + s2*cos(mono(q)%dir)
+                                                    mono_mom_src(2, j, k, l) = mono_mom_src(2, j, k, l) + s2*sin(mono(q)%dir)
+                                                end if
+                                            else
+                                                ! 3D
+                                                if (mono(q)%dir .ne. dflt_real) then
+                                                    mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) + s2*cos(mono(q)%dir)
+                                                    mono_mom_src(2, j, k, l) = mono_mom_src(2, j, k, l) + s2*sin(mono(q)%dir)
+                                                end if
+                                            end if
+
+                                            if (model_eqns .ne. 4) then
+                                                mono_E_src(j, k, l) = mono_E_src(j, k, l) + s2*sound/(n_tait - 1.d0)
+                                            end if
+
+                                        end if
+                                    end do
+                                end do 
+                            end do 
+                        end do
+                        
+                    end if
+
+
+!$acc parallel loop collapse(3) gang vector default(present)
+                    do l = 0, p
+                        do k = 0, n
+                            do j =  0, m
+!$acc loop seq
+                                do q = contxb, contxe
+                                    rhs_vf(q)%sf(j, k, l) = rhs_vf(q)%sf(j, k, l) + mono_mass_src(j, k, l)
+                                end do
+!$acc loop seq
+                                do q = momxb, momxe
+                                    rhs_vf(q)%sf(j, k, l) = rhs_vf(q)%sf(j, k, l) + mono_mom_src(q - contxe, j, k, l)
+                                end do
+                                rhs_vf(E_idx)%sf(j, k, l) = rhs_vf(E_idx)%sf(j, k, l) + mono_e_src(j, k, l)
+                            end do
+                        end do
+                    end do
+                end if
+
   
             end if  ! i loop
             call nvtxEndRange
@@ -1961,7 +3087,7 @@ contains
                 if (monopole) then
                     mono_mass_src = 0d0; mono_mom_src = 0d0; mono_e_src = 0d0; 
                     do j = 1, num_mono
-                        call s_get_monopole(i, q_prim_vf, t_step, mono(j))
+                        !call s_get_monopole(i, q_prim_vf, t_step, mono(j))
                     end do
                     do k = cont_idx%beg, cont_idx%end
                         rhs_vf(k)%sf(:, :, :) = rhs_vf(k)%sf(:, :, :) + mono_mass_src(:, :, :)
@@ -2227,7 +3353,7 @@ contains
                 if (monopole) then
                     mono_mass_src = 0d0; mono_mom_src = 0d0; mono_e_src = 0d0; 
                     do j = 1, num_mono
-                        call s_get_monopole(i, q_prim_vf, t_step, mono(j))
+                        !call s_get_monopole(i, q_prim_vf, t_step, mono(j))
                     end do
 
                     do k = cont_idx%beg, cont_idx%end
@@ -2483,7 +3609,7 @@ contains
                 if (monopole) then
                     mono_mass_src = 0d0; mono_mom_src = 0d0; mono_e_src = 0d0; 
                     do j = 1, num_mono
-                        call s_get_monopole(i, q_prim_vf, t_step, mono(j))
+                        !call s_get_monopole(i, q_prim_vf, t_step, mono(j))
                     end do
                     do k = cont_idx%beg, cont_idx%end
                         rhs_vf(k)%sf(:, :, :) = rhs_vf(k)%sf(:, :, :) + mono_mass_src(:, :, :)
@@ -2761,121 +3887,45 @@ contains
         end if          
     end subroutine s_get_divergence
 
-    !> The purpose of this procedure is to compute the source term
-        !! that are needed for generating one-way acoustic waves
-        !! @param idir Coordinate direction
-        !! @param q_prim_vf Primitive variables
-        !! @param t_step Current time-step
-        !! @param mymono Monopole parameters
-    subroutine s_get_monopole(idir, q_prim_vf, t_step, mymono) ! ------------------------------
 
-        type(scalar_field), dimension(sys_size), intent(IN) :: q_prim_vf
-        type(mono_parameters), intent(IN) :: mymono
-        integer, intent(IN) :: idir, t_step
 
-        integer :: ndirs, j, k, l
-
-        real(kind(0d0)) :: mytime, sound, n_tait, B_tait
-        real(kind(0d0)) :: s2, myRho, const_sos
-
-        real(kind(0d0)), dimension(2) :: Re
-
-        ndirs = 1; if (n > 0) ndirs = 2; if (p > 0) ndirs = 3
-
-        if (idir == ndirs) then
-            mytime = t_step*dt
-            if (proc_rank == 0) print *, 'time', mytime, 'delay', mymono%delay, dflt_real
-            if ((mytime < mymono%delay) .and. mymono%delay /= dflt_real) return
-
-            do j = 0, m; do k = 0, n; do l = 0, p
-                    call s_convert_to_mixture_variables(q_prim_vf, myRho, n_tait, B_tait, Re, j, k, l)
-                    n_tait = 1.d0/n_tait + 1.d0 !make this the usual little 'gamma'
-
-                    sound = n_tait*(q_prim_vf(E_idx)%sf(j, k, l) + ((n_tait - 1d0)/n_tait)*B_tait)/myRho
-                    sound = dsqrt(sound)
-
-                    const_sos = dsqrt(n_tait)
-
-                    s2 = f_g(mytime, sound, const_sos, mymono) * &
-                        f_delta(j, k, l, mymono%loc, mymono%length, mymono)
-
-                    mono_mass_src(j, k, l) = mono_mass_src(j, k, l) + s2/sound
-                    if (n == 0) then
-
-                        ! 1D
-                        if (mymono%dir < -0.1d0) then
-                            !left-going wave
-                            mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) - s2
-                        else
-                            !right-going wave
-                            mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) + s2
-                        end if
-                    else if (p == 0) then
-                        ! IF ( (j==1) .AND. (k==1) .AND. proc_rank == 0) &
-                        !    PRINT*, '====== Monopole magnitude: ', f_g(mytime,sound,const_sos,mymono)
-
-                        if (mymono%dir .ne. dflt_real) then
-                            ! 2d
-                            !mono_mom_src(1,j,k,l) = s2
-                            !mono_mom_src(2,j,k,l) = s2
-                            mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) + s2*cos(mymono%dir)
-                            mono_mom_src(2, j, k, l) = mono_mom_src(2, j, k, l) + s2*sin(mymono%dir)
-                        end if
-                    else
-                        ! 3D
-                        if (mymono%dir .ne. dflt_real) then
-                            mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) + s2*cos(mymono%dir)
-                            mono_mom_src(2, j, k, l) = mono_mom_src(2, j, k, l) + s2*sin(mymono%dir)
-                        end if
-                    end if
-
-                    if (model_eqns .ne. 4) then
-                        mono_E_src(j, k, l) = mono_E_src(j, k, l) + s2*sound/(n_tait - 1.d0)
-                    end if
-                end do; end do; end do
-        end if
-
-    end subroutine s_get_monopole
 
     !> This function gives the temporally varying amplitude of the pulse
         !! @param mytime Simulation time
         !! @param sos Sound speed
         !! @param mysos Alternative speed of sound for testing
-        !! @param mymono Monopole parameterrs
-    function f_g(mytime, sos, mysos, mymono)
-
+    function f_g(mytime, sos, mysos, nm)
+!$acc routine seq
         real(kind(0d0)), intent(IN) :: mytime, sos, mysos
-        type(mono_parameters), intent(IN) :: mymono
+        integer, intent(IN) :: nm
         real(kind(0d0)) :: period, t0, sigt, pa
         real(kind(0d0)) :: offset
         real(kind(0d0)) :: f_g
 
         offset = 0d0
-        if (mymono%delay /= dflt_real) offset = mymono%delay
+        if (mono(nm)%delay /= dflt_real) offset = mono(nm)%delay
 
-        if (mymono%pulse == 1) then
+        if (mono(nm)%pulse == 1) then
             ! Sine wave
-            period = mymono%length/sos
+            period = mono(nm)%length/sos
             f_g = 0d0
-            if (mytime <= (mymono%npulse*period + offset)) then
-                f_g = mymono%mag*sin((mytime + offset)*2.d0*pi/period)
+            if (mytime <= (mono(nm)%npulse*period + offset)) then
+                f_g = mono(nm)%mag*sin((mytime + offset)*2.d0*pi/period)
             end if
-        else if (mymono%pulse == 2) then
+        else if (mono(nm)%pulse == 2) then
             ! Gaussian pulse
-            sigt = mymono%length/sos/7.d0
+            sigt = mono(nm)%length/sos/7.d0
             t0 = 3.5d0*sigt
-            f_g = mymono%mag/(dsqrt(2.d0*pi)*sigt)* &
+            f_g = mono(nm)%mag/(dsqrt(2.d0*pi)*sigt)* &
                   dexp(-0.5d0*((mytime - t0)**2.d0)/(sigt**2.d0))
-        else if (mymono%pulse == 3) then
+        else if (mono(nm)%pulse == 3) then
             ! Square wave
-            sigt = mymono%length/sos
+            sigt = mono(nm)%length/sos
             t0 = 0d0; f_g = 0d0
             if (mytime > t0 .and. mytime < sigt) then
-                f_g = mymono%mag
+                f_g = mono(nm)%mag
             end if
         else
-            print '(A)', 'No pulse type detected. Exiting ...'
-            call s_mpi_abort()
         end if
 
     end function f_g
@@ -2886,11 +3936,10 @@ contains
         !! @param l Third coordinate-direction location index
         !! @param mono_loc Nominal source term location
         !! @param mono_leng Length of source term in space
-        !! @param mymono Monopole parameters
-    function f_delta(j, k, l, mono_loc, mono_leng, mymono)
-
-        real(kind(0d0)), dimension(3), intent(IN) :: mono_loc
-        type(mono_parameters), intent(IN) :: mymono
+    function f_delta(j, k, l, mono_loc, mono_leng, nm)
+!$acc routine seq
+        real(kind(0d0)), dimension(:), intent(IN) :: mono_loc
+        integer, intent(IN) :: nm
         real(kind(0d0)), intent(IN) :: mono_leng
         integer, intent(in) :: j, k, l
 
@@ -2912,55 +3961,55 @@ contains
         end if
 
         if (n == 0) then      !1D
-            if (mymono%support == 1) then
+            if (mono(nm)%support == 1) then
                 ! 1D delta function
                 hx = abs(mono_loc(1) - x_cc(j))
 
                 f_delta = 1.d0/(dsqrt(2.d0*pi)*sig/2.d0)* &
                           dexp(-0.5d0*(hx/(sig/2.d0))**2.d0)
-            else if (mymono%support == 0) then
+            else if (mono(nm)%support == 0) then
                 ! Support for all x
                 f_delta = 1.d0
             end if
         else if (p == 0) then !2D
             hx = mono_loc(1) - x_cc(j)
             hy = mono_loc(2) - y_cc(k)
-            if (mymono%support == 1) then
+            if (mono(nm)%support == 1) then
                 ! 2D delta function
                 sig = mono_leng/20.d0
                 h = dsqrt(hx**2.d0 + hy**2.d0)
 
                 f_delta = 1.d0/(dsqrt(2.d0*pi)*sig/2.d0)* &
                           dexp(-0.5d0*((h/(sig/2.d0))**2.d0))
-            else if (mymono%support == 2) then
+            else if (mono(nm)%support == 2) then
                 !only support for y \pm some value
-                if (abs(hy) < mymono%length) then
+                if (abs(hy) < mono(nm)%length) then
                     f_delta = 1.d0/(dsqrt(2.d0*pi)*sig/2.d0)* &
                               dexp(-0.5d0*(hx/(sig/2.d0))**2.d0)
                 else
                     f_delta = 0d0
                 end if
-            else if (mymono%support == 3) then
+            else if (mono(nm)%support == 3) then
                 ! Only support along some line
                 hx = x_cc(j) - mono_loc(1)
                 hy = y_cc(k) - mono_loc(2)
 
                 ! Rotate actual point by -theta
-                hxnew = cos(mymono%dir)*hx + sin(mymono%dir)*hy
-                hynew = -1.d0*sin(mymono%dir)*hx + cos(mymono%dir)*hy
-                if (abs(hynew) < mymono%loc(3)/2.d0) then
+                hxnew = cos(mono(nm)%dir)*hx + sin(mono(nm)%dir)*hy
+                hynew = -1.d0*sin(mono(nm)%dir)*hx + cos(mono(nm)%dir)*hy
+                if (abs(hynew) < mono(nm)%loc(3)/2.d0) then
                     f_delta = 1.d0/(dsqrt(2.d0*pi)*sig/2.d0)* &
                               dexp(-0.5d0*(hxnew/(sig/2.d0))**2.d0)
                 else
                     f_delta = 0d0
                 end if
-            else if (mymono%support == 4) then
+            else if (mono(nm)%support == 4) then
                 ! Support for all y
                 f_delta = 1.d0/(dsqrt(2.d0*pi)*sig)* &
                           dexp(-0.5d0*(hx/sig)**2.d0)
             end if
         else !3D
-            if (mymono%support == 3) then
+            if (mono(nm)%support == 3) then
                 ! Only support along some patch
 
                 hx = x_cc(j) - mono_loc(1)
@@ -2968,19 +4017,17 @@ contains
                 hz = z_cc(l) - mono_loc(3)
 
                 ! Rotate actual point by -theta
-                hxnew = cos(mymono%dir)*hx + sin(mymono%dir)*hy
-                hynew = -1.d0*sin(mymono%dir)*hx + cos(mymono%dir)*hy
+                hxnew = cos(mono(nm)%dir)*hx + sin(mono(nm)%dir)*hy
+                hynew = -1.d0*sin(mono(nm)%dir)*hx + cos(mono(nm)%dir)*hy
 
-                if (abs(hynew) < mymono%length/2. .and. &
-                    abs(hz) < mymono%length/2.) then
+                if (abs(hynew) < mono(nm)%length/2. .and. &
+                    abs(hz) < mono(nm)%length/2.) then
                     f_delta = 1.d0/(dsqrt(2.d0*pi)*sig/2.d0)* &
                               dexp(-0.5d0*(hxnew/(sig/2.d0))**2.d0)
                 else
                     f_delta = 0d0
                 end if
             else
-                print '(a)', 'Monopole support not properly defined'
-                call s_mpi_abort()
             end if
         end if
 
@@ -4372,6 +5419,8 @@ contains
             weno_dir = 3; is1%beg = is1%beg + weno_polyn
             is1%end = is1%end - weno_polyn
         end if
+
+
         call s_weno_alt(v_vf(iv%beg:iv%end), &  
                     vL_x_flat, vL_y_flat, vL_z_flat, vR_x_flat, vR_y_flat, vR_z_flat, &
                     norm_dir, weno_dir,  &
@@ -4518,6 +5567,9 @@ contains
 
 
 
+
+
+
     !> Module deallocation and/or disassociation procedures
     subroutine s_finalize_rhs_module() ! -----------------------------------
 
@@ -4553,80 +5605,80 @@ contains
 
 
         do i = num_dims, 1, -1
-            do l = 1, cont_idx%end
-                nullify (qL_prim_n(i)%vf(l)%sf)
-                nullify (qR_prim_n(i)%vf(l)%sf)
-            end do
 
-            do l = adv_idx%beg, adv_idx%end
-                nullify (qL_prim_n(i)%vf(l)%sf)
-                nullify (qR_prim_n(i)%vf(l)%sf)
-            end do
+        !    do l = 1, cont_idx%end
+        !        nullify (qL_prim_n(i)%vf(l)%sf)
+        !        nullify (qR_prim_n(i)%vf(l)%sf)
+        !    end do
 
-            if (i /= 1) then
-                if (any(Re_size > 0)) then
-                    if (weno_vars == 1) then
-                        do l = 1, mom_idx%end
-                            deallocate (qL_cons_n(i)%vf(l)%sf)
-                            deallocate (qR_cons_n(i)%vf(l)%sf)
-                        end do
-                    else
-                        do l = mom_idx%beg, mom_idx%end
-                            deallocate (qL_prim_n(i)%vf(l)%sf)
-                            deallocate (qR_prim_n(i)%vf(l)%sf)
-                        end do
-                        if (model_eqns == 3) then
-                            do l = internalEnergies_idx%beg, internalEnergies_idx%end
-                                deallocate (qL_prim_n(i)%vf(l)%sf)
-                                deallocate (qR_prim_n(i)%vf(l)%sf)
-                            end do
-                        end if
-                    end if
-                end if
+         !   do l = adv_idx%beg, adv_idx%end
+         !       nullify (qL_prim_n(i)%vf(l)%sf)
+         !       nullify (qR_prim_n(i)%vf(l)%sf)
+         !   end do
 
-                do l = 1, sys_size
-                    nullify (qL_cons_n(i)%vf(l)%sf)
-                    nullify (qR_cons_n(i)%vf(l)%sf)
-                    nullify (qL_prim_n(i)%vf(l)%sf)
-                    nullify (qR_prim_n(i)%vf(l)%sf)
-                end do
-            else
-                do l = 1, cont_idx%end
-                    deallocate (qL_cons_n(i)%vf(l)%sf)
-                    deallocate (qR_cons_n(i)%vf(l)%sf)
-                end do
+            !if (i /= 1) then
+                !if (any(Re_size > 0)) then
+                  !  if (weno_vars == 1) then
+                  !      do l = 1, mom_idx%end
+                  !          deallocate (qL_cons_n(i)%vf(l)%sf)
+                  !          deallocate (qR_cons_n(i)%vf(l)%sf)
+                  !      end do
+                  !  else
+                  !      do l = mom_idx%beg, mom_idx%end
+                  !          deallocate (qL_prim_n(i)%vf(l)%sf)
+                 !           deallocate (qR_prim_n(i)%vf(l)%sf)
+                 !       end do
+                 !       if (model_eqns == 3) then
+                 !           do l = internalEnergies_idx%beg, internalEnergies_idx%end
+                 !               deallocate (qL_prim_n(i)%vf(l)%sf)
+                !                deallocate (qR_prim_n(i)%vf(l)%sf)
+                !            end do
+                !        end if
+                !    end if
+                !end if
 
-                if (weno_vars == 1) then
-                    do l = mom_idx%beg, E_idx
-                        deallocate (qL_cons_n(i)%vf(l)%sf)
-                        deallocate (qR_cons_n(i)%vf(l)%sf)
-                    end do
-                end if
+                !do l = 1, sys_size
+                !    nullify (qL_cons_n(i)%vf(l)%sf)
+                !    nullify (qR_cons_n(i)%vf(l)%sf)
+                !    nullify (qL_prim_n(i)%vf(l)%sf)
+                !    nullify (qR_prim_n(i)%vf(l)%sf)
+                !end do
+            !else
+            !    do l = 1, cont_idx%end
+            !        deallocate (qL_cons_n(i)%vf(l)%sf)
+            !        deallocate (qR_cons_n(i)%vf(l)%sf)
+            !    end do
 
-                do l = mom_idx%beg, E_idx
-                    deallocate (qL_prim_n(i)%vf(l)%sf)
-                    deallocate (qR_prim_n(i)%vf(l)%sf)
-                end do
+            !    if (weno_vars == 1) then
+            !        do l = mom_idx%beg, E_idx
+            !            deallocate (qL_cons_n(i)%vf(l)%sf)
+            !            deallocate (qR_cons_n(i)%vf(l)%sf)
+            !        end do
+            !    end if
 
-                if (model_eqns == 3) then
-                    do l = internalEnergies_idx%beg, internalEnergies_idx%end
-                        deallocate (qL_prim_n(i)%vf(l)%sf)
-                        deallocate (qR_prim_n(i)%vf(l)%sf)
-                    end do
-                end if
+              !  do l = mom_idx%beg, E_idx
+              !      deallocate (qL_prim_n(i)%vf(l)%sf)
+              !      deallocate (qR_prim_n(i)%vf(l)%sf)
+              !  end do
 
-                do l = adv_idx%beg, adv_idx%end
-                    deallocate (qL_cons_n(i)%vf(l)%sf)
-                    deallocate (qR_cons_n(i)%vf(l)%sf)
-                end do
+                !if (model_eqns == 3) then
+                !    do l = internalEnergies_idx%beg, internalEnergies_idx%end
+                !        deallocate (qL_prim_n(i)%vf(l)%sf)
+                !        deallocate (qR_prim_n(i)%vf(l)%sf)
+                !    end do
+                !end if
 
-                if (hypoelasticity) then
-                    do l = stress_idx%beg, stress_idx%end
-                        deallocate(qL_prim_n(i)%vf(l)%sf)
-                        deallocate(qR_prim_n(i)%vf(l)%sf)
-                    end do
-                end if
-            end if
+                !do l = adv_idx%beg, adv_idx%end
+                !    deallocate (qL_cons_n(i)%vf(l)%sf)
+                !    deallocate (qR_cons_n(i)%vf(l)%sf)
+                !end do
+!                if (hypoelasticity) then
+!                    do l = stress_idx%beg, stress_idx%end
+!                        deallocate(qL_prim_n(i)%vf(l)%sf)
+!                        deallocate(qR_prim_n(i)%vf(l)%sf)
+!                    end do
+!                end if
+            !end if
 
             deallocate (qL_cons_n(i)%vf, qL_prim_n(i)%vf)
             deallocate (qR_cons_n(i)%vf, qR_prim_n(i)%vf)

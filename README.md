@@ -1,43 +1,45 @@
-# Multi-component Flow Code (MFC)
+# <image src="doc/MFC.png" />
 
 [![DOI](https://zenodo.org/badge/doi/10.1016/j.cpc.2020.107396.svg)](http://dx.doi.org/10.1016/j.cpc.2020.107396)
 [![YourActionName Actions Status](https://github.com/ComputationalFlowPhysics/MFC-develop/workflows/CI/badge.svg)](https://github.com/ComputationalFlowPhysics/MFC-develop/actions)
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)
 [![GitHub latest commit](https://badgen.net/github/last-commit/MFlowCode/MFC-develop)](https://github.com/MFlowCode/MFC-develop/commit/)
-
-
+ 
 Welcome to MFC! 
 The MFC is a fully-documented parallel simulation software for multi-component, multi-phase, and bubbly flows.
 
-# Authors
+<p align="center">
+ <a href="#authors">Authors</a> | 
+ <a href="#publications">Publications</a> | 
+ <a href="#installing-mfc">Installing</a> | 
+ <a href="#running-mfc">Running</a> | 
+ <a href="#testing-mfc">Testing</a> | 
+ <a href="#development">Development</a> | 
+ <a href="#useful-scripts">Useful Scripts</a> | 
+ <a href="https://github.com/MFlowCode/MFC/raw/master/doc/MFC_user_guide.pdf">User's Guide</a> | 
+ <a href="https://mflowcode.github.io/">Documentation</a>
+</p>
 
+## Authors
+
+<p align="justify">
 This is the documentation for the MFC (Multicomponent Flow Code).
 The MFC is a simulation software for multi-component, multi-phase, and bubbly flows. 
 MFC was first developed by the Colonius research group at Caltech.
-Now it is developed and maintained by the groups of Professors <a href="https://colonius.caltech.edu/">Tim Colonius</a>, <a href="https://comp-physics.group">Spencer Bryngelson</a>, and <a href="https://vivo.brown.edu/display/mrodri97">Mauro Rodriguez</a>.
-We try to maintain a list of current and past developers in the `AUTHORS` file!
-
-# Documentation
+Now it is developed and maintained by the groups of Professors <a href="https://comp-physics.group">Spencer Bryngelson</a>, <a href="https://colonius.caltech.edu/">Tim Colonius</a>, and <a href="https://vivo.brown.edu/display/mrodri97">Mauro Rodriguez</a> (alphabetical).
+We try to maintain a list of current and past developers in the <a href="AUTHORS">AUTHORS</a> file!
+ </p>
  
-  The following codes are documented, please follow the links to see their Doxygen:
-* <a href="https://mflowcode.github.io/pre_process/namespaces.html">Pre_process</a> 
-* <a href="https://mflowcode.github.io/simulation/namespaces.html">Simulation</a> 
-* <a href="https://mflowcode.github.io/post_process/namespaces.html">Post_process</a>
+## Publications
  
-
-## User's guide
- 
-  A user's guide is included 
-  <a href="https://github.com/MFlowCode/MFC/raw/master/doc/MFC_user_guide.pdf">here.</a>
- 
-## MFC paper
+### Primary Paper
  
   The paper that describes the MFC's capabilities:
 * <a href="https://doi.org/10.1016/j.cpc.2020.107396">
         S. H. Bryngelson, K. Schmidmayer, V. Coralic, K. Maeda, J. Meng, T. Colonius (2021) Computer Physics Communications 4655, 107396
         </a>
   
-## Related publications
+### Related publications
  
   Several publications have used the MFC in various stages of its 
   development. A partial list is included here.
@@ -90,190 +92,329 @@ Ph.D. Disserations:
 
 ## Installing MFC
 
-To get MFC running as fast as possible without having to configure the dependencies yourself, you can follow the following steps on most UNIX-like
-systems. 
-This method is best suited for development and Continous Integration (CI) workflows.
-
-To fetch, build, and run MFC and its dependencies on a UNIX-like system, you must have installed common utilities such as GNU's Make, Python3, its developement headers and libraries, a C/C++ compiler
+<p align="justify">
+To fetch, build, and run MFC and its dependencies on a UNIX-like system, you must have installed common utilities such as GNU's Make, Python3, its development headers and libraries, a C/C++ compiler
 (GCC, NVHPC, etc., but *not Clang*), and an MPI wrapper (like Open MPI). 
 Below are some commands for popular operating systems and package managers.
+<p>
 
-### \*nix
+[Anaconda](https://www.anaconda.com/) may interfere with the building process. If an issue arises, you can either uninstall the affected Anaconda packages, change the ordering of directory paths in your `$PATH`, or make aliases to the correct binaries.
+ 
+### \*nix 
+ 
+- **Via [Aptitude](https://wiki.debian.org/Aptitude):**
 
-* Via [Aptitude](https://wiki.debian.org/Aptitude)
+```console
+$ sudo apt install tar wget make cmake gcc g++ python3 "openmpi-*" python python-dev python3-dev python3-venv libopenmpi-dev
 ```
-sudo apt install tar wget make cmake gcc g++ python3 openmpi-*  python python-dev python3-dev libopenmpi-dev
+ 
+If you wish to build MFC using [NVidia's NVHPC SDK](https://developer.nvidia.com/hpc-sdk), follow the instructions [here](https://developer.nvidia.com/nvidia-hpc-sdk-downloads).
+
+### MacOS (including x86 and M1/Apple Silicon) [**via [Homebrew](https://brew.sh/)**]
+ 
+ - **MacOS v10.15 (Catalina) or newer [ZSH]**
+
+```console
+$ touch ~/.zshrc
+$ open ~/.zshrc
 ```
 
-### MacOS (including x86 and M1/Apple Silicon)
-
-* Via [Homebrew](https://brew.sh/)
-
-You can modify the assignment on the first line to have the GCC major version you wish to have installed and use.
-
+ - **Older than MacOS v10.15 (Catalina) [BASH]**
+ 
+```console
+$ touch ~/.bash_profile
+$ open ~/.bash_profile
 ```
-USE_GCC_VERSION=11
-brew install wget make python make cmake gcc@$USE_GCC_VERSION
-HOMEBREW_CC=gcc-$USE_GCC_VERSION; HOMEBREW_CXX=g++-$USE_GCC_VERSION; brew install open-mpi
+ 
+An editor should open. Please paste the following lines into it before saving the file. If you wish to use a version of GNU's GCC other than 11, modify the first assignment. These lines ensure that LLVM's Clang, and Apple's modified version of GCC, won't be used to compile MFC. Further reading on `open-mpi` incompatibility with `clang`-based `gcc` on macOS: [here](https://stackoverflow.com/questions/27930481/how-to-build-openmpi-with-homebrew-and-gcc-4-9). We do *not* support `clang` due to conflicts with our Silo dependency.
+
+```console
+# === MFC MPI Installation ===
+export MFC_GCC_VER=11
+export HOMEBREW_CC=gcc-$MFC_GCC_VER
+export HOMEBREW_CXX=g++-$MFC_GCC_VER
+export OMPI_MPICC=gcc-$MFC_GCC_VER
+export OMPI_CXX=g++-$MFC_GCC_VER
+export OMPI_FC=gfortran-$MFC_GCC_VER
+# === MFC MPI Installation ===
 ```
 
-Further reading `open-mpi` incompatibility with `clang`-based `gcc` on macOS: [here](https://stackoverflow.com/questions/27930481/how-to-build-openmpi-with-homebrew-and-gcc-4-9). We do *not* support `clang` due to conflicts with our Silo dependency.
+Close your the open editor **and** terminal windows. Open a **new terminal** window before executing the commands bellow.
+
+```console
+$ brew install wget make python make cmake coreutils gcc@$MFC_GCC_VER
+$ brew install --build-from-source open-mpi
+```
+ 
+ They will download the dependencies MFC requires to build itself. `open-mpi` will be compiled from source, using the version of GCC we specified above with the environment variables `HOMEBREW_CC` and `HOMEBREW_CXX`. Building this package might take a while.
 
 ### Fetch and build MFC
 
 The following commands fetch and build MFC and its required dependencies. 
-The dependencies are built to the `dependencies/build/` directory within your MFC installation. 
+The dependencies are built to the `build/common/` directory within your MFC installation. 
 This should have no impact on your local installation(s) of these packages.
 
-```
-git clone --recursive https://github.com/MFlowCode/MFC
-cd MFC
-```
++ **Fetch MFC:**
 
-+ Build MFC and its dependencies with `<N>` threads in `release-cpu` mode:
-
-```
-chmod +x ./mfc.sh
-./mfc.sh --build -j <N>
+```console
+$ git clone https://github.com/MFlowCode/MFC
+$ cd MFC
 ```
 
-+ Run MFC's tests to make sure it was correctly built and your environment is adequate
++ **(Optional) Configure MFC defaults in [mfc.user.yaml](mfc.user.yaml):**
 
-```
-./mfc.sh --test
-```
+If you wish, you can override MFC's default build parameters in [mfc.user.yaml](mfc.user.yaml), a file intended for user customization. This can greatly reduce the number of command-line arguments you have to pass to [mfc.sh](mfc.sh)` in the following sections. You can do this at any time.
 
-## Configuring `mfc.sh`
++ **Build MFC and its dependencies with 8 threads in `release-cpu` mode:**
 
-The `mfc.sh` script used in the previous section is configured through the file named `mfc.conf.yaml`. 
-
-### Compilers
-
-In the `compilers` section you can specify which compilers you wish to have used. Entries representing the name to an executable locatable through your system's `$PATH` or an absolute path to an executable are valid. The default configuration is:
-
-```yaml
-compilers:
-  c:       mpicc
-  c++:     mpicxx
-  fortran: mpif90
+```console
+$ ./mfc.sh build -j 8
 ```
 
-### Compiler Configurations
+To build MFC in different configurations (herein, *modes*), the `-m <mode>` option
+can be specified to each call to `mfc.sh`. A full list of modes is located in
+[mfc.user.yaml](mfc.user.yaml). It can be modified to work with system, and additional
+modes can be created at your discretion. The default mode is `release-cpu` but
+you can use others such as `release-gpu`.
 
-The `configurations` section consists of a list of "compiler configurations", describing modifications for including but not limited to "release" and "debug" builds for CPUs or GPUs. You can freely modify the existing configurations and add your own. Examples:
+**IMPORTANT NOTE**: This same mode will be used for any future commands such as `./mfc.sh test` and `./mfc.sh run` until you specify `-m` again (in any of these commands).
 
-```yaml
-- name: release-cpu
-  flags:
-    c:       -O3
-    c++:     -O3
-    fortran: -O3 -cpp -w
-- name: release-gpu
-  flags:
-    c:       -O3
-    c++:     -O3
-    fortran: -O3 -cpp -w -acc -Minfo=accel -lnvToolsExt -L${CUDA:INSTALL_PATH}/lib64
++ Run MFC's tests with as many concurrent processes as you wish to make sure it was correctly built and your environment is adequate
+
+```console
+$ ./mfc.sh test -j $(nproc)
 ```
 
-To use a desired compiler configuration with `mfc.sh`, you must specify the `--compiler-configuration` (a.k.a `-cc`) option, along with the name of your configuration. `release-cpu` is its default value. For example, to build MFC and its dependencies in `debug-cpu` mode, you can run:
+Please refer to the [Testing](#testing-mfc) section of this document for more information. 
 
-```
-./mfc.sh --build -cc debug-cpu
-```
+## User Configuration (`mfc.user.yaml`)
 
-### Targets
+The `mfc.sh` script used in the previous section is configured through the file named `mfc.user.yaml`.
 
-The largest section of `mfc.conf.yaml` is labeled `targets`, containing a list of targets. A target is defined as an entity on which `mfc.sh` can run `--build` or `--test`. `mfc.conf.yaml` contains a target for each dependency and MFC component, and for MFC as a whole. Targets have the following general format:
+# Running MFC
 
-```yaml
-- name: <target name> # The name of the target
-  type: <target type> # The type of target (defined bellow) 
-  <type>:             # The structure associated with the target's type (defined bellow)
-     ...
-  depends: # A list of the names of the targets this target depends on
-  - ...
-  build:   # A list of commands that build the target
-  - ...
-  test:    # A list of commands that run the target's tests
-  - ...
-```
-
-The target's `type` refers to which method is used for fetching its source code, and associated metadata to check for updates. Here is a description of its possible values and associated structures:
-
-+ Download
-
-```yaml
-type: download
-download:
-  version: <version>
-  link:    <archive download link>
-```
-
-+ Clone
-
-```yaml
-type: clone
-clone:
-  git:  <git repository link>
-  hash: <commit hash>
-```
-
-+ Source
-
-```yaml
-type: source
-source:
-  source: <absolute path to the directory where to run commands>
-```
-
-To build a desired target and its dependencies, you must specify the `--targets` (a.k.a `-t`) option, along with the name of your targets separated by spaces. `MFC` is its default value. To build a target and its dependencies from scratch, add the `--scratch` option.
-
-For example, to build MFC's simulation component and its dependencies from scratch, you can run:
-
-```
-./mfc.sh --build -t MFC_Simulation --scratch
-```
-
-### Miscellaneous
-
-+ Use the `--jobs <N>` (a.k.a `-j <N>`) option to build with a certain number of threads.
-+ Use the `--set-current <name>` (a.k.a `-sc <name>`) option to select explicitly which compiler configuration to use when running MFC.
-
-```
-./mfc.sh --build -t MFC_Simulation -cc release-cpu -j 8 --scratch
-./mfc.sh --test
-./mfc.sh --set-current debug-cpu
-```
-
-# Running
-
-The MFC can be run by changing into
-a case directory and executing the appropriate Python input file.
-Example Python input files can be found in the 
-`example_cases` directories, and they are called `input.py`.
-Their contents, and a guide to filling them out, are documented
+MFC can be run using `mfc.sh`'s `run` command. It supports both interactive and
+batch execution, the latter being designed for multi-socket systems, namely supercomputers,
+equipped with a scheduler such as PBS, SLURM, and LSF. A full (and updated) list
+of available arguments can be acquired with `./mfc.sh run -h`. Example Python input
+files can be found in the [samples/](samples/) directory. They print a Python dictionary containing input parameters for MFC. Their contents, and a guide to filling them out, are documented
 in the user manual. A commented, tutorial script
-can also be found in [example_cases/3d_sphbubcollapse/](example_cases/3D_sphbubcollapse/)
-MFC can be executed as  
+can also be found in [samples/3d_sphbubcollapse/](samples/3D_sphbubcollapse/).
+
+The skeleton for an input file may look like the following:
+
+```python
+#!/usr/bin/env python3
+
+import json
+
+# Calculations (if necessary)
+...
+
+# Configuring case dictionary
+print(json.dumps({
+     # Insert case parameters here
+     ...
+}))
+```
+
+## Interactive Execution (`-e interactive`)
+
+To run all stages of MFC, that is [pre_process](src/pre_process_code/), [simulation](src/simulation_code/), and [post_process](src/post_process_code/) on the sample case [2D_shockbubble](samples/2D_shockbubble/),
+
+```console
+$ ./mfc.sh run samples/2D_shockbubble/case.py
+```
+
+If you want to run a subset of the available stages, you can use the `-t` argument.
+To use multiple threads, use the `-n` option along with the number of threads you wish to use.
+If a (re)build is required, it will be done automatically, with the number of threads
+specified with the `-j` option.
+
+For example,
+
+- Running [pre_process](src/pre_process_code/) with 2 cores:
+
+```console
+$ ./mfc.sh run samples/2D_shockbubble/case.py -t pre_process -n 2
+```
+
+- Running [simulation](src/simulation_code/) and [post_process](src/post_process_code/)
+using 4 cores:
+
+```console
+$ ./mfc.sh run samples/2D_shockbubble/case.py -t simulation post_process -n 4
+```
+
+Most parameters have sensible defaults which can be overridden in [mfc.user.yaml](mfc.user.yaml):
+
+https://github.com/MFlowCode/MFC-develop/blob/d74e714b08562a9f8f815112e05df54c99c8c18f/mfc.user.yaml#L12-L21
+
+On some computer clusters, MFC might select the wrong MPI program to execute your application
+because it uses a general heuristic for its selection. Notably, `srun` is known to fail on some SLURM
+systems when using GPUs or MPI implementations from different vendors, whereas `mpirun` functions properly. To override and manually specify which
+MPI program you wish to run your application with, please use the `-b <program name>` option (i.e `--binary`).
+
+Additional flags can be appended to the MPI executable call using the `-f` (i.e `--flags`) option.
+
+Please refer to `./mfc.sh run -h` for a complete list of arguments and options, along with their defaults.
+
+## Batch Submission (`-e batch`)
+
+The MFC detects which scheduler your system is using and handles the creation and
+execution of batch scripts. The batch engine is requested with the `-e batch` option.
+Whereas the interactive engine can execute all of MFC's codes in succession, the batch engine
+requires you to only specify one target with the `-t` option. The number of nodes and GPUs can, 
+respectively be specified with the `-N` (i.e `--nodes`) and `-g` (i.e `--gpus-per-node`) options.
+
+```console
+$ ./mfc.sh run samples/2D_shockbubble/case.py -e batch -N 2 -n 4 -g 4 -t simulation
+```
+
+Other useful arguments include:
+
+- `-# <job name>` to name your job. (i.e `--name`)
+- `-@ sample@example.com` to receive emails from the scheduler. (i.e `--email`)
+- `-w hh:mm:ss` to specify the job's maximum allowed walltime. (i.e `--walltime`)
+- `-a <account name>` to identify the account to be charged for the job. (i.e `--account`)
+- `-p <partition name>` to select the job's partition. (i.e `--partition`)
+
+Since some schedulers don't have a standardized syntax to request certain resources, MFC can only
+provide support for a restricted subset of common configuration options. If MFC fails
+to execute on your system, or if you wish to adjust how the program runs and resources
+are requested to be allocated, you are invited to modify the template batch script for your queue system.
+Upon execution of `./mfc.sh run`, MFC fills in the template with runtime parameters, to
+generate the batch file it will submit. These files are located in the [templates](templates/)
+directory. To request GPUs, modification of the template will be required on most systems.
+
+- Lines that begin with `#>` are ignored and won't figure in the final batch
+script, not even as a comment.
+
+- Statements of the form `${expression}` are string-replaced to provide
+runtime parameters, most notably execution options. They reference the variables in the
+same format as those under the "run" section of [mfc.user.yaml](mfc.user.yaml), replacing
+`-` for `_`. You can perform therein any Python operation recognized by the built-in `expr()` function.
+
+As an example, one might request GPUs on a SLURM system using the following:
 
 ```
-./input.py MFC_PreProcess
+#SBATCH --gpus=v100-32:{gpus_per_node*nodes}
 ```
 
-which will generate the restart and grid files that will be read 
-by the simulation code. Then  
+- Statements of the form `{MFC::expression}` tell MFC where to place the common code,
+across all batch files, that is required for proper execution. They are not intended to be
+modified by users.
 
-```
-./input.py MFC_Simulation
+**Disclaimer**: IBM's JSRUN on LSF-managed computers does use the traditional node-based approach to
+allocate resources. Therefore, the MFC constructs equivalent resource-sets in task and GPU count.
+
+### Example Runs
+
+- Oak Ridge National Laboratory's [Summit](https://www.olcf.ornl.gov/summit/):
+
+```console
+$ ./mfc.sh run samples/2D_shockbubble/case.py -e batch    \
+               -N 2 -n 4 -g 4​ -t simulation -a <redacted>
 ```
 
-will execute the flow solver. The last (optional) step
-is to post treat the data files and output HDF5 databases
-for the flow variables via  
+- University of California, San Diego's [Expanse](https://www.sdsc.edu/services/hpc/expanse/):
 
+```console
+$ ./mfc.sh run samples/2D_shockbubble/case.py -e batch -p GPU -t simulation​ \
+               -N 2 -n 8 -g 8​ -f="--gpus=v100-32:16" -b mpirun –w 00:30:00
 ```
-./input.py MFC_PostProcess
+
+# Testing MFC
+ 
+To run MFC's test suite, run `./mfc.sh test`. It will generate and run test cases, comparing their output to that of previous runs from versions of MFC considered to be accurate. *golden files*, stored in the `tests/` directory contain this data, by aggregating `.dat` files generated when running MFC. A test is considered passing when our error tolerances are met, in order to maintain a high level of stability and accuracy.
+
+If you want to only run certain tests, you can pass the `-o` (i.e `--only`) option along with their corresponding hashes. A test's hash is a hexadecimal representation of its hashed description (also called `trace`). They look like `1A6B6EB3` and are used to uniquely identify tests, as they don't change if tests are added or removed, since they are not based on execution order, but rather on test content.
+
+An example of only running certain tests:
+```console
+$ ./mfc.sh test -j 8 -o 1A6B6EB3 0F5DB706
 ```
+
+## Creating Tests
+
+To (re)generate *golden files*, append the `-g` (i.e `--generate`) option:
+```console
+$ ./mfc.sh test -g -j 8
+```
+
+Adding a new test case can be done by modifying [bootstrap/tests/cases.py](bootstrap/tests/cases.py). The function `generate_cases` is responsible for generating the list of test cases. Loops and conditionals are used to vary parameters, whose defaults can be found in the `BASE_CFG` dictionary within [bootstrap/tests/case.py](bootstrap/tests/case.py). The function operates on two variables:
+
+- `stack`: A stack that holds the variations to the default case parameters. By pushing and popping the stack inside loops and conditionals, it is easier to nest test case descriptions, as it holds the variations that are common to all future test cases within the same indentation level (in most scenarios).
+
+- `cases`: A list that holds fully-formed `Case` objects, that will be returned at the end of the function. 
+
+Internally a case is described as:
+```python
+@dataclasses.dataclass(init=False)
+class Case:
+    trace:  str
+    params: dict
+    ppn:    int
+```
+
+where:
+- The `trace` is a string that contains a human-readable description of what parameters were varied, or more generally what the case is meant to test. **Each `trace` must be distinct.**
+- `params` is a dictionnary containg the case's description, as you would describe it in your input files.
+- `ppn` is the number of processes per node to use when running the case.
+
+To illustrate, consider the following excerpt from [bootstrap/tests/cases.py](bootstrap/tests/cases.py):
+
+```python
+for weno_order in [3, 5]:
+    stack.push(f"weno_order={weno_order}", {'weno_order': weno_order})
+
+    for mapped_weno, mp_weno in [('F', 'F'), ('T', 'F'), ('F', 'T')]:
+        stack.push(f"(mapped_weno={mapped_weno},mp_weno={mp_weno})", {
+            'mapped_weno': mapped_weno,
+            'mp_weno':     mp_weno
+        })
+
+        if not (mp_weno == 'T' and weno_order != 5):
+            cases.append(create_case(stack, '', {}))
+
+        stack.pop()
+
+    stack.pop()
+```
+
+When pushing to the stack, or creating a new case with the `create_case` function, you must specify:
+- `trace`: A human-readable string describing what you are currently varying.
+- `params`: A dictionary that contains the parameters you currently wish to to vary.
+
+When creating a case using `create_case(stack, trace, params)`:
+- The `trace` function parameter will be appended to the stack's traces, to form a string.
+- The final case dictionary will be generated by successively applying your desired changes to the base case.
+
+Finally, the case is appended to the `cases` list, which will be returned by the `generate_cases` function.
+
+# Development
+
+## Fypp
+
+MFC uses [Fypp](https://github.com/aradi/fypp), a Python-based Fortran preprocessor to reduce code duplication. `.fpp` files are converted into regular `.f90` files as part of the build process. Documentation for Fypp can be found [here](https://fypp.readthedocs.io/en/stable/). 
+
+You can inspect the generated `.f90` files located in `build/<mode name>/src/<name of target>/src`.
+
+# Useful Scripts
+
+## Loading Modules
+
+On computer systems that run using environment modules, with implementations like [TACC's Lmod](https://github.com/TACC/Lmod), MFC provides a script that can load modules that have been used by contributors.
+
+```console
+$ . ./mfc.sh load
+``` 
+
+The list of modules offered by a system is subject to change. The aforementioned script serves as a convenient way to load modules that should work for most users of MFC. 
+
+## OpenACC Memory Profiling
+
+You can append `-DMFC_MEMORY_DUMP` to `release-gpu`'s Fortran compiler options in [mfc.user.yaml](mfc.user.yaml) to make the [simulation code](src/simulation_code/) call `acc_present_dump()` at various stages of program execution to obtain a printout of on-device memory usage. The [mem_parse.sh](misc/mem_parse.sh) script can be given as an argument the path to a file containing MFC's output, in order to aggregate the data and produce tables with formatted output.
 
 # License
  
@@ -282,5 +423,7 @@ MFC is under the MIT license (see [LICENSE](LICENSE) file for full text).
 
 # Acknowledgements
  
+<p align="justify">
 The development of the MFC  was supported in part by multiple current and past grants from the US Office of Naval Research (ONR), the US National Institute of Health (NIH), and the US National Science Foundation (NSF).
 MFC computations utilize the Extreme Science and Engineering Discovery Environment (XSEDE), under allocations TG-CTS120005 (PI Colonius) and TG-PHY210084 (PI Bryngelson) and ORNL Summit under allocation CFD154 (PI Bryngelson).
+ </p>
