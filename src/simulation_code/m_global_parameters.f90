@@ -726,8 +726,8 @@ contains
         ! the next one
         if (any(Re_size > 0)) then
             buff_size = 2*weno_polyn + 2
-        else if (hypoelasticity) then !TODO: check if necessary
-            buff_size = 2*weno_polyn + 2
+!        else if (hypoelasticity) then !TODO: check if necessary
+!            buff_size = 2*weno_polyn + 2
         else
             buff_size = weno_polyn + 2
         end if

@@ -594,18 +594,20 @@ contains
                       G_L = G_L + alpha_L(i)*Gs(i)
                       G_R = G_R + alpha_R(i)*Gs(i)
                     end do
-
-                    ! Elastic contribution to energy if G large enough
-                    !TODO take out if statement if stable without
-                    if ((G_L > 1000) .and. (G_R > 1000)) then
-                      E_L = E_L + (tau_e_L(i)*tau_e_L(i))/(4d0*G_L)
-                      E_R = E_R + (tau_e_R(i)*tau_e_R(i))/(4d0*G_R)
-                      ! Additional terms in 2D and 3D
-                      if ((i==2) .or. (i==4) .or. (i==5)) then
+                    
+                    do i = 1, strxe-strxb+1
+                      ! Elastic contribution to energy if G large enough
+                      !TODO take out if statement if stable without
+                      if ((G_L > 1000) .and. (G_R > 1000)) then
                         E_L = E_L + (tau_e_L(i)*tau_e_L(i))/(4d0*G_L)
                         E_R = E_R + (tau_e_R(i)*tau_e_R(i))/(4d0*G_R)
+                        ! Additional terms in 2D and 3D
+                        if ((i==2) .or. (i==4) .or. (i==5)) then
+                          E_L = E_L + (tau_e_L(i)*tau_e_L(i))/(4d0*G_L)
+                          E_R = E_R + (tau_e_R(i)*tau_e_R(i))/(4d0*G_R)
+                        end if
                       end if
-                    end if
+                    end do
                   end if
 
                   if(avg_state == 2) then
@@ -5274,8 +5276,6 @@ contains
 
 
         ! Reshaping Outputted Data in y-direction ==========================
-
-
             if (norm_dir == 2) then
 !$acc parallel loop collapse(4) gang vector default(present)
                 do i = 1, sys_size
@@ -5328,7 +5328,6 @@ contains
 
                 end if
                 ! ==================================================================
-
                 ! Reshaping Outputted Data in z-direction ==========================
             elseif (norm_dir == 3) then
     !$acc parallel loop collapse(4) gang vector default(present)
@@ -5407,7 +5406,7 @@ contains
 
                 if (riemann_solver == 1) then
     !$acc parallel loop collapse(4) gang vector default(present)
-                do i = advxb + 1, sys_size
+                do i = advxb + 1, advxe
                     do l = is3%beg, is3%end
                         do k = is2%beg, is2%end
                             do j = is1%beg, is1%end
@@ -5419,7 +5418,6 @@ contains
                     end do
                 end if
             end if
-
 
 
 

@@ -1015,6 +1015,7 @@ contains
             gm_alpha_qp%vf, &
             ix, iy, iz)
         call nvtxEndRange
+
        
 
         if (t_step == t_step_stop) return
@@ -1060,6 +1061,7 @@ contains
             ix%end = m; iy%end = n; iz%end = p
             ! ===============================================================
             call nvtxStartRange("RHS-Riemann")
+
             ! Computing Riemann Solver Flux and Source Flux =================
             call s_riemann_solver(qR_rsx_vf_flat, qR_rsy_vf_flat, qR_rsz_vf_flat, &
                                   dqR_prim_dx_n(id)%vf, &
@@ -2582,14 +2584,14 @@ contains
                                 ! call to convert routine not working: write explicitly below (need to adjust for multiple fluids)
                                 rho_K = 0d0; G_K = 0d0
                                 ! Hard-coded for 1D/1 liquid below
-!                                do i = 1, num_fluids
+                                do i = 1, num_fluids
 !                                    alpha_rho_K(1) = q_prim_qp%vf(1)%sf(k,l,q)
 !                                    alpha_K(1) = q_prim_qp%vf(advxb + 1 - 1)%sf(k,l,q)
 
-!                                    rho_K = rho_K + q_prim_qp%vf(1)%sf(k,l,q) !alpha_rho_K(1)
-!                                    G_K = G_K + q_prim_qp%vf(advxb)%sf(k,l,q)*Gs(1)  !alpha_K(1) * Gs(1)
+                                    rho_K = rho_K + q_prim_qp%vf(i)%sf(k,l,q) !alpha_rho_K(1)
+                                    G_K = G_K + q_prim_qp%vf(advxb)%sf(k,l,q)*Gs(i)  !alpha_K(1) * Gs(1)
 
-!                                end do
+                                end do
 
                                 rho_K_field(k,l,q) = rho_K
                                 G_K_field(k,l,q) = G_K
