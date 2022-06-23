@@ -583,7 +583,7 @@ contains
                     !$acc loop seq
                     do i = 1, strxe-strxb+1
                         tau_e_L(i) = qL_prim_rs${XYZ}$_vf_flat(j,     k, l, strxb-1+i)
-                        tau_e_R(i) = qL_prim_rs${XYZ}$_vf_flat(j + 1, k, l, strxb-1+i)
+                        tau_e_R(i) = qR_prim_rs${XYZ}$_vf_flat(j + 1, k, l, strxb-1+i)
                     end do
 
                     G_L = 0d0
@@ -735,7 +735,7 @@ contains
                         s_R = max(vel_R(dir_idx(1)) + sqrt(                   c_R*c_R + &
                                                                     ( ((4d0*G_R)/3d0) + &
                                                         tau_e_R(dir_idx_tau(1)))/rho_R) &
-                                 ,vel_L(dir_idx(1)) - sqrt(                   c_L*c_L + &
+                                 ,vel_L(dir_idx(1)) + sqrt(                   c_L*c_L + &
                                                                     ( ((4d0*G_L)/3d0) + &
                                                         tau_e_L(dir_idx_tau(1)))/rho_L) )
                     else
@@ -900,6 +900,7 @@ contains
                             / (s_M - s_P)
                     end do
                   end if
+
 
                   ! Advection
                   !$acc loop seq

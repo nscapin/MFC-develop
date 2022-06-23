@@ -266,10 +266,10 @@ contains
             end do
         end if
 
-        do l = adv_idx%end + 1, sys_size
-          allocate(q_prim_qp%vf(l)%sf(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end))
-!$acc enter data create(q_prim_qp%vf(l)%sf(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end))
-        end do
+!        do l = adv_idx%end + 1, sys_size
+!          allocate(q_prim_qp%vf(l)%sf(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end))
+!!$acc enter data create(q_prim_qp%vf(l)%sf(ix%beg:ix%end, iy%beg:iy%end, iz%beg:iz%end))
+!        end do
 
         do l = 1, cont_idx%end
             q_prim_qp%vf(l)%sf => &
@@ -1016,7 +1016,6 @@ contains
             ix, iy, iz)
         call nvtxEndRange
 
-       
 
         if (t_step == t_step_stop) return
         ! ==================================================================
