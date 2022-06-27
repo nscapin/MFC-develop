@@ -833,6 +833,7 @@ contains
 
         ! Generic loop iterator
         integer :: i, j, k
+        real(kind(0d0)) :: start, finish
 
         ! Silo-HDF5 Database Format ========================================
 
@@ -916,6 +917,7 @@ contains
                 ! the flow variable data that it is responsible for to the
                 ! formatted database slave file.
 
+
                 if (coarsen_silo) call s_coarsen_variable()
 
                 if (grid_geometry == 3) then
@@ -991,6 +993,7 @@ contains
                 end if
 
             end if
+
 
             ! END: Silo-HDF5 Database Format ===================================
 

@@ -879,6 +879,24 @@ pre_process_dict =                                                             \
 }
 # ==============================================================================
 
+for i in range(1, 101):
+    pre_process_dict['patch_icpp(' + str(i) + ')%geometry'] = None
+    pre_process_dict['patch_icpp(' + str(i) + ')%x_centroid'] = None
+    pre_process_dict['patch_icpp(' + str(i) + ')%y_centroid'] = None
+    pre_process_dict['patch_icpp(' + str(i) + ')%z_centroid'] = None
+    pre_process_dict['patch_icpp(' + str(i) + ')%radius'] = None
+    pre_process_dict['patch_icpp(' + str(i) + ')%vel(1)'] = None
+    pre_process_dict['patch_icpp(' + str(i) + ')%vel(2)'] = None
+    pre_process_dict['patch_icpp(' + str(i) + ')%vel(3)'] = None
+    pre_process_dict['patch_icpp(' + str(i) + ')%pres'] = None
+    pre_process_dict['patch_icpp(' + str(i) + ')%pi_inf'] = None
+    pre_process_dict['patch_icpp(' + str(i) + ')%gamma'] = None
+    pre_process_dict['patch_icpp(' + str(i) + ')%alter_patch(1)'] = None
+    pre_process_dict['patch_icpp(' + str(i) + ')%alpha_rho(1)'] = None
+    pre_process_dict['patch_icpp(' + str(i) + ')%alpha_rho(2)'] = None
+    pre_process_dict['patch_icpp(' + str(i) + ')%alpha(1)'] = None
+    pre_process_dict['patch_icpp(' + str(i) + ')%alpha(2)'] = None
+
 
 # Simulation Dictionary ========================================================
 simulation_dict =                                                              \

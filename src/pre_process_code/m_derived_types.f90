@@ -11,7 +11,7 @@ module m_derived_types
 
     implicit none
 
-    integer, parameter :: num_patches_max = 10 !<
+    integer, parameter :: num_patches_max = 100 !<
     !! Maximum number of patches allowed
 
     integer, parameter :: num_fluids_max = 10 !<

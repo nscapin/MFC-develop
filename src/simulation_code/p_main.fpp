@@ -65,8 +65,12 @@ program p_main
 
     integer :: t_step, i !< Iterator for the time-stepping loop
     real(kind(0d0)) :: time_avg, time_final
+    real(kind(0d0)) :: io_time_avg, io_time_final
     real(kind(0d0)), allocatable, dimension(:) :: proc_time
+    real(kind(0d0)), allocatable, dimension(:) :: io_proc_time
     logical :: file_exists
+    real(kind(0d0)) :: start, finish
+    integer :: nt
 
 #ifdef _OPENACC
     real(kind(0d0)) :: starttime, endtime
@@ -196,6 +200,7 @@ program p_main
     call s_initialize_derived_variables()
 
     allocate(proc_time(0:num_procs - 1))
+    allocate(io_proc_time(0:num_procs - 1))
 
 !$acc update device(dt, dx, dy, dz, x_cc, y_cc, z_cc, x_cb, y_cb, z_cb)
 !$acc update device(sys_size, buff_size)
@@ -244,18 +249,20 @@ program p_main
 
             if(num_procs > 1) then
                 call mpi_bcast_time_step_values(proc_time, time_avg)
+                
+                call mpi_bcast_time_step_values(io_proc_time, io_time_avg)
             end if 
             
             if(proc_rank == 0) then
                 time_final = 0d0
+                io_time_final = 0d0
                 if(num_procs == 1) then
                    time_final = time_avg 
+                   io_time_final = io_time_avg
                    print*, "Final Time", time_final
                 else    
-                    do i = 0, num_procs - 1
-                        time_final = time_final + proc_time(i)
-                    end do
-                    time_final = time_final/num_procs
+                    time_final = maxval(proc_time)
+                    io_time_final = maxval(io_proc_time)
                     print*, "Final Time", time_final
                 end if               
                 INQUIRE(FILE = 'time_data.dat', EXIST = file_exists)
@@ -266,6 +273,17 @@ program p_main
                 else
                     open(1, file = 'time_data.dat', status = 'new')
                     write(1,*) num_procs, time_final
+                    close(1)
+                end if               
+
+                INQUIRE(FILE = 'io_time_data.dat', EXIST = file_exists)
+                if(file_exists) then
+                    open(1, file = 'io_time_data.dat', position = 'append',status = 'old')
+                    write(1,*) num_procs, io_time_final
+                    close(1)
+                else
+                    open(1, file = 'io_time_data.dat', status = 'new')
+                    write(1,*) num_procs, io_time_final
                     close(1)
                 end if                
                 
@@ -279,13 +297,22 @@ program p_main
         ! print*, 'Write data files'
         ! Backing up the grid and conservative variables data
         if (mod(t_step - t_step_start, t_step_save) == 0) then
-            
+          
+               call CPU_time(start)
           !  call nvtxStartRange("I/O")
                 do i = 1, sys_size
 !$acc update host(q_cons_ts(1)%vf(i)%sf)
                 end do
             call s_write_data_files(q_cons_ts(1)%vf, t_step)
           !  call nvtxEndRange
+               call CPU_time(finish)
+               nt = int((t_step - t_step_start)/(t_step_save))
+               if(nt == 1) then
+                       io_time_avg = abs(finish - start)
+               else
+                        io_time_avg = (abs(finish - start) + io_time_avg*(nt - 1))/nt
+               end if
+        
         end if
 
         call system_clock(cpu_end)

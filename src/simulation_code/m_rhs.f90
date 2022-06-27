@@ -1076,7 +1076,9 @@ contains
 
         if (qbmm) call s_mom_inv(q_prim_qp%vf, mom_sp, mom_3d, ix, iy, iz)
 
+        call nvtxStartRange("Viscous")
         if (any(Re_size > 0)) call s_get_viscous()
+        call nvtxEndRange()
 
         ! Dimensional Splitting Loop =======================================
         do id = 1, num_dims
@@ -1309,7 +1311,7 @@ contains
                   end if
                 end if
 
- 
+                
                 if (bubbles) then
                     if (qbmm) then
                         ! advection source
@@ -1632,7 +1634,7 @@ contains
                                             else
                                                 ! 3D
                                                 if (mono(q)%dir .ne. dflt_real) then
-                                                    mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) + s2*cos(mono(q)%dir)
+                                                    mono_mom_src(3, j, k, l) = mono_mom_src(3, j, k, l) + s2*cos(mono(q)%dir)
                                                     mono_mom_src(2, j, k, l) = mono_mom_src(2, j, k, l) + s2*sin(mono(q)%dir)
                                                 end if
                                             end if
@@ -2079,7 +2081,7 @@ contains
                                             else
                                                 ! 3D
                                                 if (mono(q)%dir .ne. dflt_real) then
-                                                    mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) + s2*cos(mono(q)%dir)
+                                                    mono_mom_src(3, j, k, l) = mono_mom_src(3, j, k, l) + s2*cos(mono(q)%dir)
                                                     mono_mom_src(2, j, k, l) = mono_mom_src(2, j, k, l) + s2*sin(mono(q)%dir)
                                                 end if
                                             end if
@@ -2430,7 +2432,7 @@ contains
                   end if
                 end if 
 
-
+                call nvtxStartRange("bubbles")
                 if(bubbles .AND. (.NOT. qbmm)) then
 
 !$acc parallel loop collapse(3) gang vector default(present)
@@ -2590,7 +2592,9 @@ contains
                         end do
                     end do
                 end if
+                call nvtxEndRange()
 
+                call nvtxStartRange("Monopole")
                 if (monopole) then
 !$acc parallel loop collapse(3) gang vector default(present)
                     do l = 0, p
@@ -2698,7 +2702,7 @@ contains
                                             else
                                                 ! 3D
                                                 if (mono(q)%dir .ne. dflt_real) then
-                                                    mono_mom_src(1, j, k, l) = mono_mom_src(1, j, k, l) + s2*cos(mono(q)%dir)
+                                                    mono_mom_src(3, j, k, l) = mono_mom_src(3, j, k, l) + s2*cos(mono(q)%dir)
                                                     mono_mom_src(2, j, k, l) = mono_mom_src(2, j, k, l) + s2*sin(mono(q)%dir)
                                                 end if
                                             end if
@@ -2733,6 +2737,7 @@ contains
                         end do
                     end do
                 end if
+                call nvtxEndRange()
 
                 if (any(Re_size > 0)) then  
 !$acc parallel loop collapse(3) gang vector default(present)             
@@ -4300,12 +4305,11 @@ contains
                           dexp(-0.5d0*(hx/sig)**2.d0)
             end if
         else !3D
-            if (mono(nm)%support == 3) then
-                ! Only support along some patch
 
-                hx = x_cc(j) - mono_loc(1)
-                hy = y_cc(k) - mono_loc(2)
-                hz = z_cc(l) - mono_loc(3)
+            hx = x_cc(j) - mono_loc(1)
+            hy = y_cc(k) - mono_loc(2)
+            hz = z_cc(l) - mono_loc(3)
+            if (mono(nm)%support == 3) then
 
                 ! Rotate actual point by -theta
                 hxnew = cos(mono(nm)%dir)*hx + sin(mono(nm)%dir)*hy
@@ -4318,7 +4322,10 @@ contains
                 else
                     f_delta = 0d0
                 end if
-            else
+            else if (mono(nm)%support == 4) then
+                ! Support for all x,y
+                f_delta = 1.d0/(dsqrt(2.d0*pi)*sig)* &
+                          dexp(-0.5d0*(hz/sig)**2.d0)
             end if
         end if
 

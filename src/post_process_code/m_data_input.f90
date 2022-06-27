@@ -226,6 +226,7 @@ contains
 
         integer :: ifile, ierr, data_size
         integer, dimension(MPI_STATUS_SIZE) :: status
+        real(kind(0d0)) :: start, finish
         integer(KIND=MPI_OFFSET_KIND) :: disp
         integer(KIND=MPI_OFFSET_KIND) :: m_MOK, n_MOK, p_MOK
         integer(KIND=MPI_OFFSET_KIND) :: WP_MOK, var_MOK, str_MOK
@@ -307,7 +308,6 @@ contains
                 z_cc(0:p) = z_cb(-1:p - 1) + dz(0:p)/2d0
             end if
         end if
-
         ! Open the file to read conservative variables
         write (file_loc, '(I0,A)') t_step, '.dat'
         file_loc = trim(case_dir)//'/restart_data'//trim(mpiiofs)//trim(file_loc)
@@ -341,7 +341,7 @@ contains
 
                     call MPI_FILE_SET_VIEW(ifile, disp, MPI_DOUBLE_PRECISION, MPI_IO_DATA%view(i), &
                                            'native', mpi_info_int, ierr)
-                    call MPI_FILE_READ(ifile, MPI_IO_DATA%var(i)%sf, data_size, &
+                    call MPI_FILE_READ_all(ifile, MPI_IO_DATA%var(i)%sf, data_size, &
                                        MPI_DOUBLE_PRECISION, status, ierr)
                 end do
             else
@@ -353,7 +353,7 @@ contains
 
                     call MPI_FILE_SET_VIEW(ifile, disp, MPI_DOUBLE_PRECISION, MPI_IO_DATA%view(i), &
                                            'native', mpi_info_int, ierr)
-                    call MPI_FILE_READ(ifile, MPI_IO_DATA%var(i)%sf, data_size, &
+                    call MPI_FILE_READ_all(ifile, MPI_IO_DATA%var(i)%sf, data_size, &
                                        MPI_DOUBLE_PRECISION, status, ierr)
                 end do
             end if
