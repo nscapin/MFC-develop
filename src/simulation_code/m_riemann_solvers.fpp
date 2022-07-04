@@ -5316,7 +5316,7 @@ contains
 
                 if (riemann_solver == 1) then
     !$acc parallel loop collapse(4) gang vector default(present)
-                    do i = advxb + 1, sys_size
+                    do i = advxb + 1, advxe
                         do l = is3%beg, is3%end
                             do j = is1%beg, is1%end
                                 do k = is2%beg, is2%end
@@ -5370,7 +5370,7 @@ contains
 
                 if (riemann_solver == 1) then
     !$acc parallel loop collapse(4) gang vector default(present)
-                    do i = advxb + 1, sys_size
+                    do i = advxb + 1, advxe
                         do j = is1%beg, is1%end
                             do k = is2%beg, is2%end
                                  do l = is3%beg, is3%end

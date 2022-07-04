@@ -597,6 +597,8 @@ contains
 !$acc update device(mono(i)%npulse)
 !$acc update device(mono(i)%dir)
 !$acc update device(mono(i)%delay)
+!$acc update device(mono(i)%aperture)
+!$acc update device(mono(i)%foc_length)
 
         end do
 

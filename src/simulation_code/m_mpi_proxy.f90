@@ -372,10 +372,10 @@ contains
                            MPI_INTEGER, 0, &
                            MPI_COMM_WORLD, ierr)
             call MPI_BCAST(mono(j)%foc_length, 1, &
-                           MPI_INTEGER, 0, &
+                           MPI_DOUBLE_PRECISION, 0, &
                            MPI_COMM_WORLD, ierr)
             call MPI_BCAST(mono(j)%aperture, 1, &
-                           MPI_INTEGER, 0, &
+                           MPI_DOUBLE_PRECISION, 0, &
                            MPI_COMM_WORLD, ierr)
         end do
 

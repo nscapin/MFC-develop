@@ -1654,6 +1654,7 @@ contains
         real(kind(0d0))                                   :: max_pres
         real(kind(0d0)), dimension(2)                     :: Re
         real(kind(0d0))                                   :: E_e
+        real(kind(0d0)), dimension(6)                     :: tau_e
 
         integer :: i, j, k, l, s !< Generic loop iterator
 
@@ -1702,6 +1703,9 @@ contains
             M02 = 0d0
             varR = 0d0; varV = 0d0
             alf = 0d0
+            do s = 1, (num_dims*(num_dims+1))/2
+                tau_e(s) = 0d0
+            end do
 
             ! Find probe location in terms of indices on a
             ! specific processor
@@ -1750,6 +1754,7 @@ contains
                                 END IF
                             END IF
                         END DO
+                        tau_e(1) = q_cons_vf(s)%sf(j-2,k,l)/rho
 
                         pres = (                                      &
                                q_cons_vf(E_idx)%sf(j-2,k,l)  -            &
@@ -1893,6 +1898,10 @@ contains
                                 END IF
                             END DO
                             
+                            do s = 1, 3
+                                tau_e(s) = q_cons_vf(s)%sf(j-2,k-2,l)/rho
+                            end do
+
                             pres = (                                      &
                                    q_cons_vf(E_idx)%sf(j-2,k-2,l)  -            &
                                    0.5d0*(q_cons_vf(mom_idx%beg)%sf(j-2,k-2,l)**2.d0)/rho - &
@@ -2079,6 +2088,13 @@ contains
 
                     end if
                 end if
+
+                if (hypoelasticity) then
+                    do s = 1, (num_dims*(num_dims+1))/2
+                        tmp = tau_e(s)
+                        call s_mpi_allreduce_sum(tmp, tau_e(s))
+                    end do
+                end if
             end if
 
             if (proc_rank == 0) then
@@ -2167,7 +2183,18 @@ contains
                             nRdot(1), &
                             R(1), &
                             Rdot(1)
-                    else
+                        else if (hypoelasticity) then
+                            write(i+30, '(6X,F12.6,F24.8,F24.8,F24.8,F24.8,' // &
+                                            'F24.8,F24.8,F24.8)') &
+                            nondim_time, &
+                            rho, &
+                            vel(1), &
+                            vel(2), &
+                            pres, &
+                            tau_e(1), &
+                            tau_e(2), &
+                            tau_e(3)
+                        else
                         write (i + 30, '(6X,F12.6,F24.8,F24.8,F24.8)') &
                             nondim_time, &
                             rho, &
