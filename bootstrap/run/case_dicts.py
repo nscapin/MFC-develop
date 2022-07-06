@@ -99,6 +99,9 @@ for f_id in range(1,10+1):
                       "mu_v", "k_v", "G"]:
         SIMULATION.append(f"fluid_pp({f_id})%{attribute}")
 
+    for We_id in range(1,10+1):
+        SIMULATION.append(f"fluid_pp({f_id})%We({We_id})")
+
     for re_id in [1, 2]:
         SIMULATION.append(f"fluid_pp({f_id})%Re({re_id})")
 
