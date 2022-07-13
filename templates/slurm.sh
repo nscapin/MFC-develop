@@ -56,6 +56,7 @@
 #SBATCH --constraint=lustre
 #SBATCH --gpus="{gpus_per_node}"
 
+export UCX_MEMTYPE_CACHE=n
 
 #>
 #> Note: The MFC prologue sets up the environment required

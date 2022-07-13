@@ -2599,13 +2599,14 @@ contains
 !$acc parallel loop collapse(3) gang vector default(present)
                     do q = 0, p
                         do l = 0, n
-                            do k = 0, m                          
+                            do k = 0, m
                                 du_dx(k,l,q) = &
                                     (       q_prim_qp%vf(momxb)%sf(k-2,l,q)  &
                                     - 8d0 * q_prim_qp%vf(momxb)%sf(k-1,l,q)  &
                                     + 8d0 * q_prim_qp%vf(momxb)%sf(k+1,l,q)  &
                                     -       q_prim_qp%vf(momxb)%sf(k+2,l,q)) &
-                                    / (12d0*(x_cc(k+1) - x_cc(k) ))
+!                                    / (12d0*(x_cc(k+1) - x_cc(k) ))
+                                    / (12d0*dx(k))
                             end do
                         end do
                     end do
@@ -2621,19 +2622,22 @@ contains
                                         - 8d0 * q_prim_qp%vf(momxb)%sf(k,l-1,q)   &
                                         + 8d0 * q_prim_qp%vf(momxb)%sf(k,l+1,q)   &
                                         -       q_prim_qp%vf(momxb)%sf(k,l+2,q))  &
-                                        / (12d0*(y_cc(l+1) - y_cc(l) ))
+!                                        / (12d0*(y_cc(l+1) - y_cc(l) ))
+                                        / (12d0*dy(l))
                                     dv_dx(k,l,q) = &
                                         (       q_prim_qp%vf(momxb+1)%sf(k-2,l,q)  &
                                         - 8d0 * q_prim_qp%vf(momxb+1)%sf(k-1,l,q)  &
                                         + 8d0 * q_prim_qp%vf(momxb+1)%sf(k+1,l,q)  &
                                         -       q_prim_qp%vf(momxb+1)%sf(k+2,l,q)) &
-                                        / (12d0*(x_cc(k+1) - x_cc(k) ))
+!                                        / (12d0*(x_cc(k+1) - x_cc(k) ))
+                                        / (12d0*dx(k))
                                     dv_dy(k,l,q) = &
                                         (       q_prim_qp%vf(momxb+1)%sf(k,l-2,q)   &
                                         - 8d0 * q_prim_qp%vf(momxb+1)%sf(k,l-1,q)   &
                                         + 8d0 * q_prim_qp%vf(momxb+1)%sf(k,l+1,q)   &
                                         -       q_prim_qp%vf(momxb+1)%sf(k,l+2,q))  &
-                                        / (12d0*(y_cc(l+1) - y_cc(l) ))
+!                                        / (12d0*(y_cc(l+1) - y_cc(l) ))
+                                        / (12d0*dy(l))
                                 end do
                             end do
                         end do
@@ -2649,31 +2653,36 @@ contains
                                             - 8d0 * q_prim_qp%vf(momxb)%sf(k,l,q-1)   &
                                             + 8d0 * q_prim_qp%vf(momxb)%sf(k,l,q+1)   &
                                             -       q_prim_qp%vf(momxb)%sf(k,l,q+2))  &
-                                            / (12d0*(z_cc(q+1) - z_cc(q) ))
+!                                            / (12d0*(z_cc(q+1) - z_cc(q) ))
+                                            / (12d0*dz(q))
                                         dv_dz(k,l,q) = &
                                             (       q_prim_qp%vf(momxb+1)%sf(k,l,q-2)   &
                                             - 8d0 * q_prim_qp%vf(momxb+1)%sf(k,l,q-1)   &
                                             + 8d0 * q_prim_qp%vf(momxb+1)%sf(k,l,q+1)   &
                                             -       q_prim_qp%vf(momxb+1)%sf(k,l,q+2))  &
-                                            / (12d0*(z_cc(q+1) - z_cc(q) ))
+!                                            / (12d0*(z_cc(q+1) - z_cc(q) ))
+                                            / (12d0*dz(q))
                                         dw_dx(k,l,q) = &
                                             (       q_prim_qp%vf(momxe)%sf(k-2,l,q)  &
                                             - 8d0 * q_prim_qp%vf(momxe)%sf(k-1,l,q)  &
                                             + 8d0 * q_prim_qp%vf(momxe)%sf(k+1,l,q)  &
                                             -       q_prim_qp%vf(momxe)%sf(k+2,l,q)) &
-                                            / (12d0*(x_cc(k+1) - x_cc(k) ))
+!                                            / (12d0*(x_cc(k+1) - x_cc(k) ))
+                                            / (12d0*dx(k))
                                         dw_dy(k,l,q) = &
                                             (       q_prim_qp%vf(momxe)%sf(k,l-2,q)   &
                                             - 8d0 * q_prim_qp%vf(momxe)%sf(k,l-1,q)   &
                                             + 8d0 * q_prim_qp%vf(momxe)%sf(k,l+1,q)   &
                                             -       q_prim_qp%vf(momxe)%sf(k,l+2,q))  &
-                                            / (12d0*(y_cc(l+1) - y_cc(l) ))
+!                                            / (12d0*(y_cc(l+1) - y_cc(l) ))
+                                            / (12d0*dy(l))
                                         dw_dz(k,l,q) = &
                                             (       q_prim_qp%vf(momxe)%sf(k,l,q-2)   &
                                             - 8d0 * q_prim_qp%vf(momxe)%sf(k,l,q-1)   &
                                             + 8d0 * q_prim_qp%vf(momxe)%sf(k,l,q+1)   &
                                             -       q_prim_qp%vf(momxe)%sf(k,l,q+2))  &
-                                            / (12d0*(z_cc(q+1) - z_cc(q) ))
+!                                            / (12d0*(z_cc(q+1) - z_cc(q) ))
+                                            / (12d0*dz(q))
                                     end do
                                 end do
                             end do
@@ -2821,7 +2830,6 @@ contains
             call nvtxEndRange
         end do
         ! END: Dimensional Splitting Loop ================================== 
-
         ! ==================================================================
 
 

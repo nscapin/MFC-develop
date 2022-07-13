@@ -646,7 +646,7 @@ contains
 
         type(bounds_info), intent(IN) :: ix, iy, iz
 
-        real(kind(0d0)),   dimension(2) :: alpha_K, alpha_rho_K
+        real(kind(0d0)),   dimension(num_fluids) :: alpha_K, alpha_rho_K
         real(kind(0d0)) :: rho_K, gamma_K, pi_inf_K, dyn_pres_K
         real(kind(0d0)), dimension(nb) :: nRtmp
         real(kind(0d0)) :: vftmp, nR3, nbub_sc
