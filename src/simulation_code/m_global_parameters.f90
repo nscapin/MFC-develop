@@ -361,8 +361,8 @@ MODULE m_global_parameters
             weno_vars        = dflt_int
             weno_order       = dflt_int
             weno_eps         = dflt_real
-            palpha_eps       = 1.0d-06
-            ptgalpha_eps     = 1.0d-06
+            palpha_eps       = dflt_real
+            ptgalpha_eps     = dflt_real
             char_decomp      = .FALSE.
             mapped_weno      = .FALSE.
             mp_weno          = .FALSE.

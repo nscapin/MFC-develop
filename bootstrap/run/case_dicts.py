@@ -71,7 +71,7 @@ SIMULATION = ['case_dir', 'run_time_info', 't_step_old', 't_tol', 'debug', 'm',
               'poly_sigma', 'bubbles', 'bubble_model', 'polytropic', 'thermal',
               'R0ref', 'Ca', 'Web', 'Re_inv', 'nb', 'Monopole', 'num_mono',
               'qbmm', 'R0_type', 'nnode', 'integral_wrt', 'num_integrals',
-              'cu_mpi','relax_model','palpha_eps','ptalpha_eps']
+              'cu_mpi','relax_model','palpha_eps','ptgalpha_eps']
 
 for cmp in ["x", "y", "z"]:
     SIMULATION.append(f'bc_{cmp}%beg')

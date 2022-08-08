@@ -27,8 +27,7 @@
 #>   intended to be modified by users.
 #>
 #SBATCH --job-name="{name}"
-#SBATCH --nodes={nodes}
-#SBATCH --ntasks-per-node={cpus_per_node}
+#>SBATCH --ntasks-per-node={cpus_per_node}
 #SBATCH --cpus-per-task=1
 #SBATCH --time={walltime}
 #SBATCH --partition="{partition}"
@@ -38,14 +37,15 @@
 #SBATCH --mail-user="{email}"
 #SBATCH --export=ALL
 #SBATCH --mail-type="BEGIN, END, FAIL"
+#SBATCH -N {nodes}
+#SBATCH -n {nodes*cpus_per_node}
 #>
 #> Note: The following options aren't enabled by default.
 #>       They serve as a guide to users that wish to pass
 #>       more options to the batch system.
 #>
-#> #SBATCH --mem=...
+#SBATCH --mem=100G
 #> #SBATCH --gpus=v100-16:{gpus_per_node*nodes}
-#>
 
 
 #> 
@@ -67,17 +67,17 @@ module load gcc/10.2
 #>       on your system - if at all. {MFC::BIN} refers to
 #>       the path the MFC executable.
 #>
-srun                                   \
-     --nodes={nodes}                   \
-     --ntasks-per-node {cpus_per_node} \
-     "{MFC::BIN}"
+#>srun                                   \
+#>     --nodes={nodes}                   \
+#>     --ntasks-per-node {cpus_per_node} \
+#>     "{MFC::BIN}"
 #>
 #> srun --mpi=pmix   \
 #>      "{MFC::BIN}"
 #>
-#> mpirun                           \
-#>        -np {cpus_per_node*nodes} \
-#>        "{MFC::BIN}"
+mpirun                           \
+       -np {cpus_per_node*nodes} \
+        "{MFC::BIN}"
 #>
 
 {MFC::EPILOGUE}
