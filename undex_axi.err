@@ -1,0 +1,876 @@
+module: unloading 'mpi/openmpi_4.1.1_gcc_10.2_slurm20'
+module: loading 'mpi/openmpi_4.1.1_gcc_10.2_slurm20'
+module: mpi: To use: module load gcc/10.2 cuda/11.1.1 (for cuda support)
+module: unloading 'gcc/10.2'
+module: loading 'gcc/10.2'
+module: gcc: "Note: loading the gcc module overrides the gcc version on the system.  If you want to revert to the version of gcc provided by the OS, unload the gcc module."
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    dlopen failed
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-common-cuda.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    ini file:file not found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    no device params found
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-btl-openib.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+Sorry!  You were supposed to get help about:
+    mpi-abort
+But I couldn't open the help file:
+    /proj/nv/libraries/Linux_x86_64/21.11/openmpi/206454-rel-1/share/openmpi/help-mpi-api.txt: No such file or directory.  Sorry!
+--------------------------------------------------------------------------

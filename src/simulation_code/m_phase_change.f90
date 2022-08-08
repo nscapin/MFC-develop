@@ -88,14 +88,14 @@ MODULE m_phase_change
     !> @name Parameters for the phase change part of the code
     !> @{
     INTEGER,         PARAMETER :: newton_iter       = 50        !< p_relaxk \alpha iter,                set to 25
-    REAL(KIND(0d0)), PARAMETER :: pknewton_eps      = 1.d-15    !< p_relaxk \alpha threshold,           set to 1E-15
-    REAL(KIND(0d0)), PARAMETER :: pTsatnewton_eps   = 1.d-10    !< Saturation temperature tol,          set to 1E-10
-    REAL(KIND(0d0)), PARAMETER :: ptgnewton_eps     = 1.d-8     !< Saturation p-T-mu tolerance,         set to 1.d-10
+    REAL(KIND(0d0)), PARAMETER :: pknewton_eps      = 1.d-13    !< p_relaxk \alpha threshold,           set to 1E-15
+    REAL(KIND(0d0)), PARAMETER :: pTsatnewton_eps   = 1.d-13    !< Saturation temperature tol,          set to 1E-10
+    REAL(KIND(0d0)), PARAMETER :: ptgnewton_eps     = 1.d-13    !< Saturation pTg tolerance,            set to 1.d-10
     REAL(KIND(0d0)), PARAMETER :: pres_crit         = 22.06d6   !< Critical water pressure              set to 22.06d6
-    REAL(KIND(0d0)), PARAMETER :: T_crit            = 648.d0    !< Critical water temperature           set to 648
+    REAL(KIND(0d0)), PARAMETER :: T_crit            = 700.d0    !< Critical water temperature           set to 648
     REAL(KIND(0d0)), PARAMETER :: TsatHv            = 1000.d0   !< Saturation temperature threshold,    set to 900
     REAL(KIND(0d0)), PARAMETER :: TsatLv            = 250.d0    !< Saturation temperature threshold,    set to 250
-    REAL(KIND(0d0)), PARAMETER :: palpha_eps        = 1.d-6     !< p_relax high \alpha tolerance,       set to 1.d-6
+    REAL(KIND(0d0)), PARAMETER :: palpha_eps        = 1.d-9     !< p_relax high \alpha tolerance,       set to 1.d-6
     REAL(KIND(0d0)), PARAMETER :: ptgalpha_eps      = 1.d-6     !< Saturation p-T-mu alpha tolerance,   set to 1.d-6
     !> @}
 
