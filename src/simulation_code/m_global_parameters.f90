@@ -310,6 +310,8 @@ MODULE m_global_parameters
     REAL(KIND(0d0)) :: t_tol        !< Tolerance
     REAL(KIND(0d0)) :: dt0          !< Initial time step size 
 
+    LOGICAL cu_mpi
+
     ! ======================================================================
 
     ! Mathematical and Physical Constants ======================================

@@ -70,7 +70,8 @@ SIMULATION = ['case_dir', 'run_time_info', 't_step_old', 't_tol', 'debug', 'm',
               'threshold_mf', 'moment_order', 'pref', 'rhoref', 'polydisperse',
               'poly_sigma', 'bubbles', 'bubble_model', 'polytropic', 'thermal',
               'R0ref', 'Ca', 'Web', 'Re_inv', 'nb', 'Monopole', 'num_mono',
-              'qbmm', 'R0_type', 'nnode', 'integral_wrt', 'num_integrals','relax_model']
+              'qbmm', 'R0_type', 'nnode', 'integral_wrt', 'num_integrals',
+              'cu_mpi','relax_model','palpha_eps','ptalpha_eps']
 
 for cmp in ["x", "y", "z"]:
     SIMULATION.append(f'bc_{cmp}%beg')
@@ -97,6 +98,9 @@ for f_id in range(1,10+1):
     for attribute in ["gamma", "pi_inf", "mul0", "ss", "pv", "gamma_v", "M_v",
                       "mu_v", "k_v", "G", "cv", "qv", "qvp"]:
         SIMULATION.append(f"fluid_pp({f_id})%{attribute}")
+
+    for We_id in range(1,10+1):
+        SIMULATION.append(f"fluid_pp({f_id})%We({We_id})")
 
     for re_id in [1, 2]:
         SIMULATION.append(f"fluid_pp({f_id})%Re({re_id})")

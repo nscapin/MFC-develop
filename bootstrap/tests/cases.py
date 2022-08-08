@@ -107,7 +107,7 @@ def generate_cases() -> list:
 
             if num_fluids == 2:
                 stack.push("", {
-                    'fluid_pp(2)%gamma':          2.5,    'fluid_pp(2)%pi_inf':         0.0, ' patch_icpp(1)%alpha_rho(1)': 0.81,
+                    'fluid_pp(2)%gamma':          2.5,    'fluid_pp(2)%pi_inf':         0.0,  'patch_icpp(1)%alpha_rho(1)': 0.81,
                     'patch_icpp(1)%alpha(1)':     0.9,    'patch_icpp(1)%alpha_rho(2)': 0.19, 'patch_icpp(1)%alpha(2)':     0.1,
                     'patch_icpp(2)%alpha_rho(1)': 0.25,   'patch_icpp(2)%alpha(1)':     0.5,  'patch_icpp(2)%alpha_rho(2)': 0.25,
                     'patch_icpp(2)%alpha(2)':     0.5,    'patch_icpp(3)%alpha_rho(1)': 0.08, 'patch_icpp(3)%alpha(1)':     0.2,
@@ -120,6 +120,8 @@ def generate_cases() -> list:
                 cases.append(create_case(stack, "mixture_err=T", {'mixture_err': 'T'}))
                 cases.append(create_case(stack, "avg_state=1",   {'avg_state':   '1'}))
                 cases.append(create_case(stack, "wave_speeds=2", {'wave_speeds': '2'}))
+                if riemann_solver == 2:
+                    cases.append(create_case(stack, "model_eqns=3", {'model_eqns': 3}))
 
                 if num_fluids == 2:
                     if riemann_solver == 2:
@@ -134,10 +136,103 @@ def generate_cases() -> list:
 
             stack.pop()
 
+        for num_fluids in [2]:
+            stack.push(f"num_fluids={num_fluids}", {"num_fluids": num_fluids})
+
+
+            stack.push("", {
+                'fluid_pp(2)%gamma':          2.5,    'fluid_pp(2)%pi_inf':         0.0,  'patch_icpp(1)%alpha_rho(1)': 0.81,
+                'patch_icpp(1)%alpha(1)':     0.9,    'patch_icpp(1)%alpha_rho(2)': 0.19, 'patch_icpp(1)%alpha(2)':     0.1,
+                'patch_icpp(2)%alpha_rho(1)': 0.25,   'patch_icpp(2)%alpha(1)':     0.5,  'patch_icpp(2)%alpha_rho(2)': 0.25,
+                'patch_icpp(2)%alpha(2)':     0.5,    'patch_icpp(3)%alpha_rho(1)': 0.08, 'patch_icpp(3)%alpha(1)':     0.2,
+                'patch_icpp(3)%alpha_rho(2)': 0.0225, 'patch_icpp(3)%alpha(2)':     0.8
+            })
+
+            stack.push(f"Viscous", {'fluid_pp(1)%Re(1)' : 0.001, 'fluid_pp(1)%Re(2)' : 0.001,
+                'fluid_pp(2)%Re(1)' : 0.001, 'fluid_pp(2)%Re(2)' : 0.001, 'dt' : 1e-11}) 
+
+            cases.append(create_case(stack, "weno_Re_flux=F", {'weno_Re_flux': 'F'}))             
+            cases.append(create_case(stack, "weno_Re_flux=T", {'weno_Re_flux': 'T'}))
+
+            stack.pop() 
+
+            stack.pop()
+
+            stack.pop()
+
+        if len(dimInfo[0]) == 2:
+            stack.push(f"Axisymmetric", {'bc_y%beg': -2, 'cyl_coord': 'T'})
+
+            stack.push("", { 'num_fluids' : 2,
+                'fluid_pp(2)%gamma':          2.5,    'fluid_pp(2)%pi_inf':         0.0,  'patch_icpp(1)%alpha_rho(1)': 0.81,
+                'patch_icpp(1)%alpha(1)':     0.9,    'patch_icpp(1)%alpha_rho(2)': 0.19, 'patch_icpp(1)%alpha(2)':     0.1,
+                'patch_icpp(2)%alpha_rho(1)': 0.25,   'patch_icpp(2)%alpha(1)':     0.5,  'patch_icpp(2)%alpha_rho(2)': 0.25,
+                'patch_icpp(2)%alpha(2)':     0.5,    'patch_icpp(3)%alpha_rho(1)': 0.08, 'patch_icpp(3)%alpha(1)':     0.2,
+                'patch_icpp(3)%alpha_rho(2)': 0.0225, 'patch_icpp(3)%alpha(2)':     0.8
+            })
+
+            cases.append(create_case(stack, "model_eqns=2", {'model_eqns': 2}))
+            cases.append(create_case(stack, "model_eqns=3", {'model_eqns': 3}))
+
+            stack.push(f"Viscous", {'fluid_pp(1)%Re(1)' : 0.0001, 'fluid_pp(1)%Re(2)' : 0.0001,
+                'fluid_pp(2)%Re(1)' : 0.0001, 'fluid_pp(2)%Re(2)' : 0.0001, 'dt' : 1e-11}) 
+
+            cases.append(create_case(stack, "weno_Re_flux=F", {'weno_Re_flux': 'F'}))             
+            cases.append(create_case(stack, "weno_Re_flux=T", {'weno_Re_flux': 'T'}))
+
+            stack.pop()
+
+            stack.pop()
+
+            stack.pop()  
+
+        if(len(dimInfo[0]) == 3):
+            stack.push(f"Cylindrical", {'bc_y%beg': -13, 'bc_z%beg': -1, 'bc_z%end': -1, 'cyl_coord': 'T', 'x_domain%beg': 0.E+00, 
+                'x_domain%end': 5.E+00, 'y_domain%beg': 0.E+00, 'y_domain%end': 1.E+00, 'z_domain%beg': 0.E+00, 'z_domain%end' : 2.0*3.141592653589793E+00,
+                'm': 29, 'n': 29, 'p': 29})
+
+
+            stack.push("", { 'patch_icpp(1)%geometry': 10, 'patch_icpp(1)%x_centroid' : 0.5, 'patch_icpp(1)%y_centroid' : 0.E+00,
+                'patch_icpp(1)%z_centroid' : 0.E+00, 'patch_icpp(1)%radius' : 1.0, 'patch_icpp(1)%length_x' : 1.0,
+                'patch_icpp(1)%length_y' : -1E+6, 'patch_icpp(1)%length_z' : -1E+6, 
+                'patch_icpp(2)%geometry': 10, 'patch_icpp(2)%x_centroid' : 2.5, 'patch_icpp(2)%y_centroid' : 0.E+00,
+                'patch_icpp(2)%z_centroid' : 0.E+00, 'patch_icpp(2)%radius' : 1.0, 'patch_icpp(2)%length_x' : 3.0,
+                'patch_icpp(2)%length_y' : -1E+6, 'patch_icpp(2)%length_z' : -1E+6, 
+                'patch_icpp(3)%geometry': 10, 'patch_icpp(3)%x_centroid' : 4.5, 'patch_icpp(3)%y_centroid' : 0.E+00,
+                'patch_icpp(3)%z_centroid' : 0.E+00, 'patch_icpp(3)%radius' : 1.0, 'patch_icpp(3)%length_x' : 1.0,
+                'patch_icpp(3)%length_y' : -1E+6, 'patch_icpp(3)%length_z' : -1E+6})
+
+            stack.push("", { 'num_fluids' : 2,
+                'fluid_pp(2)%gamma':          2.5,    'fluid_pp(2)%pi_inf':         0.0,  'patch_icpp(1)%alpha_rho(1)': 0.81,
+                'patch_icpp(1)%alpha(1)':     0.9,    'patch_icpp(1)%alpha_rho(2)': 0.19, 'patch_icpp(1)%alpha(2)':     0.1,
+                'patch_icpp(2)%alpha_rho(1)': 0.25,   'patch_icpp(2)%alpha(1)':     0.5,  'patch_icpp(2)%alpha_rho(2)': 0.25,
+                'patch_icpp(2)%alpha(2)':     0.5,    'patch_icpp(3)%alpha_rho(1)': 0.08, 'patch_icpp(3)%alpha(1)':     0.2,
+                'patch_icpp(3)%alpha_rho(2)': 0.0225, 'patch_icpp(3)%alpha(2)':     0.8
+            })
+
+            cases.append(create_case(stack, "model_eqns=2", {'model_eqns': 2}))
+
+            stack.push(f"Viscous", {'fluid_pp(1)%Re(1)' : 0.0001, 'fluid_pp(1)%Re(2)' : 0.0001,
+                'fluid_pp(2)%Re(1)' : 0.0001, 'fluid_pp(2)%Re(2)' : 0.0001, 'dt' : 1e-11}) 
+
+            cases.append(create_case(stack, "weno_Re_flux=F", {'weno_Re_flux': 'F'}))             
+            cases.append(create_case(stack, "weno_Re_flux=T", {'weno_Re_flux': 'T'}))
+
+            stack.pop()
+
+            stack.pop()
+
+            stack.pop()
+
+            stack.pop() 
+
+
+
+
         if len(dimInfo[0]) == 3:
-            cases.append(create_case(stack, f'ppn=2,m=29,n=29,p=49', {'ppn': 2, 'm': 29, 'n': 29, 'p': 49}))
+            cases.append(create_case(stack, f'ppn=2,m=29,n=29,p=49', {'m': 29, 'n': 29, 'p': 49}, ppn=2))
         else:
-            cases.append(create_case(stack, f'ppn=2', {'ppn': 2}))
+            cases.append(create_case(stack, f'ppn=2', {}, ppn=2))
 
         stack.push('', {'dt': [1e-07, 1e-06, 1e-06][len(dimInfo[0])-1]})
 
