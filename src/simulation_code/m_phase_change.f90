@@ -488,36 +488,38 @@ MODULE m_phase_change
                 gamma_min(i) = 1d0/fluid_pp(i)%gamma + 1d0
                 pres_inf(i)  = fluid_pp(i)%pi_inf / (1d0+fluid_pp(i)%gamma)
             END DO
-            DO j = 0, m
-                DO k = 0, n
-                    DO l = 0, p
-                        ! Numerical correction of the volume fractions
-                        IF (mpp_lim) THEN
-                            CALL s_mixture_volume_fraction_correction(q_cons_vf, j, k, l )
-                        END IF
-                        ! P RELAXATION==============================================
-                        relax = .TRUE.
-                        DO i = 1, num_fluids
-                            IF (q_cons_vf(i+adv_idx%beg-1)%sf(j,k,l) .GT. (1d0-palpha_eps)) relax = .FALSE.
-                        END DO
-                        IF (relax) THEN
-                            DO i = 1, num_fluids
-                              ! Calculating the initial pressure
-                              pres_K_init(i) = ((q_cons_vf(i+internalEnergies_idx%beg-1)%sf(j,k,l) & 
-                                 -q_cons_vf(i+cont_idx%beg-1)%sf(j,k,l)*fluid_pp(i)%qv) &
-                                 /q_cons_vf(i+adv_idx%beg-1)%sf(j,k,l) - fluid_pp(i)%pi_inf)/fluid_pp(i)%gamma
-                              IF (pres_K_init(i) .LE. -(1d0 - 1d-8)*pres_inf(i) + 1d-8) & 
-                                  pres_K_init(i) = -(1d0 - 1d-8)*pres_inf(i) + 1d-0
-                            END DO
-                            CALL s_compute_p_relax_k(rho_K_s,gamma_min,pres_inf,pres_K_init,q_cons_vf,j,k,l)
-                            ! Cell update of the volume fraction
-                            DO i = 1, num_fluids
-                                !IF (q_cons_vf(i+adv_idx%beg-1)%sf(j,k,l) .GT. palpha_eps) & 
-                                    q_cons_vf(i+adv_idx%beg-1)%sf(j,k,l) = & 
-                                    q_cons_vf(i+cont_idx%beg-1)%sf(j,k,l) / rho_K_s(i)
-                            END DO
-                        END IF
-                        CALL s_mixture_total_energy_correction(q_cons_vf, j, k, l )
+			DO j = 0, m
+				DO k = 0, n
+					DO l = 0, p
+						! Numerical correction of the volume fractions
+						IF (mpp_lim) THEN
+							CALL s_mixture_volume_fraction_correction(q_cons_vf, j, k, l )
+						END IF
+						! P RELAXATION==============================================
+						relax = .TRUE.
+						DO i = 1, num_fluids
+							IF (q_cons_vf(i+adv_idx%beg-1)%sf(j,k,l) .GT. (1d0-palpha_eps)) relax = .FALSE.
+						END DO
+						IF (relax) THEN
+											   
+							DO i = 1, num_fluids
+							  ! Calculating the initial pressure
+							  pres_K_init(i) = ((q_cons_vf(i+internalEnergies_idx%beg-1)%sf(j,k,l) & 
+								 -q_cons_vf(i+cont_idx%beg-1)%sf(j,k,l)*fluid_pp(i)%qv) &										  
+								 /q_cons_vf(i+adv_idx%beg-1)%sf(j,k,l) &
+								 - fluid_pp(i)%pi_inf)/fluid_pp(i)%gamma
+							  IF (pres_K_init(i) .LE. -(1d0 - 1d-8)*pres_inf(i) + 1d-8) & 
+								  pres_K_init(i) = -(1d0 - 1d-8)*pres_inf(i) + 1d-0
+							END DO
+							CALL s_compute_p_relax_k(rho_K_s,gamma_min,pres_inf,pres_K_init,q_cons_vf,j,k,l)
+							! Cell update of the volume fraction
+							DO i = 1, num_fluids
+								IF (q_cons_vf(i+adv_idx%beg-1)%sf(j,k,l) .GT. palpha_eps) & 
+									q_cons_vf(i+adv_idx%beg-1)%sf(j,k,l) = & 
+									q_cons_vf(i+cont_idx%beg-1)%sf(j,k,l) / rho_K_s(i)
+							END DO
+						END IF
+						CALL s_mixture_total_energy_correction(q_cons_vf, j, k, l )
                         ! PT RELAXATION==============================================
                         rhoe = 0.d0
                         DO i = 1, num_fluids
