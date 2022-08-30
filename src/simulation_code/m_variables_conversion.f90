@@ -120,9 +120,11 @@ module m_variables_conversion
 
     real(kind(0d0)) :: ixb,ixe,iyb,iye,izb,ize
     real(kind(0d0)) :: momxb, momxe
-    real(kind(0d0)) :: contxb, contxe
+!    real(kind(0d0)) :: contxb, contxe
+    integer :: contxb, contxe
     real(kind(0d0)) :: bubxb, bubxe
-    real(kind(0d0)) :: advxb, advxe
+!    real(kind(0d0)) :: advxb, advxe
+    integer :: advxb, advxe
     real(kind(0d0)) :: strxb, strxe
     real(kind(0d0)),allocatable, dimension(:) :: gammas, pi_infs, bubrs, Gs
 !$acc declare create(ixb, ixe, iyb, iye, iye, izb, ize, momxb, momxe, bubxb, bubxe, contxb, contxe, advxb, advxe, strxb, strxe, gammas, pi_infs, bubrs, Gs)
@@ -369,7 +371,7 @@ contains
 
         real(kind(0d0)), intent(INOUT) :: rho_K, gamma_K, pi_inf_K
 
-        real(kind(0d0)), dimension(:), intent(IN) :: alpha_rho_K, alpha_K !<
+        real(kind(0d0)), dimension(:), intent(INOUT) :: alpha_rho_K, alpha_K !<
             !! Partial densities and volume fractions
 
         real(kind(0d0)), optional, intent(OUT) :: G_K
@@ -740,7 +742,8 @@ contains
                             alpha_K(i) = qK_cons_vf(advxb + i - 1)%sf(j, k, l)
                         end do
 
-                        call s_convert_species_to_mixture_variables_bubbles_acc(rho_K, gamma_K, pi_inf_K,  alpha_K, alpha_rho_K, j, k, l)
+                        call s_convert_species_to_mixture_variables_bubbles_acc(rho_K, gamma_K, &
+                                                        pi_inf_K,  alpha_K, alpha_rho_K, j, k, l)
 
 
 !$acc loop seq
@@ -751,7 +754,8 @@ contains
                                              *qK_prim_vf(i)%sf(j, k, l)
                         end do 
 
-                       qK_prim_vf(E_idx)%sf(j, k, l) = (((qK_cons_vf(E_idx)%sf(j, k, l) - dyn_pres_K)/(1.d0 - qK_cons_vf(alf_idx)%sf(j, k, l)))  - pi_inf_K  )/gamma_K
+                       qK_prim_vf(E_idx)%sf(j, k, l) = (((qK_cons_vf(E_idx)%sf(j, k, l) - dyn_pres_K)/ &
+                               (1.d0 - qK_cons_vf(alf_idx)%sf(j, k, l)))  - pi_inf_K  )/gamma_K
 
 !$acc loop seq 
                         do i = 1, nb
@@ -925,13 +929,16 @@ contains
 !                                                            gamma_K, pi_inf_K, &
 !                                                            Re_K, j, k, l, &
 !                                                            G_K, fluid_pp(:)%G)
-                        call s_convert_species_to_mixture_variables_acc(rho_K, gamma_K, pi_inf_K, alpha_K, alpha_rho_K, &
+                        call s_convert_species_to_mixture_variables_acc(rho_K, gamma_K, pi_inf_K, &
+                                                                        alpha_K, alpha_rho_K, &
                                                                         j, k, l, G_K, Gs)
                     else if (bubbles) then
-                        call s_convert_species_to_mixture_variables_bubbles_acc(rho_K, gamma_K, pi_inf_K, alpha_K, alpha_rho_K, j, k, l)
+                        call s_convert_species_to_mixture_variables_bubbles_acc(rho_K, gamma_K, &
+                                                                pi_inf_K, alpha_K, alpha_rho_K, j, k, l)
 
                     else
-                        call s_convert_species_to_mixture_variables_acc(rho_K, gamma_K, pi_inf_K, alpha_K, alpha_rho_K, j, k, l)
+                        call s_convert_species_to_mixture_variables_acc(rho_K, gamma_K, pi_inf_K, &
+                                                                        alpha_K, alpha_rho_K, j, k, l)
                     end if
 
                     ! Computing the energy from the pressure

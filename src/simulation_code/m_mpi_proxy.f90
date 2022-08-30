@@ -1213,7 +1213,8 @@ contains
 
                 end if
 
-              if(cu_mpi == .false.) then
+!              if(cu_mpi == .false.) then
+              if(cu_mpi .eqv. .false.) then
 !$acc update device(q_cons_buff_recv)
               end if
 
@@ -1327,7 +1328,8 @@ contains
 
                 end if
 
-              if(cu_mpi == .false.) then
+!              if(cu_mpi == .false.) then
+              if(cu_mpi .eqv. .false.) then
 !$acc update device(q_cons_buff_recv)
               end if
 
@@ -1448,7 +1450,8 @@ contains
                     end if
                 end if
 
-              if(cu_mpi == .false.) then
+!              if(cu_mpi == .false.) then
+              if(cu_mpi .eqv. .false.) then
 !$acc update device(q_cons_buff_recv)
               end if
 
@@ -1565,7 +1568,8 @@ contains
 
                 end if
 
-              if(cu_mpi == .false.) then
+!              if(cu_mpi == .false.) then
+              if(cu_mpi .eqv. .false.) then
 !$acc update device(q_cons_buff_recv)
               end if
 
@@ -1689,7 +1693,8 @@ contains
 
                 end if
 
-              if(cu_mpi == .false.) then
+!              if(cu_mpi == .false.) then
+              if(cu_mpi .eqv. .false.) then
 !$acc update device(q_cons_buff_recv)
               end if
 
@@ -1807,7 +1812,8 @@ contains
                       
                 end if
 
-              if(cu_mpi == .false.) then
+!              if(cu_mpi == .false.) then
+              if(cu_mpi .eqv. .false.) then
 !$acc update device(q_cons_buff_recv)
               end if
 

@@ -157,7 +157,8 @@ elif [ "$u_computer" == "e" ]; then # Expanse
     COMPUTER="$EXPANSE"
 
     if [ "$u_cg" == "c" ]; then
-        MODULES=("cpu/0.15.4" "gcc/10.2.0" "openmpi/4.0.4")
+#        MODULES=("cpu/0.15.4" "gcc/10.2.0" "openmpi/4.0.4")
+	MODULES=("cpu/0.15.4" "gcc/9.2.0" "openmpi/4.1.1")
     elif [ "$u_cg" == "g" ]; then
         MODULES=("gpu/0.15.4" "cuda/11.0.2" "nvhpc/22.2" "openmpi/4.0.5")
     fi

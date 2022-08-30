@@ -1497,7 +1497,9 @@ contains
                                             sound = n_tait*(q_prim_qp%vf(E_idx)%sf(j, k, l) + ((n_tait - 1d0)/n_tait)*B_tait)/myRho
                                             sound = dsqrt(sound)
 
-                                            const_sos = dsqrt(n_tait)
+!                                            const_sos = dsqrt(n_tait)
+                                            const_sos = n_tait*(1.01D5 + ((n_tait-1d0)/n_tait)*B_tait)/myRho
+                                            const_sos = dsqrt(const_sos)
                                             !TODO: does const_sos need to be changed?
 
                                             term_index = 2
@@ -1516,7 +1518,8 @@ contains
                                                         f_delta(j,k,l,mono(q)%loc,mono(q)%length,q,angle,angle_z)
                                             end if
 
-                                            mono_mass_src(j, k, l) = mono_mass_src(j, k, l) + s2/sound
+!                                            mono_mass_src(j, k, l) = mono_mass_src(j, k, l) + s2/sound
+                                            mono_mass_src(j, k, l) = mono_mass_src(j, k, l) + s2/const_sos
 
                                             if (n == 0) then
 
@@ -1558,7 +1561,8 @@ contains
 
                                             if (model_eqns .ne. 4) then
                                                 if (mono(q)%support == 5) then
-                                                    mono_E_src(j, k, l) = mono_E_src(j, k, l) + s1*sound**2.d0/(n_tait - 1.d0)
+!                                                    mono_E_src(j, k, l) = mono_E_src(j, k, l) + s1*sound**2.d0/(n_tait - 1.d0)
+                                                    mono_E_src(j, k, l) = mono_E_src(j, k, l) + s1*const_sos**2.d0/(n_tait - 1.d0)
                                                 else
                                                     mono_E_src(j, k, l) = mono_E_src(j, k, l) + s2*sound/(n_tait - 1.d0)
                                                 end if
@@ -1970,7 +1974,8 @@ contains
                                                 s1 = f_g(mytime,sound,const_sos,q,term_index) * &
                                                         f_delta(j,k,l,mono(q)%loc,mono(q)%length,q,angle,angle_z)
                                             end if 
-                                            mono_mass_src(j, k, l) = mono_mass_src(j, k, l) + s2/sound
+!                                            mono_mass_src(j, k, l) = mono_mass_src(j, k, l) + s2/sound
+                                            mono_mass_src(j, k, l) = mono_mass_src(j, k, l) + s2/const_sos
 !                                            end if
 
                                             if (n == 0) then
@@ -2014,8 +2019,8 @@ contains
 
                                             if (model_eqns .ne. 4) then
                                                 if (mono(q)%support == 5) then
-!                                                    mono_E_src(j, k, l) = mono_E_src(j, k, l) + s1*const_sos**2.d0/(n_tait - 1.d0)
-                                                    mono_E_src(j, k, l) = mono_E_src(j, k, l) + s1*sound**2.d0/(n_tait - 1.d0)
+                                                    mono_E_src(j, k, l) = mono_E_src(j, k, l) + s1*const_sos**2.d0/(n_tait - 1.d0)
+!                                                    mono_E_src(j, k, l) = mono_E_src(j, k, l) + s1*sound**2.d0/(n_tait - 1.d0)
                                                 else
                                                     mono_E_src(j, k, l) = mono_E_src(j, k, l) + s2*sound/(n_tait - 1.d0)
                                                 end if
@@ -2435,7 +2440,6 @@ contains
 
                     ndirs = 1; if (n > 0) ndirs = 2; if (p > 0) ndirs = 3
                     if (id == ndirs) then
-
 !$acc parallel loop collapse(3) gang vector default(present) private(myalpha_rho, myalpha)
                         do l = 0, p
                             do k = 0, n
@@ -2490,7 +2494,9 @@ contains
                                             sound = n_tait*(q_prim_qp%vf(E_idx)%sf(j, k, l) + ((n_tait - 1d0)/n_tait)*B_tait)/myRho
                                             sound = dsqrt(sound)
 
-                                            const_sos = dsqrt(n_tait)
+!                                            const_sos = dsqrt(n_tait)
+                                            const_sos = n_tait*(1.01D5 + ((n_tait-1d0)/n_tait)*B_tait)/myRho
+                                            const_sos = dsqrt(const_sos)
                                             !TODO: change const_sos expression?
 
                                             term_index = 2
@@ -2509,7 +2515,9 @@ contains
                                                         f_delta(j,k,l,mono(q)%loc,mono(q)%length,q,angle,angle_z)
                                             end if
 
-                                            mono_mass_src(j, k, l) = mono_mass_src(j, k, l) + s2/sound
+!                                            mono_mass_src(j, k, l) = mono_mass_src(j, k, l) + s2/sound
+                                            mono_mass_src(j, k, l) = mono_mass_src(j, k, l) + s2/const_sos
+
                                             if (n == 0) then
 
                                                 ! 1D
@@ -2551,7 +2559,8 @@ contains
 
                                             if (model_eqns .ne. 4) then
                                                 if (mono(q)%support == 5) then
-                                                    mono_E_src(j, k, l) = mono_E_src(j, k, l) + s1*sound**2.d0/(n_tait - 1.d0)
+!                                                    mono_E_src(j, k, l) = mono_E_src(j, k, l) + s1*sound**2.d0/(n_tait - 1.d0)
+                                                    mono_E_src(j, k, l) = mono_E_src(j, k, l) + s1*const_sos**2.d0/(n_tait - 1.d0)
                                                 else
                                                     mono_E_src(j, k, l) = mono_E_src(j, k, l) + s2*sound/(n_tait - 1.d0)
                                                 end if

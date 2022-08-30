@@ -46,15 +46,15 @@ program p_main
 
     use m_qbmm                 !< Quadrature MOM
 
-#IFDEF _OPENACC 
+#ifdef _OPENACC 
     use openacc
-#ENDIF
+#endif
 
     use nvtx
 
 #ifdef _OPENACC
    use openacc
-  #endif
+#endif
     ! ==========================================================================
 
     implicit none

@@ -17,13 +17,13 @@ run:
   gpus-per-node: 2
   walltime:      "24:00:00"
   email:         ""
-  name:          "hypoGpu"
+  name:          "test1"
   flags:         []
 modes:
   - name:    release-cpu
-    c:       -O3
-    cpp:     -O3
-    fortran: -O3 -cpp -w
+    c:       -O3 -w
+    cpp:     -O3 -w
+    fortran: -O3 -cpp -w # -ffree-line-length-none -fallow-argument-mismatch
 
   - name:    release-gpu
     fortran: -O3 -cpp -w -acc -Minfo=accel -L${CUDA:INSTALL_PATH}/lib64 -lnvToolsExt
